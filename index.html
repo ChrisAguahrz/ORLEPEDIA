@@ -295,7 +295,7 @@
 
     <!-- SYSTEM CORE SCRIPT PIPELINE ENGINE -->
     <script>
-        // GLOBAL ENCYCLOPEDIA DATABASE ARCHITECTURE (MOCKING REMOTED ENDPOINT REPLICATION STORES)
+        // GLOBAL ENCYCLOPEDIA DATABASE ARCHITECTURE
         let orlePediaMemoryStore = {
             "Main Page": {
                 title: "Main Page",
@@ -332,197 +332,104 @@
         let currentActiveArticleKey = "Main Page";
         let activeSubTabState = "article";
 
+        // Global Supabase Configuration Credentials
+        const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
+
+        // Network Helper Function
+        async function supabaseRequest(endpoint, method = 'GET', body = null) {
+            const headers = {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            };
+            const config = { method, headers };
+            if (body) config.body = JSON.stringify(body);
+
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Database Error: ${errorText}`);
+            }
+            return await response.json();
+        }
+
+        // 1. FETCH ALL DATA FROM CLOUD
+        async function loadOrlePediaDataFromCloud() {
+            try {
+                console.log("🛰️ Fetching encyclopedia records...");
+                const articles = await supabaseRequest('articles?select=*');
+                
+                if (Array.isArray(articles) && articles.length > 0) {
+                    articles.forEach(art => {
+                        orlePediaMemoryStore[art.title] = {
+                            title: art.title,
+                            category: art.summary || "General Indexes",
+                            content: art.content,
+                            talk: orlePediaMemoryStore[art.title]?.talk || `== Talk Board for ${art.title} ==`,
+                            history: orlePediaMemoryStore[art.title]?.history || [
+                                { timestamp: Date.now(), editor: art.author || "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
+                            ],
+                            ratings: orlePediaMemoryStore[art.title]?.ratings || [5],
+                            createdTime: Date.parse(art.created_at) || Date.now(),
+                            author: art.author || "Cloud Contributor"
+                        };
+                    });
+                    console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
+                    switchSubTab(activeSubTabState);
+                }
+            } catch (err) {
+                console.error("❌ Fetch pipeline failure:", err);
+            }
+        }
+
+        // 2. SAVE NEW ARTICLES OR EDITS (Correctly catching UI action calls)
+        async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
+            console.log(`🛰️ Cloud dispatch triggered for action: [${actionType}]`);
+            try {
+                if (actionType === "ARTICLE_COMMIT_SAVE" || actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE") {
+                    const title = payloadData.title;
+                    const content = payloadData.databaseNode?.content || payloadData.content || "";
+                    const category = payloadData.databaseNode?.category || "General Indexes";
+
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
+                    
+                    const articlePayload = {
+                        title: title,
+                        content: content,
+                        summary: category,
+                        author: currentUserSessionProfile.username || "Anonymous"
+                    };
+
+                    if (existing.length === 0) {
+                        await supabaseRequest('articles', 'POST', articlePayload);
+                        console.log("✅ Created brand new article row in cloud database!");
+                    } else {
+                        await supabaseRequest(`articles?id=eq.${existing[0].id}`, 'PATCH', articlePayload);
+                        console.log("✅ Updated existing article row in cloud database!");
+                    }
+                    
+                    await supabaseRequest('revisions', 'POST', {
+                        article_id: existing[0]?.id || 1,
+                        new_content: content,
+                        edit_summary: payloadData.databaseNode?.history?.slice(-1)[0]?.summary || 'Interface update modification'
+                    });
+                }
+            } catch (err) {
+                console.error("❌ Failed to save to database transaction pipelines:", err);
+            }
+        }
+
         // APP INITIALIZATION
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             loadUserProfileFromVirtualDeviceStore();
+            await loadOrlePediaDataFromCloud();
             loadArticle(currentActiveArticleKey);
         });
 
-        // Global Supabase Configuration Credentials
-const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
-
-// Network Helper Function
-async function supabaseRequest(endpoint, method = 'GET', body = null) {
-    const headers = {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-    };
-    const config = { method, headers };
-    if (body) config.body = JSON.stringify(body);
-
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Database Error: ${errorText}`);
-    }
-    return await response.json();
-}
-
-// 1. FETCH ALL DATA FROM CLOUD
-async function loadOrlePediaDataFromCloud() {
-    try {
-        console.log("🛰️ Fetching encyclopedia records...");
-        
-        // Fetch basic articles and profiles
-        const articles = await supabaseRequest('articles?select=*');
-        
-        // Map these variables straight into whatever your website UI uses to render
-        if (Array.isArray(articles) && articles.length > 0) {
-            window.allArticlesDatabase = articles;
-            console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
-            
-            // IF your website UI has a function to redraw the screen, run it here:
-            if (typeof renderWikiInterface === "function") renderWikiInterface();
-            if (typeof displayArticles === "function") displayArticles();
-        }
-    } catch (err) {
-        console.error("❌ Fetch pipeline failure:", err);
-    }
-}
-
-// 2. SAVE NEW ARTICLES OR EDITS
-async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
-    console.log(`🛰️ Cloud dispatch triggered: ${actionType}`);
-    try {
-        if (actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE" || actionType === "SAVE_ARTICLE") {
-            
-            // Check if article title already exists
-            const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(payloadData.title)}`, 'GET');
-            
-            const articlePayload = {
-                title: payloadData.title,
-                content: payloadData.content || payloadData.body,
-                summary: payloadData.summary || ''
-            };
-
-            if (existing.length === 0) {
-                // Insert brand new article row
-                await supabaseRequest('articles', 'POST', articlePayload);
-                console.log("✅ Created brand new article in cloud database!");
-            } else {
-                // Update existing article row
-                await supabaseRequest(`articles?id=eq.${existing[0].id}`, 'PATCH', articlePayload);
-                console.log("✅ Updated existing article row in cloud database!");
-            }
-            
-            // Log to revisions table for fallback history
-            await supabaseRequest('revisions', 'POST', {
-                article_id: existing[0]?.id || 1,
-                new_content: payloadData.content || payloadData.body,
-                edit_summary: payloadData.summary || 'Web update'
-            });
-
-            alert("Article saved successfully to the cloud database!");
-            await loadOrlePediaDataFromCloud();
-        }
-    } catch (err) {
-        console.error("❌ Failed to save to database:", err);
-        alert("Error saving to database. Check console details.");
-    }
-}
-
-// 3. STARTUP TRIGGER
-document.addEventListener('DOMContentLoaded', () => {
-    loadOrlePediaDataFromCloud();
-    
-    // Auto-hook into your existing save buttons if names mismatched
-    const saveBtn = document.querySelector('#saveButton, .save-btn, #submit-art');
-    if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-            // Pull text values from your input fields
-            const titleInput = document.querySelector('#articleTitle, #title')?.value;
-            const contentInput = document.querySelector('#articleContent, #content')?.value;
-            
-            if (titleInput && contentInput) {
-                dispatchDataPayloadToRemoteDataNetworks("CREATE_ARTICLE", {
-                    title: titleInput,
-                    content: contentInput
-                });
-            }
-        });
-    }
-});
-
-
-/**
- * 2. POST / SAVE UPDATES
- * Automatically saves user profiles, commits edits, and pushes history updates to Supabase
- */
-async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
-    console.log(`🛰️ Initiating cloud dispatch for action: [${actionType}]`);
-
-    try {
-        // Step A: Ensure user profile exists in database
-        let userProfileId = window.currentUserSessionProfile?.id;
-        if (window.currentUserSessionProfile?.username) {
-            const profileCheck = await supabaseRequest(`profiles?username=eq.${encodeURIComponent(window.currentUserSessionProfile.username)}`, 'GET');
-            
-            if (profileCheck.length === 0) {
-                // If user profile is not in cloud database, create it dynamically
-                const newProfile = await supabaseRequest('profiles', 'POST', {
-                    username: window.currentUserSessionProfile.username,
-                    signature_tag: window.currentUserSessionProfile.signature_tag || ''
-                });
-                userProfileId = newProfile[0].id;
-            } else {
-                userProfileId = profileCheck[0].id;
-            }
-        }
-
-        // Step B: Route operations depending on user activity types
-        if (actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE") {
-            let articleRecord;
-            
-            // Check if article already exists
-            const existingArticle = await supabaseRequest(`articles?title=eq.${encodeURIComponent(payloadData.title)}`, 'GET');
-            
-            const articlePayload = {
-                title: payloadData.title,
-                summary: payloadData.summary || '',
-                content: payloadData.content,
-                creator_id: userProfileId,
-                is_locked: payloadData.is_locked || false
-            };
-
-            if (existingArticle.length === 0) {
-                // Create brand new article row
-                articleRecord = await supabaseRequest('articles', 'POST', articlePayload);
-            } else {
-                // Update existing master article record row
-                articlePayload.total_revisions = (existingArticle[0].total_revisions || 1) + 1;
-                articleRecord = await supabaseRequest(`articles?id=eq.${existingArticle[0].id}`, 'PATCH', articlePayload);
-            }
-
-            const activeArticle = articleRecord[0];
-
-            // Step C: Log full snapshot diff into Revisions Table for Rollback support
-            await supabaseRequest('revisions', 'POST', {
-                article_id: activeArticle.id,
-                editor_id: userProfileId,
-                old_content: existingArticle[0]?.content || '',
-                new_content: payloadData.content,
-                edit_summary: payloadData.edit_summary || 'Updated article text',
-                revision_number: activeArticle.total_revisions
-            });
-            
-            console.log("✅ Master article saved and revision history item committed.");
-        }
-        
-        // Refresh the app's internal datasets once edits land safely
-        await loadOrlePediaDataFromCloud();
-
-    } catch (err) {
-        console.error("❌ Transaction delivery failed to bind to database:", err);
-    }
-}
-
-
         // PROFILE BUSINESS LOGIC INTERACTION LAYERS
         function loadUserProfileFromVirtualDeviceStore() {
-            // Emulated cross-device global server session storage pulling logic
             if(currentUserSessionProfile.username) {
                 updateUIProfileDisplays();
             }
@@ -567,12 +474,11 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             exitEditorDashboard();
 
             if (!orlePediaMemoryStore[articleTitle]) {
-                // Instantiates redlink missing structural page frameworks automatically
                 orlePediaMemoryStore[articleTitle] = {
                     title: articleTitle,
                     category: "General Indexes",
-                    content: "'''${articleTitle}''' does not contain logged data arrays. Click Edit to initialize this page mapping.",
-                    talk: "== Talk Channel for ${articleTitle} ==\nInitialized structural discussion line.",
+                    content: `'''${articleTitle}''' does not contain logged data arrays. Click Edit to initialize this page mapping.`,
+                    talk: `== Talk Channel for ${articleTitle} ==\nInitialized structural discussion line.`,
                     history: [],
                     ratings: [],
                     createdTime: Date.now(),
@@ -587,8 +493,6 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
 
         function switchSubTab(targetTab) {
             activeSubTabState = targetTab;
-            
-            // Clear layout tab selection
             document.querySelectorAll('.wiki-tab').forEach(t => t.classList.remove('active'));
             
             const contentBox = document.getElementById('wikiTabContentBody');
@@ -620,7 +524,6 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             let workingTextStr = wikiMarkupText;
             let citationsArrayStorage = [];
 
-            // 1. Process Citations (<ref> tags) before string transforms
             const citationRegex = /<ref>(.*?)<\/ref>/g;
             let referenceMatch;
             let citationIndex = 1;
@@ -630,16 +533,14 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                 citationIndex++;
             }
 
-            // 2. Parse out Custom Data Infobox Tokens
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
             let compiledInfoboxHtmlString = "";
             
             if (infoboxMatch) {
                 let infoboxInternalContent = infoboxMatch[1];
-                workingTextStr = workingTextStr.replace(infoboxMatch[0], ""); // Strip original location out
+                workingTextStr = workingTextStr.replace(infoboxMatch[0], ""); 
                 
-                // Break down lines
                 let lines = infoboxInternalContent.split('\n');
                 let infoboxDataRecords = {};
                 lines.forEach(ln => {
@@ -651,7 +552,6 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                     }
                 });
 
-                // Build output table markup matching MediaWiki standards
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox">
                         <div class="infobox-title">${infoboxDataRecords['name'] || currentActiveArticleKey}</div>
@@ -673,18 +573,12 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                 compiledInfoboxHtmlString += `</table></div>`;
             }
 
-            // 3. Structural MediaWiki Formats Parsing ([[]], ''' ''', '' '', headings)
-            // Bold & Italics
             workingTextStr = workingTextStr.replace(/'''(.*?)'''/g, '<b>$1</b>');
             workingTextStr = workingTextStr.replace(/''(.*?)''/g, '<i>$1</i>');
-
-            // Headings Array Maps
             workingTextStr = workingTextStr.replace(/==== (.*?) ====/g, '<h4>$1</h4>');
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
 
-            // Standard Wikipedia Media Files Embedded System
-            // [[File|url|caption]] or [[File|url|size|caption]]
             const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, url, param2, param3) {
                 let caption = param3 ? param3 : param2;
@@ -699,11 +593,9 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                 `;
             });
 
-            // Wikilink standard mappings [[ArticleName]] or [[ArticleName|DisplayText]]
             workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>');
             workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
 
-            // Paragraph mapping transformations
             let textParagraphBlocks = workingTextStr.split('\n\n');
             let structuredOutputHtml = "";
 
@@ -717,13 +609,11 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                 
                 structuredOutputHtml += formattedBlock;
 
-                // Requirement Target Rule: Inject compiled infobox strictly after the first paragraph element block
                 if (idx === 0 && compiledInfoboxHtmlString !== "") {
                     structuredOutputHtml += compiledInfoboxHtmlString;
                 }
             });
 
-            // 4. Append Footnote Subsections dynamically if citations live within text boundaries
             if (citationsArrayStorage.length > 0) {
                 let referencesSubBlockHtml = `<div class="wiki-references-section" id="footnotesGroupContainer"><h2>References</h2><ol class="wiki-references-list">`;
                 citationsArrayStorage.forEach(citeText => {
@@ -753,12 +643,10 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
 
             let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;">Revision History Tracking Stream:</div>`;
             
-            // Render logs starting from newest
             for (let index = articleObj.history.length - 1; index >= 0; index--) {
                 let revision = articleObj.history[index];
                 let timeString = new Date(revision.timestamp).toLocaleString();
                 
-                // Allow rollback operations exclusively for the latest commit state
                 let undoOptionButtonMarkup = "";
                 if (index === articleObj.history.length - 1 && articleObj.history.length > 1) {
                     undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
@@ -787,18 +675,15 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
 
             if(confirm("Are you sure you want to rollback the latest configuration update to its previous state?")) {
                 let article = orlePediaMemoryStore[currentActiveArticleKey];
-                
-                // Pop off current state
                 article.history.pop();
                 
-                // Revert core active values back to preceding index model
                 let targetPrecedingState = article.history[article.history.length - 1];
                 article.content = targetPrecedingState.content;
                 
                 switchSubTab('history');
                 triggerToastBannerNotification("🔄 Rollback operation committed to repository.");
 
-                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_ROLLBACK", { title: currentActiveArticleKey, targetDb: article });
+                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
             }
         }
 
@@ -834,15 +719,12 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             let article = orlePediaMemoryStore[currentActiveArticleKey];
             let currentSelectedContent = article.history[historyIndex].content;
             
-            // Baseline comparative anchor layer
             let baseContentStr = "";
             if (parseInt(historyIndex) > 0) {
                 baseContentStr = article.history[historyIndex - 1].content;
             }
 
             let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
-            
-            // Modal popup simulation display box
             let displayTargetBox = document.getElementById('wikiTabContentBody');
             let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
             
@@ -938,11 +820,9 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             document.getElementById('articleContainerWrapper').style.display = "none";
             document.getElementById('masterEditorContainer').style.display = "flex";
             
-            // Sync text buffer array data states
             document.getElementById('wikiRawInputTextarea').value = orlePediaMemoryStore[currentActiveArticleKey].content;
             document.getElementById('wikiEditSummaryInput').value = "";
             
-            // Reset layouts
             document.getElementById('editorLivePreviewCard').style.display = "none";
             document.getElementById('editorGitDiffContainer').style.display = "none";
         }
@@ -970,7 +850,6 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             let article = orlePediaMemoryStore[currentActiveArticleKey];
             article.content = editorTextContent;
             
-            // Push tracking update logs array package
             article.history.push({
                 timestamp: Date.now(),
                 editor: currentUserSessionProfile.username,
@@ -1029,18 +908,17 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                 return;
             }
 
-            // Standard MediaWiki Redlink protection logic
             orlePediaMemoryStore[targetTitleStr] = {
                 title: targetTitleStr,
                 category: selectedCategoryStr,
-                content: "'''${targetTitleStr}''' registry space initialized. Use the operations panel to configure inputs.",
-                talk: "== Talk Board for ${targetTitleStr} ==",
+                content: `'''${targetTitleStr}''' registry space initialized. Use the operations panel to configure inputs.`,
+                talk: `== Talk Board for ${targetTitleStr} ==`,
                 history: [{
                     timestamp: Date.now(),
                     editor: currentUserSessionProfile.username || "System Core",
                     tag: currentUserSessionProfile.tag || "Core System",
                     summary: "Initialized configuration schema mapping boundaries.",
-                    content: "'''${targetTitleStr}''' registry space initialized."
+                    content: `'''${targetTitleStr}''' registry space initialized.`
                 }],
                 ratings: [],
                 createdTime: Date.now(),
@@ -1050,6 +928,8 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             closeNewArticleModal();
             loadArticle(targetTitleStr);
             triggerToastBannerNotification("✨ Dynamic layout canvas successfully created.");
+            
+            dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: targetTitleStr, databaseNode: orlePediaMemoryStore[targetTitleStr] });
         }
 
         // RECENT CHANGES LOG FEED GENERATOR
@@ -1072,7 +952,6 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
                 }
             }
 
-            // Sort chronologically based on Unix Timestamp
             aggregateLogsArray.sort((a,b) => b.timestamp - a.timestamp);
 
             let recentChangesMarkupHtml = `<p>Tracking operational data modification history across the encyclopedia system network:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
@@ -1122,7 +1001,6 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
 
             markupBuffer += `}}\n`;
 
-            // Splice data string context inside current editor window position
             const editorTxtarea = document.getElementById('wikiRawInputTextarea');
             let currentCursorIndex = editorTxtarea.selectionStart;
             let baseText = editorTxtarea.value;
@@ -1141,17 +1019,13 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
 
         function triggerToastBannerNotification(messageText) {
             console.log(`[ALERT BROADCAST]: ${messageText}`);
-            alert(messageText); // Direct modal alert to maintain multi-device focus stability
+            alert(messageText); 
         }
 
         function jumpToFootnotesSection() {
             const targetEl = document.getElementById('footnotesGroupContainer');
             if(targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
         }
-   // Automatically pull all articles from the database as soon as the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    loadOrlePediaDataFromCloud();
-});
     </script>
 </body>
 </html>
