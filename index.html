@@ -342,7 +342,7 @@
 const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
 
-// Helper function to send authenticated requests to your database tables
+// Network Helper Function
 async function supabaseRequest(endpoint, method = 'GET', body = null) {
     const headers = {
         'apikey': SUPABASE_KEY,
@@ -350,7 +350,6 @@ async function supabaseRequest(endpoint, method = 'GET', body = null) {
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
     };
-    
     const config = { method, headers };
     if (body) config.body = JSON.stringify(body);
 
@@ -362,28 +361,91 @@ async function supabaseRequest(endpoint, method = 'GET', body = null) {
     return await response.json();
 }
 
-/**
- * 1. GET ALL ARTICLES & CATEGORIES
- * Loads everything out of the cloud tables to render the site layout
- */
+// 1. FETCH ALL DATA FROM CLOUD
 async function loadOrlePediaDataFromCloud() {
     try {
-        console.log("🛰️ Fetching encyclopedia records from Supabase cloud...");
-        const articles = await supabaseRequest('articles?select=*,profiles(username,signature_tag),categories(name)');
-        const categories = await supabaseRequest('categories?select=*');
-        const recentEdits = await supabaseRequest('revisions?select=*,articles(title),profiles(username)&order=created_at.desc&limit=20');
+        console.log("🛰️ Fetching encyclopedia records...");
         
-        // Update your application state variables here
-        window.allArticlesDatabase = articles;
-        window.allCategoriesDatabase = categories;
-        window.recentChangesLog = recentEdits;
+        // Fetch basic articles and profiles
+        const articles = await supabaseRequest('articles?select=*');
         
-        console.log("✅ State synced with cloud cluster successfully.");
-        if (typeof renderWikiInterface === "function") renderWikiInterface();
+        // Map these variables straight into whatever your website UI uses to render
+        if (Array.isArray(articles) && articles.length > 0) {
+            window.allArticlesDatabase = articles;
+            console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
+            
+            // IF your website UI has a function to redraw the screen, run it here:
+            if (typeof renderWikiInterface === "function") renderWikiInterface();
+            if (typeof displayArticles === "function") displayArticles();
+        }
     } catch (err) {
-        console.error("❌ Critical fetch pipeline failure:", err);
+        console.error("❌ Fetch pipeline failure:", err);
     }
 }
+
+// 2. SAVE NEW ARTICLES OR EDITS
+async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
+    console.log(`🛰️ Cloud dispatch triggered: ${actionType}`);
+    try {
+        if (actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE" || actionType === "SAVE_ARTICLE") {
+            
+            // Check if article title already exists
+            const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(payloadData.title)}`, 'GET');
+            
+            const articlePayload = {
+                title: payloadData.title,
+                content: payloadData.content || payloadData.body,
+                summary: payloadData.summary || ''
+            };
+
+            if (existing.length === 0) {
+                // Insert brand new article row
+                await supabaseRequest('articles', 'POST', articlePayload);
+                console.log("✅ Created brand new article in cloud database!");
+            } else {
+                // Update existing article row
+                await supabaseRequest(`articles?id=eq.${existing[0].id}`, 'PATCH', articlePayload);
+                console.log("✅ Updated existing article row in cloud database!");
+            }
+            
+            // Log to revisions table for fallback history
+            await supabaseRequest('revisions', 'POST', {
+                article_id: existing[0]?.id || 1,
+                new_content: payloadData.content || payloadData.body,
+                edit_summary: payloadData.summary || 'Web update'
+            });
+
+            alert("Article saved successfully to the cloud database!");
+            await loadOrlePediaDataFromCloud();
+        }
+    } catch (err) {
+        console.error("❌ Failed to save to database:", err);
+        alert("Error saving to database. Check console details.");
+    }
+}
+
+// 3. STARTUP TRIGGER
+document.addEventListener('DOMContentLoaded', () => {
+    loadOrlePediaDataFromCloud();
+    
+    // Auto-hook into your existing save buttons if names mismatched
+    const saveBtn = document.querySelector('#saveButton, .save-btn, #submit-art');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            // Pull text values from your input fields
+            const titleInput = document.querySelector('#articleTitle, #title')?.value;
+            const contentInput = document.querySelector('#articleContent, #content')?.value;
+            
+            if (titleInput && contentInput) {
+                dispatchDataPayloadToRemoteDataNetworks("CREATE_ARTICLE", {
+                    title: titleInput,
+                    content: contentInput
+                });
+            }
+        });
+    }
+});
+
 
 /**
  * 2. POST / SAVE UPDATES
