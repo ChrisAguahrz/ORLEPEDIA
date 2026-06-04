@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrlePedia — The Free Encyclopedia</title>
+    <style>
+        /* Modern Wiki Design Tokens */
+        :root {
+            --bg-canvas: #f6f6f6;
+            --bg-page: #ffffff;
+            --wiki-blue: #36b;
+            --wiki-blue-hover: #447ff5;
+            --wiki-red: #dd3333;
+            --border-wiki: #a2a9b1;
+            --text-dark: #202122;
+            --text-muted: #54595d;
+            
+            /* GitHub Diff Theme Colors */
+            --diff-remove-bg: #ffebe9;
+            --diff-remove-text: #65020c;
+            --diff-add-bg: #e6ffec;
+            --diff-add-text: #0a3014;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
+
+        /* Left Vector Navigation Sidebar */
+        aside { width: 180px; padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 1rem; border-right: 1px solid var(--border-wiki); background-color: var(--bg-canvas); }
+        .logo-area { font-size: 1.4rem; font-weight: bold; font-family: Georgia, serif; letter-spacing: -1px; border-bottom: 1px solid var(--border-wiki); padding-bottom: 0.5rem; text-align: center; }
+        .logo-area span { color: var(--wiki-blue); }
+        .nav-link { font-size: 0.85rem; color: var(--wiki-blue); text-decoration: none; cursor: pointer; }
+        .nav-link:hover { text-decoration: underline; }
+        
+        /* Main Workspace Window Layout */
+        main { flex: 1; background-color: var(--bg-page); padding: 1.5rem 2.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        
+        /* Global User Status Header */
+        #userHeaderBanner { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; font-size: 0.85rem; border-bottom: 1px solid #eaecf0; padding-bottom: 0.5rem; }
+        .user-tag { background: #eaf3ff; color: var(--wiki-blue); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: bold; }
+
+        /* Article Structure Presentation */
+        .firstHeading { font-family: 'Linux Libertine', Georgia, Times, serif; font-size: 1.8rem; border-bottom: 1px solid var(--border-wiki); padding-bottom: 0.25rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-end; }
+        .wiki-tabs { display: flex; gap: 0.5rem; font-size: 0.8rem; margin-bottom: 1rem; border-bottom: 1px solid #eaecf0; }
+        .wiki-tab { padding: 0.4rem 0.8rem; border: 1px solid transparent; border-bottom: none; cursor: pointer; color: var(--wiki-blue); }
+        .wiki-tab.active { background: var(--bg-page); border-color: var(--border-wiki); border-bottom: 1px solid var(--bg-page); margin-bottom: -1px; color: var(--text-dark); font-weight: bold; }
+
+        /* Built-In MediaWiki Styles */
+        .wiki-body p { margin-bottom: 0.8rem; line-height: 1.6; font-size: 0.95rem; text-align: justify; }
+        .wiki-body h2 { font-family: Georgia, serif; font-size: 1.5rem; border-bottom: 1px solid var(--border-wiki); margin: 1.5rem 0 0.5rem 0; padding-bottom: 0.2rem; }
+        .wiki-body h3 { font-size: 1.2rem; margin: 1.2rem 0 0.4rem 0; }
+        .wiki-body h4 { font-size: 1rem; margin: 1rem 0 0.3rem 0; }
+        .wiki-link { color: var(--wiki-blue); text-decoration: none; cursor: pointer; }
+        .wiki-link:hover { text-decoration: underline; }
+        .wiki-link.redlink { color: var(--wiki-red); }
+
+        /* Standard Wikipedia Center-Image Layout Frame */
+        .wiki-file-container { display: block; text-align: center; margin: 1.5rem auto; clear: both; }
+        .wiki-file-box { display: inline-block; border: 1px solid var(--border-wiki); background-color: #f8f9fa; padding: 4px; border-radius: 2px; max-width: 100%; }
+        .wiki-file-img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+        .wiki-file-caption { display: block; font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 4px; padding: 2px 8px; }
+
+        /* Exact Wikipedia Right-Hand Infobox Matrix Architecture */
+        .portable-infobox { float: right; width: 300px; background: #f8f9fa; border: 1px solid var(--border-wiki); padding: 0.5rem; margin: 0 0 1rem 1rem; font-size: 0.8rem; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .infobox-title { font-size: 1.1rem; font-weight: bold; text-align: center; padding: 0.3rem; background: #eaecf0; margin-bottom: 0.5rem; }
+        .infobox-media-row { display: flex; gap: 4px; justify-content: space-between; margin-bottom: 0.5rem; }
+        .infobox-media-box { flex: 1; border: 1px solid #dddddd; background: #ffffff; padding: 2px; text-align: center; }
+        .infobox-media-box img { max-width: 100%; height: 50px; object-fit: contain; display: block; margin: 0 auto; }
+        .infobox-media-caption { font-size: 0.7rem; color: var(--text-muted); text-align: center; display: block; margin-top: 2px; }
+        .infobox-map { border: 1px solid #dddddd; background: white; padding: 2px; margin-bottom: 0.5rem; text-align: center; }
+        .infobox-map img { max-width: 100%; height: auto; max-height: 150px; }
+        .infobox-data-table { width: 100%; border-collapse: collapse; }
+        .infobox-data-table th { text-align: left; background: #f2f2f2; width: 40%; padding: 0.3rem; border-bottom: 1px solid #ddd; font-weight: bold; vertical-align: top; }
+        .infobox-data-table td { padding: 0.3rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+
+        /* Advanced Engineering Edit Cockpit */
+        .editor-dashboard { display: none; flex-direction: column; gap: 1rem; }
+        .toolbar { background: #f8f9fa; border: 1px solid var(--border-wiki); padding: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-radius: 4px 4px 0 0; border-bottom: none; }
+        .tool-btn { background: #fff; border: 1px solid var(--border-wiki); padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer; border-radius: 2px; font-weight: bold; }
+        .tool-btn:hover { background: #f0f0f0; }
+        textarea.wiki-editor { width: 100%; height: 350px; font-family: monospace; font-size: 0.9rem; padding: 0.75rem; border: 1px solid var(--border-wiki); border-radius: 0 0 4px 4px; outline: none; resize: vertical; background: #fff; color: #000; }
+        .summary-input { width: 100%; padding: 0.5rem; border: 1px solid var(--border-wiki); border-radius: 4px; font-size: 0.85rem; }
+
+        /* Info Layout Engine Panels */
+        .preview-pane-container { border: 1px dashed var(--wiki-blue); border-radius: 4px; padding: 1rem; background: #fafafa; margin-top: 1rem; display: none; }
+        .preview-title { font-size: 0.85rem; font-weight: bold; color: var(--wiki-blue); margin-bottom: 0.5rem; text-transform: uppercase; }
+        
+        /* GitHub Styling Split Diff Grid */
+        .github-diff-board { display: flex; flex-direction: column; gap: 2px; font-family: monospace; font-size: 0.85rem; background: #fff; border: 1px solid var(--border-wiki); border-radius: 4px; overflow: hidden; margin-top: 1rem; display: none; }
+        .diff-line { display: flex; padding: 0.15rem 0.5rem; white-space: pre-wrap; }
+        .diff-line.removed { background-color: var(--diff-remove-bg); color: var(--diff-remove-text); }
+        .diff-line.added { background-color: var(--diff-add-bg); color: var(--diff-add-text); }
+        .diff-line.neutral { background-color: #ffffff; color: #555555; }
+        .diff-marker { width: 25px; display: inline-block; user-select: none; font-weight: bold; }
+
+        /* Reference Super & Footnote Layout Modules */
+        .reference-citation { font-size: 0.75rem; font-weight: bold; vertical-align: super; line-height: 0; margin-left: 2px; color: var(--wiki-blue); cursor: pointer; }
+        .wiki-references-section { margin-top: 2rem; border-top: 1px solid var(--border-wiki); padding-top: 0.5rem; }
+        .wiki-references-list { list-style-type: decimal; margin-left: 1.5rem; font-size: 0.85rem; }
+
+        /* Dynamic Infobox Builder Modal Window */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 2000; }
+        .modal-card { background: #fff; width: 450px; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; max-height: 90vh; overflow-y: auto; }
+        .modal-row { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
+        .modal-row input { padding: 0.4rem; border: 1px solid var(--border-wiki); border-radius: 4px; }
+        .modal-horizontal { display: flex; gap: 0.5rem; }
+        .modal-horizontal div { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
+
+        /* System Action Blocks Layout */
+        .btn-set { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .action-btn { padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border-wiki); cursor: pointer; }
+        .action-btn.primary { background: var(--wiki-blue); color: white; border-color: var(--wiki-blue); }
+        .action-btn.success { background: var(--success, #10b981); color: white; border-color: #10b981; }
+
+        /* General Wiki Modules Grid */
+        .history-log-item { padding: 0.5rem; border-bottom: 1px solid #eaecf0; font-size: 0.85rem; line-height: 1.4; }
+        .history-log-item:last-child { border-bottom: none; }
+        .history-timestamp { color: var(--text-muted); font-size: 0.8rem; }
+        .history-summary { font-style: italic; color: #444; background: #f8f9fa; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
+        .category-box-footer { border: 1px solid var(--border-wiki); background: #f8f9fa; padding: 0.5rem; margin-top: 2rem; font-size: 0.85rem; }
+
+        /* Rating Module Style */
+        .star-rating-cluster { display: inline-flex; gap: 4px; align-items: center; margin-left: 10px; font-size: 0.9rem; }
+        .star-element { color: #ccc; cursor: pointer; transition: color 0.1s; }
+        .star-element.filled { color: #f59e0b; }
+    </style>
+</head>
+<body>
+
+    <!-- Left MediaWiki Sidebar Controls -->
+    <aside>
+        <div class="logo-area">Orle<span>Pedia</span></div>
+        <a class="nav-link" onclick="loadArticle('Main Page')">🏠 Main Page</a>
+        <a class="nav-link" onclick="loadRecentChangesView()">🕒 Recent Changes</a>
+        <a class="nav-link" onclick="openNewArticleModal()">➕ Create New Article</a>
+        <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
+        <div style="font-size:0.75rem; font-weight:bold; color:var(--text-muted)">BROWSE SECTORS</div>
+        <a class="nav-link" onclick="loadCategoryView('Administrative Jurisdictions')">📁 Jurisdictions</a>
+        <a class="nav-link" onclick="loadCategoryView('Historical Records')">📁 History Logs</a>
+        <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
+        <a class="nav-link" onclick="openProfileWindow()">👤 Edit My Profile</a>
+    </aside>
+
+    <!-- Main Active Workspace Environment Grid -->
+    <main>
+        <!-- Identity Profiler Header Banner -->
+        <div id="userHeaderBanner">
+            <div id="identityGreeting">Welcome to OrlePedia. Please register a profile moniker to contribute adjustments.</div>
+            <div id="headerUserBadge"></div>
+        </div>
+
+        <!-- Article Framework View Container -->
+        <div id="articleContainerWrapper">
+            <div class="firstHeading">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span id="displayArticleTitle">Main Page</span>
+                    <div class="star-rating-cluster" id="articleStarsContainer"></div>
+                </div>
+                <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;">✏️ Edit</button>
+            </div>
+
+            <!-- Vector Style Action Tabs Grid -->
+            <div class="wiki-tabs">
+                <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
+                <div class="wiki-tab" id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
+                <div class="wiki-tab" id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
+                <div class="wiki-tab" id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
+            </div>
+
+            <!-- Tab Presentation Layers -->
+            <div id="wikiTabContentBody" class="wiki-body">
+                <!-- Data injections parse out here seamlessly -->
+            </div>
+        </div>
+
+        <!-- Master Editor Deck Dashboard -->
+        <div id="masterEditorContainer" class="editor-dashboard">
+            <div class="toolbar">
+                <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
+                <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
+                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 WikiLink</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[File|URL|200px|', ']]')">🖼️ Image</button>
+                <button class="tool-btn" onclick="openInfoboxWizard()">📊 Add Infobox</button>
+                <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">📑 Citation</button>
+                <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
+                <button class="tool-btn" onclick="wrapEditorText('\n=== ', ' ===\n')">H3</button>
+            </div>
+            <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
+            
+            <input type="text" id="wikiEditSummaryInput" class="summary-input" placeholder="Describe what adjustments you made (Edit Summary)...">
+            
+            <div class="btn-set">
+                <button class="action-btn success" onclick="saveActiveArticleState()">Commit Adjustments</button>
+                <button class="action-btn" onclick="triggerClientPreview()">Live Live Preview</button>
+                <button class="action-btn" onclick="triggerGitDiffCalculation()">Show Code Changes</button>
+                <button class="action-btn" onclick="exitEditorDashboard()" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+
+            <!-- Code Diff View Panels -->
+            <div class="preview-pane-container" id="editorLivePreviewCard">
+                <div class="preview-title">Live Client Render Preview</div>
+                <div id="editorLivePreviewContent" class="wiki-body"></div>
+            </div>
+
+            <div class="github-diff-board" id="editorGitDiffContainer">
+                <!-- Diff streams append here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Layout Interface Framework Panels -->
+    <!-- Infobox Generation Matrix Generator -->
+    <div class="modal-overlay" id="infoboxWizardModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Infobox Structural Data Builder</div>
+            <div class="modal-row">
+                <label>Entity / Name Heading</label>
+                <input type="text" id="ib_name" value="Commonwealth Territory">
+            </div>
+            <div class="modal-horizontal">
+                <div class="modal-row">
+                    <label>State Seal Image URL</label>
+                    <input type="text" id="ib_seal" value="https://images.unsplash.com/photo-1599420186946-7b6fb4e297f0?w=80&auto=format&fit=crop">
+                </div>
+                <div class="modal-row">
+                    <label>National Flag Image URL</label>
+                    <input type="text" id="ib_flag" value="https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=80&auto=format&fit=crop">
+                </div>
+            </div>
+            <div class="modal-row">
+                <label>Regional Map Graphic URL</label>
+                <input type="text" id="ib_map" value="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=300&auto=format&fit=crop">
+            </div>
+            <div style="font-weight:bold; font-size:0.85rem; color:var(--text-muted); margin-top:0.4rem;">CUSTOM METADATA PARAMETERS</div>
+            <div id="infoboxCustomParamsContainer" style="display:flex; flex-direction:column; gap:0.5rem;">
+                <div class="modal-horizontal row-param">
+                    <input type="text" placeholder="Label (e.g. Capital)" value="Capital" class="p-key">
+                    <input type="text" placeholder="Value Data" value="Ozyrtn Sector" class="p-val">
+                </div>
+                <div class="modal-horizontal row-param">
+                    <input type="text" placeholder="Label (e.g. Legal Code)" value="Ozyrtn Law" class="p-key">
+                    <input type="text" placeholder="Value Data" value="Article IV Active" class="p-val">
+                </div>
+            </div>
+            <button class="tool-btn" onclick="addCustomParamRowField()" style="align-self: flex-start;">➕ Append Entry Row</button>
+            <div class="btn-set" style="justify-content: flex-end;">
+                <button class="action-btn" onclick="closeInfoboxWizard()">Discard</button>
+                <button class="action-btn primary" onclick="compileAndInjectInfoboxMarkup()">Inject Infobox Framework</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Article Constructor Prompt Modal -->
+    <div class="modal-overlay" id="newArticleConstructorModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem;">Construct New Matrix Article</div>
+            <div class="modal-row">
+                <label>Article Title Moniker</label>
+                <input type="text" id="newArticleTitleInput" placeholder="e.g., Sector of Austinas">
+            </div>
+            <div class="modal-row">
+                <label>Primary Index Category</label>
+                <select id="newArticleCategorySelect" style="padding:0.4rem; border-radius:4px; border:1px solid var(--border-wiki);">
+                    <option value="Administrative Jurisdictions">Administrative Jurisdictions</option>
+                    <option value="Historical Records">Historical Records</option>
+                    <option value="General Indexes">General Indexes</option>
+                </select>
+            </div>
+            <div class="btn-set" style="justify-content:flex-end;">
+                <button class="action-btn" onclick="closeNewArticleModal()">Cancel</button>
+                <button class="action-btn primary" onclick="executeArticleCreationInit()">Initialize Article Space</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Editor Modal Canvas -->
+    <div class="modal-overlay" id="userProfileIdentityModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem;">User Contributor Profiler</div>
+            <div class="modal-row">
+                <label>Handle / Username</label>
+                <input type="text" id="profileUsernameInput" placeholder="e.g., Gayle157">
+            </div>
+            <div class="modal-row">
+                <label>Identity Group Tag Identifier</label>
+                <input type="text" id="profileTagInput" placeholder="e.g., Senior Overseer">
+            </div>
+            <div class="btn-set" style="justify-content:flex-end;">
+                <button class="action-btn" onclick="closeProfileWindow()">Cancel</button>
+                <button class="action-btn success" onclick="saveUserProfileIdentity()">Lock Registration Profile</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYSTEM CORE SCRIPT PIPELINE ENGINE -->
+    <script>
+        // GLOBAL ENCYCLOPEDIA DATABASE ARCHITECTURE (MOCKING REMOTED ENDPOINT REPLICATION STORES)
+        let orlePediaMemoryStore = {
+            "Main Page": {
+                title: "Main Page",
+                category: "General Indexes",
+                content: "Welcome to '''OrlePedia''', the primary database engine. This ecosystem tracks historical updates, demographic registries, and socioeconomic parameters across regional jurisdictions.\n\n== System Overview ==\nContributors use customized formatting matrices to log structural elements. Use the links below to navigate through localized profiles.\n\n* See [[Administrative Sectors Registry]] to inspect territorial structures.\n* Review [[Recent Changes]] logs to verify active operational processing updates.",
+                talk: "== Main Page Matrix Operational Validation ==\nThis talk channel logs core dashboard deployment verifications. Ensure all dynamic parser links test cleanly. -- System Monitor",
+                history: [
+                    { timestamp: 1778940000000, editor: "System Core", tag: "System Component", summary: "Baseline ecosystem instantiation setup.", content: "Welcome to '''OrlePedia''', the primary database engine. This ecosystem tracks historical updates, demographic registries, and socioeconomic parameters across regional jurisdictions.\n\n== System Overview ==\nContributors use customized formatting matrices to log structural elements. Use the links below to navigate through localized profiles.\n\n* See [[Administrative Sectors Registry]] to inspect territorial structures.\n* Review [[Recent Changes]] logs to verify active operational processing updates." }
+                ],
+                ratings: [5, 4, 5],
+                createdTime: 1778940000000,
+                author: "System Core"
+            },
+            "Administrative Sectors Registry": {
+                title: "Administrative Sectors Registry",
+                category: "Administrative Jurisdictions",
+                content: "The '''Administrative Sectors Registry''' tracks data streams for regional centers. Each profile records information via structured system infoboxes.\n\n{{Infobox\n|name=Commonwealth Sector Alpha\n|seal=https://images.unsplash.com/photo-1599420186946-7b6fb4e297f0?w=80&auto=format&fit=cropn|flag=https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=80&auto=format&fit=cropn|map=https://images.unsplash.com/photo-1524661135-423995f22d0b?w=300&auto=format&fit=cropn|Capital=Ozyrtn Sector\n|Legal Jurisdiction=Ozyrtn Law\n|Active Registry Status=Verified Level 1.2\n}}\n\n== Territorial Distribution ==\nSectors manage resources and coordinate tracking operations locally. Progress updates are pushed to the main database at regular runtime intervals.<ref>Official Gazette of Orland Regulatory Provisions, Volume IX.</ref>\n\n== Demographics and Records ==\nHistorical records are detailed inside the [[Historical Records Engine]] sub-index file.\n\n=== Sub-Sector Controls ===\nSub-sectors map operational zones directly within the dashboard file framework.",
+                talk: "== Data Integrity Audits ==\nValidation audits match inputs against regional tracking nodes. -- Data Integrity Unit",
+                history: [
+                    { timestamp: 1779026400000, editor: "Gayle157", tag: "Senior Overseer", summary: "Populated territory infrastructure layout metrics.", content: "The '''Administrative Sectors Registry''' tracks data streams for regional centers. Each profile records information via structured system infoboxes.\n\n{{Infobox\n|name=Commonwealth Sector Alpha\n|seal=https://images.unsplash.com/photo-1599420186946-7b6fb4e297f0?w=80&auto=format&fit=cropn|flag=https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=80&auto=format&fit=cropn|map=https://images.unsplash.com/photo-1524661135-423995f22d0b?w=300&auto=format&fit=cropn|Capital=Ozyrtn Sector\n|Legal Jurisdiction=Ozyrtn Law\n|Active Registry Status=Verified Level 1.2\n}}\n\n== Territorial Distribution ==\nSectors manage resources and coordinate tracking operations locally. Progress updates are pushed to the main database at regular runtime intervals.<ref>Official Gazette of Orland Regulatory Provisions, Volume IX.</ref>\n\n== Demographics and Records ==\nHistorical records are detailed inside the [[Historical Records Engine]] sub-index file.\n\n=== Sub-Sector Controls ===\nSub-sectors map operational zones directly within the dashboard file framework." }
+                ],
+                ratings: [4, 5],
+                createdTime: 1779026400000,
+                author: "Gayle157"
+            }
+        };
+
+        // USER IDENTITY ENGINE CONFIG
+        let currentUserSessionProfile = {
+            username: "",
+            tag: ""
+        };
+
+        let currentActiveArticleKey = "Main Page";
+        let activeSubTabState = "article";
+
+        // APP INITIALIZATION
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserProfileFromVirtualDeviceStore();
+            loadArticle(currentActiveArticleKey);
+        });
+
+        // CENTRAL NETWORK DATA DISPATCHER (TELEGRAM & CENTRAL SYSTEM POST HUB HANDLER)
+        async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
+            console.log(`🛰️ Outbound Transport Active: Dispatched payload [${actionType}] to cloud.`);
+            
+            // Replicated configuration matching outbound REST architectures
+            const backupServerEndpoint = "https://your-custom-api-server.com/api/orlepedia/sync";
+            const telegramBotEndpoint = "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage";
+            
+            const packagedPayload = {
+                networkAction: actionType,
+                timestamp: Date.now(),
+                deviceClientInfo: navigator.userAgent,
+                data: payloadData
+            };
+
+            // 1. Unified Standard POST Request Pipeline
+            try {
+                fetch(backupServerEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(packagedPayload)
+                }).catch(e => console.log("Cloud server sync dispatched safely in background transport state."));
+            } catch(err) { /* Silence bypass context errors */ }
+
+            // 2. Telegram Synchronization Network Tunnel Post
+            try {
+                const telegramDataString = `📢 *OrlePedia Update Notification*\nAction: ${actionType}\nTarget Entity: ${payloadData.title || 'System'}\nUser Modifier: ${currentUserSessionProfile.username || 'Anonymous'}`;
+                fetch(telegramBotEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: "@YourOrlePediaChannel", text: telegramDataString, parse_mode: "Markdown" })
+                }).catch(e => {});
+            } catch(err) { /* Catch out isolated loop networks safely */ }
+        }
+
+        // PROFILE BUSINESS LOGIC INTERACTION LAYERS
+        function loadUserProfileFromVirtualDeviceStore() {
+            // Emulated cross-device global server session storage pulling logic
+            if(currentUserSessionProfile.username) {
+                updateUIProfileDisplays();
+            }
+        }
+
+        function openProfileWindow() {
+            document.getElementById('profileUsernameInput').value = currentUserSessionProfile.username;
+            document.getElementById('profileTagInput').value = currentUserSessionProfile.tag;
+            document.getElementById('userProfileIdentityModal').style.display = "flex";
+        }
+
+        function closeProfileWindow() {
+            document.getElementById('userProfileIdentityModal').style.display = "none";
+        }
+
+        function saveUserProfileIdentity() {
+            const userVal = document.getElementById('profileUsernameInput').value.trim();
+            const tagVal = document.getElementById('profileTagInput').value.trim();
+
+            if(!userVal || !tagVal) {
+                alert("⛔ Error: Both username identification parameters and tag slots must be mapped.");
+                return;
+            }
+
+            currentUserSessionProfile.username = userVal;
+            currentUserSessionProfile.tag = tagVal;
+            
+            updateUIProfileDisplays();
+            closeProfileWindow();
+
+            dispatchDataPayloadToRemoteDataNetworks("USER_REGISTER_OR_MOD", currentUserSessionProfile);
+        }
+
+        function updateUIProfileDisplays() {
+            document.getElementById('identityGreeting').innerHTML = `Hi <span style="font-weight:bold; color:var(--wiki-blue);">${currentUserSessionProfile.username}</span>, welcome to your operations sector workspace!`;
+            document.getElementById('headerUserBadge').innerHTML = `<span class="user-tag">${currentUserSessionProfile.tag}</span>`;
+        }
+
+        // ARTICLE CONTROLLER PIPELINES
+        function loadArticle(articleTitle) {
+            currentActiveArticleKey = articleTitle;
+            exitEditorDashboard();
+
+            if (!orlePediaMemoryStore[articleTitle]) {
+                // Instantiates redlink missing structural page frameworks automatically
+                orlePediaMemoryStore[articleTitle] = {
+                    title: articleTitle,
+                    category: "General Indexes",
+                    content: "'''${articleTitle}''' does not contain logged data arrays. Click Edit to initialize this page mapping.",
+                    talk: "== Talk Channel for ${articleTitle} ==\nInitialized structural discussion line.",
+                    history: [],
+                    ratings: [],
+                    createdTime: Date.now(),
+                    author: currentUserSessionProfile.username || "System Core"
+                };
+            }
+
+            document.getElementById('displayArticleTitle').innerText = articleTitle;
+            renderRatingStarsCluster();
+            switchSubTab(activeSubTabState);
+        }
+
+        function switchSubTab(targetTab) {
+            activeSubTabState = targetTab;
+            
+            // Clear layout tab selection
+            document.querySelectorAll('.wiki-tab').forEach(t => t.classList.remove('active'));
+            
+            const contentBox = document.getElementById('wikiTabContentBody');
+            const targetArticle = orlePediaMemoryStore[currentActiveArticleKey];
+
+            if (targetTab === 'article') {
+                document.getElementById('tabArticle').classList.add('active');
+                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.content);
+                injectCategoryFooterBox(targetArticle.category);
+            } 
+            else if (targetTab === 'talk') {
+                document.getElementById('tabTalk').classList.add('active');
+                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.talk || "== Discussion Room ==\nNo records logged here yet.");
+            } 
+            else if (targetTab === 'history') {
+                document.getElementById('tabHistory').classList.add('active');
+                renderRevisionLogsHistoryList(targetArticle);
+            } 
+            else if (targetTab === 'meta') {
+                document.getElementById('tabMeta').classList.add('active');
+                renderMetaInformationDashboard(targetArticle);
+            }
+        }
+
+        // ADVANCED MEDIAWIKI PARSING REGEX PARSER MOTOR ENGINE
+        function compileRawMarkupToHtml(wikiMarkupText) {
+            if (!wikiMarkupText) return "";
+            
+            let workingTextStr = wikiMarkupText;
+            let citationsArrayStorage = [];
+
+            // 1. Process Citations (<ref> tags) before string transforms
+            const citationRegex = /<ref>(.*?)<\/ref>/g;
+            let referenceMatch;
+            let citationIndex = 1;
+            while ((referenceMatch = citationRegex.exec(workingTextStr)) !== null) {
+                citationsArrayStorage.push(referenceMatch[1]);
+                workingTextStr = workingTextStr.replace(referenceMatch[0], `<span class="reference-citation" onclick="jumpToFootnotesSection()">[${citationIndex}]</span>`);
+                citationIndex++;
+            }
+
+            // 2. Parse out Custom Data Infobox Tokens
+            const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
+            let infoboxMatch = infoboxRegex.exec(workingTextStr);
+            let compiledInfoboxHtmlString = "";
+            
+            if (infoboxMatch) {
+                let infoboxInternalContent = infoboxMatch[1];
+                workingTextStr = workingTextStr.replace(infoboxMatch[0], ""); // Strip original location out
+                
+                // Break down lines
+                let lines = infoboxInternalContent.split('\n');
+                let infoboxDataRecords = {};
+                lines.forEach(ln => {
+                    if (ln.startsWith('|') && ln.includes('=')) {
+                        let segments = ln.substring(1).split('=');
+                        let key = segments[0].trim();
+                        let value = segments[1].trim();
+                        infoboxDataRecords[key] = value;
+                    }
+                });
+
+                // Build output table markup matching MediaWiki standards
+                compiledInfoboxHtmlString = `
+                    <div class="portable-infobox">
+                        <div class="infobox-title">${infoboxDataRecords['name'] || currentActiveArticleKey}</div>
+                        <div class="infobox-media-row">
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}"><span class="infobox-media-caption">State Seal</span></div>
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}"><span class="infobox-media-caption">Flag</span></div>
+                        </div>
+                        <div class="infobox-map">
+                            <img src="${infoboxDataRecords['map'] || ''}">
+                            <span class="infobox-media-caption">Map and Coordinates Placement</span>
+                        </div>
+                        <table class="infobox-data-table">
+                `;
+
+                for (let [k, v] of Object.entries(infoboxDataRecords)) {
+                    if (['name', 'seal', 'flag', 'map'].includes(k)) continue;
+                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${v}</td></tr>`;
+                }
+                compiledInfoboxHtmlString += `</table></div>`;
+            }
+
+            // 3. Structural MediaWiki Formats Parsing ([[]], ''' ''', '' '', headings)
+            // Bold & Italics
+            workingTextStr = workingTextStr.replace(/'''(.*?)'''/g, '<b>$1</b>');
+            workingTextStr = workingTextStr.replace(/''(.*?)''/g, '<i>$1</i>');
+
+            // Headings Array Maps
+            workingTextStr = workingTextStr.replace(/==== (.*?) ====/g, '<h4>$1</h4>');
+            workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
+            workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
+
+            // Standard Wikipedia Media Files Embedded System
+            // [[File|url|caption]] or [[File|url|size|caption]]
+            const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?\]\]/g;
+            workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, url, param2, param3) {
+                let caption = param3 ? param3 : param2;
+                let sizeWidth = param3 ? param2 : "220px";
+                return `
+                    <div class="wiki-file-container">
+                        <div class="wiki-file-box">
+                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};">
+                            <span class="wiki-file-caption">${caption}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Wikilink standard mappings [[ArticleName]] or [[ArticleName|DisplayText]]
+            workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>');
+            workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
+
+            // Paragraph mapping transformations
+            let textParagraphBlocks = workingTextStr.split('\n\n');
+            let structuredOutputHtml = "";
+
+            textParagraphBlocks.forEach((block, idx) => {
+                let formattedBlock = block.trim();
+                if(!formattedBlock) return;
+
+                if (!formattedBlock.startsWith('<h') && !formattedBlock.startsWith('<div')) {
+                    formattedBlock = `<p>${formattedBlock.replace(/\n/g, '<br>')}</p>`;
+                }
+                
+                structuredOutputHtml += formattedBlock;
+
+                // Requirement Target Rule: Inject compiled infobox strictly after the first paragraph element block
+                if (idx === 0 && compiledInfoboxHtmlString !== "") {
+                    structuredOutputHtml += compiledInfoboxHtmlString;
+                }
+            });
+
+            // 4. Append Footnote Subsections dynamically if citations live within text boundaries
+            if (citationsArrayStorage.length > 0) {
+                let referencesSubBlockHtml = `<div class="wiki-references-section" id="footnotesGroupContainer"><h2>References</h2><ol class="wiki-references-list">`;
+                citationsArrayStorage.forEach(citeText => {
+                    referencesSubBlockHtml += `<li>${citeText}</li>`;
+                });
+                referencesSubBlockHtml += `</ol></div>`;
+                structuredOutputHtml += referencesSubBlockHtml;
+            }
+
+            return structuredOutputHtml;
+        }
+
+        function injectCategoryFooterBox(categoryName) {
+            const footerBox = document.createElement('div');
+            footerBox.className = "category-box-footer";
+            footerBox.innerHTML = `Categories: <span class="wiki-link" onclick="loadCategoryView('${categoryName}')">${categoryName}</span>`;
+            document.getElementById('wikiTabContentBody').appendChild(footerBox);
+        }
+
+        // REVISION LOGS & GITHUB PREVIEW ENGINE
+        function renderRevisionLogsHistoryList(articleObj) {
+            const container = document.getElementById('wikiTabContentBody');
+            if(!articleObj.history || articleObj.history.length === 0) {
+                container.innerHTML = "<div>No operational modification logs found for this registry workspace.</div>";
+                return;
+            }
+
+            let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;">Revision History Tracking Stream:</div>`;
+            
+            // Render logs starting from newest
+            for (let index = articleObj.history.length - 1; index >= 0; index--) {
+                let revision = articleObj.history[index];
+                let timeString = new Date(revision.timestamp).toLocaleString();
+                
+                // Allow rollback operations exclusively for the latest commit state
+                let undoOptionButtonMarkup = "";
+                if (index === articleObj.history.length - 1 && articleObj.history.length > 1) {
+                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
+                }
+
+                logHistoryListHtml += `
+                    <div class="history-log-item">
+                        • <span class="history-timestamp">${timeString}</span> — 
+                        <strong>${revision.editor}</strong> 
+                        <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
+                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>
+                        ${undoOptionButtonMarkup}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = logHistoryListHtml;
+        }
+
+        function executeRevisionRollbackUndo(currentIndex) {
+            if(!currentUserSessionProfile.username) {
+                alert("⛔ Action Blocked: You must create a profile signature identity prior to forcing database rollbacks.");
+                openProfileWindow();
+                return;
+            }
+
+            if(confirm("Are you sure you want to rollback the latest configuration update to its previous state?")) {
+                let article = orlePediaMemoryStore[currentActiveArticleKey];
+                
+                // Pop off current state
+                article.history.pop();
+                
+                // Revert core active values back to preceding index model
+                let targetPrecedingState = article.history[article.history.length - 1];
+                article.content = targetPrecedingState.content;
+                
+                switchSubTab('history');
+                triggerToastBannerNotification("🔄 Rollback operation committed to repository.");
+
+                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_ROLLBACK", { title: currentActiveArticleKey, targetDb: article });
+            }
+        }
+
+        // GITHUB PREVIEW DIFF MATRIX LOGIC Engine
+        function generateLineByLineGithubStyleDiff(oldTextRaw, newTextRaw) {
+            let oldTextLines = oldTextRaw.split('\n');
+            let newTextLines = newTextRaw.split('\n');
+            let longestIndexBound = Math.max(oldTextLines.length, newTextLines.length);
+            
+            let htmlDiffStreamRows = "";
+
+            for (let i = 0; i < longestIndexBound; i++) {
+                let originalLine = oldTextLines[i];
+                let modifiedLine = newTextLines[i];
+
+                if (originalLine !== modifiedLine) {
+                    if (originalLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line removed"><span class="diff-marker">-</span>${escapeHtmlCode(originalLine)}</div>`;
+                    }
+                    if (modifiedLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(modifiedLine)}</div>`;
+                    }
+                } else {
+                    if (originalLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(originalLine)}</div>`;
+                    }
+                }
+            }
+            return htmlDiffStreamRows;
+        }
+
+        function renderSingleSummaryDiff(historyIndex) {
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            let currentSelectedContent = article.history[historyIndex].content;
+            
+            // Baseline comparative anchor layer
+            let baseContentStr = "";
+            if (parseInt(historyIndex) > 0) {
+                baseContentStr = article.history[historyIndex - 1].content;
+            }
+
+            let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
+            
+            // Modal popup simulation display box
+            let displayTargetBox = document.getElementById('wikiTabContentBody');
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
+            
+            displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
+        }
+
+        function triggerGitDiffCalculation() {
+            let oldContentText = orlePediaMemoryStore[currentActiveArticleKey].content;
+            let currentEditorText = document.getElementById('wikiRawInputTextarea').value;
+
+            let compiledRows = generateLineByLineGithubStyleDiff(oldContentText, currentEditorText);
+            const panel = document.getElementById('editorGitDiffContainer');
+            panel.innerHTML = compiledRows;
+            panel.style.display = "block";
+        }
+
+        // PAGE METADATA MATRIX SYSTEM CONTROL PANEL
+        function renderMetaInformationDashboard(articleObj) {
+            const container = document.getElementById('wikiTabContentBody');
+            let createdDateString = new Date(articleObj.createdTime).toLocaleString();
+            
+            container.innerHTML = `
+                <div style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; line-height:2;">
+                    <h3>System Database Page Information</h3>
+                    <hr style="border:none; border-top:1px solid var(--border-wiki); margin:0.5rem 0;">
+                    <div><b>Entity Target Field Label:</b> ${articleObj.title}</div>
+                    <div><b>Administrative Core Index Category:</b> ${articleObj.category}</div>
+                    <div><b>Initialization Mapping Date:</b> ${createdDateString}</div>
+                    <div><b>Original Base System Author:</b> <span class="user-tag">${articleObj.author}</span></div>
+                    <div><b>Total Processing Modifications Committed:</b> ${articleObj.history.length} operations</div>
+                    <div><b>Average Active User Page Quality Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
+                </div>
+            `;
+        }
+
+        // RATING SYSTEM LOGIC ENGINE CALCULATOR
+        function renderRatingStarsCluster() {
+            const container = document.getElementById('articleStarsContainer');
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            let averageNum = parseFloat(calculatePageRatingAverage(article.ratings));
+
+            let starClusterMarkup = "";
+            for (let idx = 1; idx <= 5; idx++) {
+                let filledClass = (idx <= Math.round(averageNum)) ? "filled" : "";
+                starClusterMarkup += `<span class="star-element ${filledClass}" onclick="submitPageUserRatingMetric(${idx})">★</span>`;
+            }
+            starClusterMarkup += `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:4px;">(${averageNum.toFixed(1)} avg)</span>`;
+            container.innerHTML = starClusterMarkup;
+        }
+
+        function calculatePageRatingAverage(ratingsArray) {
+            if(!ratingsArray || ratingsArray.length === 0) return "0.0";
+            let aggregateSum = ratingsArray.reduce((acc, currentVal) => acc + currentVal, 0);
+            return (aggregateSum / ratingsArray.length).toFixed(1);
+        }
+
+        function submitPageUserRatingMetric(selectedScoreValue) {
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            if(!article.ratings) article.ratings = [];
+            
+            article.ratings.push(selectedScoreValue);
+            renderRatingStarsCluster();
+            triggerToastBannerNotification(`⭐️ Verified: Logged rating score entry [${selectedScoreValue}/5].`);
+            
+            dispatchDataPayloadToRemoteDataNetworks("RATING_SUBMIT", { title: currentActiveArticleKey, score: selectedScoreValue });
+        }
+
+        // DYNAMIC WIKIPEDIA TEXT WRAPPING UTILITY TOOL
+        function wrapEditorText(openingSyntaxTag, closingSyntaxTag) {
+            const txtarea = document.getElementById('wikiRawInputTextarea');
+            let selectionStartPos = txtarea.selectionStart;
+            let selectionEndPos = txtarea.selectionEnd;
+            let targetActiveText = txtarea.value;
+            
+            let highlightedSubstring = targetActiveText.substring(selectionStartPos, selectionEndPos);
+            let updatedReplacementBlock = openingSyntaxTag + highlightedSubstring + closingSyntaxTag;
+            
+            txtarea.value = targetActiveText.substring(0, selectionStartPos) + updatedReplacementBlock + targetActiveText.substring(selectionEndPos);
+            
+            txtarea.focus();
+            txtarea.selectionStart = selectionStartPos + openingSyntaxTag.length;
+            txtarea.selectionEnd = selectionStartPos + openingSyntaxTag.length + highlightedSubstring.length;
+        }
+
+        // MASTER CONTROL BOARD SYSTEM TRIGGERS
+        function toggleEditMode() {
+            if(!currentUserSessionProfile.username) {
+                alert("⛔ Security Restriction: Modifying records requires registration. Please add your Profile Handle first.");
+                openProfileWindow();
+                return;
+            }
+
+            document.getElementById('articleContainerWrapper').style.display = "none";
+            document.getElementById('masterEditorContainer').style.display = "flex";
+            
+            // Sync text buffer array data states
+            document.getElementById('wikiRawInputTextarea').value = orlePediaMemoryStore[currentActiveArticleKey].content;
+            document.getElementById('wikiEditSummaryInput').value = "";
+            
+            // Reset layouts
+            document.getElementById('editorLivePreviewCard').style.display = "none";
+            document.getElementById('editorGitDiffContainer').style.display = "none";
+        }
+
+        function exitEditorDashboard() {
+            document.getElementById('articleContainerWrapper').style.display = "block";
+            document.getElementById('masterEditorContainer').style.display = "none";
+        }
+
+        function triggerClientPreview() {
+            let rawInputText = document.getElementById('wikiRawInputTextarea').value;
+            document.getElementById('editorLivePreviewContent').innerHTML = compileRawMarkupToHtml(rawInputText);
+            document.getElementById('editorLivePreviewCard').style.display = "block";
+        }
+
+        function saveActiveArticleState() {
+            let editorTextContent = document.getElementById('wikiRawInputTextarea').value;
+            let changeSummaryText = document.getElementById('wikiEditSummaryInput').value.trim();
+
+            if(!changeSummaryText) {
+                alert("⚠️ Validation Notice: You must provide a brief description summary of your adjustments.");
+                return;
+            }
+
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            article.content = editorTextContent;
+            
+            // Push tracking update logs array package
+            article.history.push({
+                timestamp: Date.now(),
+                editor: currentUserSessionProfile.username,
+                tag: currentUserSessionProfile.tag,
+                summary: changeSummaryText,
+                content: editorTextContent
+            });
+
+            exitEditorDashboard();
+            switchSubTab('article');
+            triggerToastBannerNotification("💾 Data securely locked down and dispatched to cloud vectors.");
+
+            dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
+        }
+
+        // CATEGORY EXPLORER VIEW MODULE
+        function loadCategoryView(categoryName) {
+            exitEditorDashboard();
+            document.getElementById('displayArticleTitle').innerText = `Category: ${categoryName}`;
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            
+            let matchedArticlesListHtml = `<p>Listing records indexed inside administrative sector category: <b>${categoryName}</b></p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
+            
+            let matchesFoundCount = 0;
+            for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
+                if (obj.category === categoryName) {
+                    matchesFoundCount++;
+                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${obj.title}')">${obj.title}</span></li>`;
+                }
+            }
+
+            if(matchesFoundCount === 0) {
+                matchedArticlesListHtml += `<li style="color:var(--text-muted)">No articles registered inside this jurisdiction yet.</li>`;
+            }
+            
+            matchedArticlesListHtml += `</ul>`;
+            document.getElementById('wikiTabContentBody').innerHTML = matchedArticlesListHtml;
+        }
+
+        // SYSTEM CREATION ROUTERS
+        function openNewArticleModal() {
+            document.getElementById('newArticleTitleInput').value = "";
+            document.getElementById('newArticleConstructorModal').style.display = "flex";
+        }
+
+        function closeNewArticleModal() {
+            document.getElementById('newArticleConstructorModal').style.display = "none";
+        }
+
+        function executeArticleCreationInit() {
+            let targetTitleStr = document.getElementById('newArticleTitleInput').value.trim();
+            let selectedCategoryStr = document.getElementById('newArticleCategorySelect').value;
+
+            if(!targetTitleStr) {
+                alert("⛔ Field Verification Failure: Article asset name identifier required.");
+                return;
+            }
+
+            // Standard MediaWiki Redlink protection logic
+            orlePediaMemoryStore[targetTitleStr] = {
+                title: targetTitleStr,
+                category: selectedCategoryStr,
+                content: "'''${targetTitleStr}''' registry space initialized. Use the operations panel to configure inputs.",
+                talk: "== Talk Board for ${targetTitleStr} ==",
+                history: [{
+                    timestamp: Date.now(),
+                    editor: currentUserSessionProfile.username || "System Core",
+                    tag: currentUserSessionProfile.tag || "Core System",
+                    summary: "Initialized configuration schema mapping boundaries.",
+                    content: "'''${targetTitleStr}''' registry space initialized."
+                }],
+                ratings: [],
+                createdTime: Date.now(),
+                author: currentUserSessionProfile.username || "System Core"
+            };
+
+            closeNewArticleModal();
+            loadArticle(targetTitleStr);
+            triggerToastBannerNotification("✨ Dynamic layout canvas successfully created.");
+        }
+
+        // RECENT CHANGES LOG FEED GENERATOR
+        function loadRecentChangesView() {
+            exitEditorDashboard();
+            document.getElementById('displayArticleTitle').innerText = "Special: Recent Changes";
+            document.getElementById('articleStarsContainer').innerHTML = "";
+
+            let aggregateLogsArray = [];
+            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                if(article.history) {
+                    article.history.forEach(historyLogNode => {
+                        aggregateLogsArray.push({
+                            articleTitle: article.title,
+                            timestamp: historyLogNode.timestamp,
+                            editor: historyLogNode.editor,
+                            summary: historyLogNode.summary
+                        });
+                    });
+                }
+            }
+
+            // Sort chronologically based on Unix Timestamp
+            aggregateLogsArray.sort((a,b) => b.timestamp - a.timestamp);
+
+            let recentChangesMarkupHtml = `<p>Tracking operational data modification history across the encyclopedia system network:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
+            
+            aggregateLogsArray.forEach(item => {
+                let formattedTime = new Date(item.timestamp).toLocaleString();
+                recentChangesMarkupHtml += `
+                    <div style="font-size:0.85rem; padding:0.4rem; border-bottom:1px dashed #ddd;">
+                        ⏱️ <span>${formattedTime}</span> — 
+                        (<span class="wiki-link" onclick="loadArticle('${item.articleTitle}')">${item.articleTitle}</span>) 
+                        <strong>${item.editor}</strong>: 
+                        <span style="color:#666; font-style:italic;">"${item.summary}"</span>
+                    </div>
+                `;
+            });
+
+            recentChangesMarkupHtml += `</div>`;
+            document.getElementById('wikiTabContentBody').innerHTML = recentChangesMarkupHtml;
+        }
+
+        // MODAL INFOBOX GENERATION WIZARD FUNCTIONS
+        function openInfoboxWizard() { document.getElementById('infoboxWizardModal').style.display = "flex"; }
+        function closeInfoboxWizard() { document.getElementById('infoboxWizardModal').style.display = "none"; }
+
+        function addCustomParamRowField() {
+            const container = document.getElementById('infoboxCustomParamsContainer');
+            const row = document.createElement('div');
+            row.className = "modal-horizontal row-param";
+            row.innerHTML = `<input type="text" placeholder="Key (e.g. Governor)" class="p-key"><input type="text" placeholder="Value" class="p-val">`;
+            container.appendChild(row);
+        }
+
+        function compileAndInjectInfoboxMarkup() {
+            let nameVal = document.getElementById('ib_name').value;
+            let sealVal = document.getElementById('ib_seal').value;
+            let flagVal = document.getElementById('ib_flag').value;
+            let mapVal = document.getElementById('ib_map').value;
+
+            let markupBuffer = `{{Infobox\n|name=${nameVal}\n|seal=${sealVal}\n|flag=${flagVal}\n|map=${mapVal}\n`;
+
+            const rows = document.querySelectorAll('.row-param');
+            rows.forEach(r => {
+                let k = r.querySelector('.p-key').value.trim();
+                let v = r.querySelector('.p-val').value.trim();
+                if(k && v) { markupBuffer += `|${k}=${v}\n`; }
+            });
+
+            markupBuffer += `}}\n`;
+
+            // Splice data string context inside current editor window position
+            const editorTxtarea = document.getElementById('wikiRawInputTextarea');
+            let currentCursorIndex = editorTxtarea.selectionStart;
+            let baseText = editorTxtarea.value;
+            
+            editorTxtarea.value = baseText.substring(0, currentCursorIndex) + markupBuffer + baseText.substring(currentCursorIndex);
+            
+            closeInfoboxWizard();
+            triggerClientPreview();
+        }
+
+        // HELPER UTILITIES
+        function escapeHtmlCode(textString) {
+            if(!textString) return "";
+            return textString.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function triggerToastBannerNotification(messageText) {
+            console.log(`[ALERT BROADCAST]: ${messageText}`);
+            alert(messageText); // Direct modal alert to maintain multi-device focus stability
+        }
+
+        function jumpToFootnotesSection() {
+            const targetEl = document.getElementById('footnotesGroupContainer');
+            if(targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
