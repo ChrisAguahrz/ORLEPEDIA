@@ -1086,6 +1086,10 @@ async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) 
             const targetEl = document.getElementById('footnotesGroupContainer');
             if(targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
         }
+   // Automatically pull all articles from the database as soon as the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    loadOrlePediaDataFromCloud();
+});
     </script>
 </body>
 </html>
