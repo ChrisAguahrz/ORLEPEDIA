@@ -128,7 +128,6 @@
 </head>
 <body>
 
-    <!-- Left MediaWiki Sidebar Controls -->
     <aside>
         <div class="logo-area">Orle<span>Pedia</span></div>
         <a class="nav-link" onclick="loadArticle('Main Page')">🏠 Main Page</a>
@@ -142,15 +141,12 @@
         <a class="nav-link" onclick="openProfileWindow()">👤 Edit My Profile</a>
     </aside>
 
-    <!-- Main Active Workspace Environment Grid -->
     <main>
-        <!-- Identity Profiler Header Banner -->
         <div id="userHeaderBanner">
             <div id="identityGreeting">Welcome to OrlePedia. Please register a profile moniker to contribute adjustments.</div>
             <div id="headerUserBadge"></div>
         </div>
 
-        <!-- Article Framework View Container -->
         <div id="articleContainerWrapper">
             <div class="firstHeading">
                 <div style="display:flex; align-items:center; gap:0.5rem;">
@@ -160,7 +156,6 @@
                 <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;">✏️ Edit</button>
             </div>
 
-            <!-- Vector Style Action Tabs Grid -->
             <div class="wiki-tabs">
                 <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
                 <div class="wiki-tab" id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
@@ -168,13 +163,10 @@
                 <div class="wiki-tab" id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
             </div>
 
-            <!-- Tab Presentation Layers -->
             <div id="wikiTabContentBody" class="wiki-body">
-                <!-- Data injections parse out here seamlessly -->
-            </div>
+                </div>
         </div>
 
-        <!-- Master Editor Deck Dashboard -->
         <div id="masterEditorContainer" class="editor-dashboard">
             <div class="toolbar">
                 <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
@@ -197,20 +189,16 @@
                 <button class="action-btn" onclick="exitEditorDashboard()" style="background:#64748b; color:white;">Cancel</button>
             </div>
 
-            <!-- Code Diff View Panels -->
             <div class="preview-pane-container" id="editorLivePreviewCard">
                 <div class="preview-title">Live Client Render Preview</div>
                 <div id="editorLivePreviewContent" class="wiki-body"></div>
             </div>
 
             <div class="github-diff-board" id="editorGitDiffContainer">
-                <!-- Diff streams append here -->
-            </div>
+                </div>
         </div>
     </main>
 
-    <!-- Modal Layout Interface Framework Panels -->
-    <!-- Infobox Generation Matrix Generator -->
     <div class="modal-overlay" id="infoboxWizardModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Infobox Structural Data Builder</div>
@@ -251,7 +239,6 @@
         </div>
     </div>
 
-    <!-- Article Constructor Prompt Modal -->
     <div class="modal-overlay" id="newArticleConstructorModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem;">Construct New Matrix Article</div>
@@ -274,7 +261,6 @@
         </div>
     </div>
 
-    <!-- Profile Editor Modal Canvas -->
     <div class="modal-overlay" id="userProfileIdentityModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem;">User Contributor Profiler</div>
@@ -293,7 +279,6 @@
         </div>
     </div>
 
-    <!-- SYSTEM CORE SCRIPT PIPELINE ENGINE -->
     <script>
         // GLOBAL ENCYCLOPEDIA DATABASE ARCHITECTURE
         let orlePediaMemoryStore = {
@@ -369,11 +354,11 @@
                             content: art.content,
                             talk: orlePediaMemoryStore[art.title]?.talk || `== Talk Board for ${art.title} ==`,
                             history: orlePediaMemoryStore[art.title]?.history || [
-                                { timestamp: Date.now(), editor: art.author || "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
+                                { timestamp: Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
                             ],
                             ratings: orlePediaMemoryStore[art.title]?.ratings || [5],
                             createdTime: Date.parse(art.created_at) || Date.now(),
-                            author: art.author || "Cloud Contributor"
+                            author: "Cloud Contributor"
                         };
                     });
                     console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
@@ -384,40 +369,58 @@
             }
         }
 
-        // 2. SAVE NEW ARTICLES OR EDITS (Correctly catching UI action calls)
+        // 2. SAVE NEW ARTICLES OR EDITS (Database Constraint Fixed)
         async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
             console.log(`🛰️ Cloud dispatch triggered for action: [${actionType}]`);
             try {
                 if (actionType === "ARTICLE_COMMIT_SAVE" || actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE") {
+                    
                     const title = payloadData.title;
                     const content = payloadData.databaseNode?.content || payloadData.content || "";
                     const category = payloadData.databaseNode?.category || "General Indexes";
-
-                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
                     
+                    // Safely extract the revision number and summary from your local memory object
+                    const totalRevs = payloadData.databaseNode?.history?.length || 1;
+                    const summaryTxt = payloadData.databaseNode?.history?.slice(-1)[0]?.summary || 'Interface update modification';
+
+                    // 1. Check if the article already exists
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
+                    let targetArticleId;
+                    
+                    // Payload matching database schema
                     const articlePayload = {
                         title: title,
                         content: content,
                         summary: category,
-                        author: currentUserSessionProfile.username || "Anonymous"
+                        total_revisions: totalRevs
                     };
 
                     if (existing.length === 0) {
-                        await supabaseRequest('articles', 'POST', articlePayload);
+                        // 2A. NEW ARTICLE: Post it, and actually capture the new ID generated by the database
+                        const newArt = await supabaseRequest('articles', 'POST', articlePayload);
+                        targetArticleId = newArt[0].id; 
                         console.log("✅ Created brand new article row in cloud database!");
                     } else {
-                        await supabaseRequest(`articles?id=eq.${existing[0].id}`, 'PATCH', articlePayload);
+                        // 2B. EXISTING ARTICLE: Update it using its real ID
+                        targetArticleId = existing[0].id;
+                        await supabaseRequest(`articles?id=eq.${targetArticleId}`, 'PATCH', articlePayload);
                         console.log("✅ Updated existing article row in cloud database!");
                     }
                     
+                    // 3. REVISION HISTORY: Sent with the correct article_id and the strictly required revision_number
                     await supabaseRequest('revisions', 'POST', {
-                        article_id: existing[0]?.id || 1,
+                        article_id: targetArticleId,
                         new_content: content,
-                        edit_summary: payloadData.databaseNode?.history?.slice(-1)[0]?.summary || 'Interface update modification'
+                        edit_summary: summaryTxt,
+                        revision_number: totalRevs
                     });
+                    
+                    console.log("✅ Database transaction completely finished without errors.");
                 }
             } catch (err) {
                 console.error("❌ Failed to save to database transaction pipelines:", err);
+                // Force an alert so if it fails again, you instantly see EXACTLY what the database complained about
+                alert("Database Error: " + err.message); 
             }
         }
 
@@ -753,7 +756,7 @@
                     <div><b>Entity Target Field Label:</b> ${articleObj.title}</div>
                     <div><b>Administrative Core Index Category:</b> ${articleObj.category}</div>
                     <div><b>Initialization Mapping Date:</b> ${createdDateString}</div>
-                    <div><b>Original Base System Author:</b> <span class="user-tag">${articleObj.author}</span></div>
+                    <div><b>Original Base System Author:</b> <span class="user-tag">${articleObj.author || 'System Core'}</span></div>
                     <div><b>Total Processing Modifications Committed:</b> ${articleObj.history.length} operations</div>
                     <div><b>Average Active User Page Quality Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
                 </div>
