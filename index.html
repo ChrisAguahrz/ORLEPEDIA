@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+        <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <style>
@@ -15,9 +15,6 @@
             --border-wiki: #a2a9b1;
             --text-dark: #202122;
             --text-muted: #54595d;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
             
             /* GitHub Diff Theme Colors */
             --diff-remove-bg: #ffebe9;
@@ -27,7 +24,7 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
+        body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
 
         /* Left Vector Navigation Sidebar - COLLAPSIBLE */
         aside { 
@@ -37,49 +34,34 @@
             flex-direction: column; 
             gap: 1rem; 
             border-right: 1px solid var(--border-wiki); 
-            background-color: var(--bg-canvas); 
-            position: relative;
-            transition: width 0.3s ease, margin-left 0.3s ease;
+            background-color: var(--bg-canvas);
+            transition: width 0.3s ease;
             overflow-y: auto;
             max-height: 100vh;
+            position: relative;
         }
         
-        aside.collapsed { 
-            width: 50px; 
-            padding: 1rem 0.5rem;
-        }
+        aside.collapsed { width: 50px; padding: 1rem 0.5rem; }
+        aside.collapsed .sidebar-text { display: none; }
         
-        aside.collapsed .sidebar-content { 
-            display: none; 
-        }
-        
-        aside.collapsed .toggle-sidebar-btn { 
-            width: 100%;
-        }
-        
-        .toggle-sidebar-btn {
+        .sidebar-toggle-btn {
             background: none;
             border: none;
             cursor: pointer;
-            font-size: 1.2rem;
+            font-size: 1rem;
             padding: 0.5rem;
             color: var(--wiki-blue);
             border-radius: 4px;
             transition: background 0.2s;
+            width: 100%;
+            text-align: center;
             display: none;
-            align-items: center;
-            justify-content: center;
         }
         
-        .toggle-sidebar-btn:hover {
-            background: #eaecf0;
-        }
+        aside.collapsed .sidebar-toggle-btn { display: block; }
+        .sidebar-toggle-btn:hover { background: #eaecf0; }
         
-        aside.collapsed .toggle-sidebar-btn {
-            display: flex;
-        }
-        
-        .sidebar-content { transition: opacity 0.2s; }
+        .sidebar-text { transition: opacity 0.2s; }
         
         .logo-area { 
             font-size: 1.4rem; 
@@ -99,6 +81,7 @@
             padding: 0.4rem 0.5rem;
             border-radius: 3px;
             transition: background 0.2s;
+            display: block;
         }
         .nav-link:hover { 
             background: #eaecf0;
@@ -120,16 +103,12 @@
         /* Global User Status Header */
         #userHeaderBanner { 
             display: flex; 
-            justify-content: space-between; 
+            justify-content: flex-end; 
             align-items: center; 
             gap: 1rem; 
             font-size: 0.85rem; 
             border-bottom: 1px solid #eaecf0; 
             padding-bottom: 0.5rem;
-        }
-        
-        #userHeaderBanner > div:first-child {
-            flex: 1;
         }
         
         .user-tag { 
@@ -141,10 +120,7 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        
-        .user-tag:hover {
-            background: #d0e8ff;
-        }
+        .user-tag:hover { background: #d0e8ff; }
 
         /* Modern Search Bar */
         .search-container {
@@ -152,6 +128,7 @@
             gap: 0.5rem;
             margin-bottom: 1rem;
             position: relative;
+            max-width: 400px;
         }
         
         .search-input {
@@ -178,62 +155,25 @@
             border: 1px solid var(--border-wiki);
             border-top: none;
             border-radius: 0 0 4px 4px;
-            max-height: 400px;
+            max-height: 300px;
             overflow-y: auto;
             display: none;
             z-index: 100;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         
-        .search-results.active {
-            display: block;
-        }
+        .search-results.active { display: block; }
         
         .search-result-item {
-            padding: 0.8rem;
+            padding: 0.6rem;
             border-bottom: 1px solid #eaecf0;
             cursor: pointer;
-            display: flex;
-            gap: 0.8rem;
-            align-items: flex-start;
             transition: background 0.2s;
         }
         
-        .search-result-item:hover {
-            background: #f8f9fa;
-        }
-        
-        .search-result-image {
-            width: 40px;
-            height: 40px;
-            background: #f0f0f0;
-            border-radius: 3px;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        
-        .search-result-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .search-result-info {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .search-result-title {
-            font-weight: bold;
-            color: var(--wiki-blue);
-            font-size: 0.9rem;
-        }
-        
-        .search-result-namespace {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.2rem;
-        }
+        .search-result-item:hover { background: #f8f9fa; }
+        .search-result-title { font-weight: bold; color: var(--wiki-blue); font-size: 0.9rem; }
+        .search-result-namespace { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
 
         /* Article Structure Presentation */
         .firstHeading { 
@@ -245,19 +185,6 @@
             display: flex; 
             justify-content: space-between; 
             align-items: flex-end;
-        }
-        
-        .heading-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex: 1;
-        }
-        
-        .heading-right {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
         }
         
         .wiki-tabs { 
@@ -277,9 +204,7 @@
             background: transparent;
             transition: background 0.2s;
         }
-        .wiki-tab:hover {
-            background: #f8f9fa;
-        }
+        .wiki-tab:hover { background: #f8f9fa; }
         .wiki-tab.active { 
             background: var(--bg-page); 
             border-color: var(--border-wiki); 
@@ -289,35 +214,53 @@
             font-weight: bold;
         }
 
-        /* Right Sidebar for Article Info */
-        .article-sidebar {
+        /* Right Sidebar for Article Info - COLLAPSIBLE */
+        .article-info-sidebar {
             position: fixed;
-            left: 0;
+            right: 0;
             top: 0;
             width: 280px;
             height: 100vh;
             background: #f8f9fa;
-            border-right: 1px solid var(--border-wiki);
+            border-left: 1px solid var(--border-wiki);
             padding: 1rem;
             overflow-y: auto;
             display: none;
             z-index: 50;
             flex-direction: column;
             gap: 1rem;
+            transition: width 0.3s ease;
         }
         
-        .article-sidebar.visible {
+        .article-info-sidebar.visible { display: flex; }
+        .article-info-sidebar.collapsed { width: 40px; }
+        .article-info-sidebar.collapsed .info-content { display: none; }
+        
+        .info-header {
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-wiki);
         }
         
-        .sidebar-section {
+        .info-toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 0.3rem;
+            color: var(--wiki-blue);
+        }
+        
+        .info-section {
             border: 1px solid var(--border-wiki);
             background: #fff;
             border-radius: 4px;
             overflow: hidden;
         }
         
-        .sidebar-section-header {
+        .info-section-header {
             background: #eaecf0;
             padding: 0.6rem;
             font-weight: bold;
@@ -329,22 +272,18 @@
             user-select: none;
         }
         
-        .sidebar-section-header:hover {
-            background: #d9dfe5;
-        }
+        .info-section-header:hover { background: #d9dfe5; }
         
-        .sidebar-section-content {
+        .info-section-content {
             padding: 0.8rem;
             font-size: 0.8rem;
             line-height: 1.6;
             display: none;
         }
         
-        .sidebar-section-content.expanded {
-            display: block;
-        }
+        .info-section-content.expanded { display: block; }
         
-        .sidebar-stat {
+        .info-stat {
             display: flex;
             justify-content: space-between;
             margin-bottom: 0.5rem;
@@ -352,21 +291,9 @@
             border-bottom: 1px solid #eaecf0;
         }
         
-        .sidebar-stat:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        
-        .sidebar-stat-label {
-            font-weight: bold;
-            color: var(--text-muted);
-        }
-        
-        .sidebar-stat-value {
-            color: var(--text-dark);
-            font-weight: bold;
-        }
+        .info-stat:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .info-stat-label { font-weight: bold; color: var(--text-muted); }
+        .info-stat-value { color: var(--text-dark); font-weight: bold; }
 
         /* Built-In MediaWiki Styles */
         .wiki-body p { margin-bottom: 0.8rem; line-height: 1.6; font-size: 0.95rem; text-align: justify; }
@@ -399,16 +326,7 @@
         /* Advanced Engineering Edit Cockpit */
         .editor-dashboard { display: none; flex-direction: column; gap: 1rem; }
         .toolbar { background: #f8f9fa; border: 1px solid var(--border-wiki); padding: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-radius: 4px 4px 0 0; border-bottom: none; }
-        .tool-btn { 
-            background: #fff; 
-            border: 1px solid var(--border-wiki); 
-            padding: 0.3rem 0.6rem; 
-            font-size: 0.8rem; 
-            cursor: pointer; 
-            border-radius: 2px; 
-            font-weight: bold;
-            transition: background 0.2s;
-        }
+        .tool-btn { background: #fff; border: 1px solid var(--border-wiki); padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer; border-radius: 2px; font-weight: bold; transition: background 0.2s; }
         .tool-btn:hover { background: #f0f0f0; }
         textarea.wiki-editor { width: 100%; height: 350px; font-family: monospace; font-size: 0.9rem; padding: 0.75rem; border: 1px solid var(--border-wiki); border-radius: 0 0 4px 4px; outline: none; resize: vertical; background: #fff; color: #000; }
         .summary-input { width: 100%; padding: 0.5rem; border: 1px solid var(--border-wiki); border-radius: 4px; font-size: 0.85rem; }
@@ -419,13 +337,11 @@
         
         /* GitHub Styling Split Diff Grid - WORD LEVEL */
         .github-diff-board { display: flex; flex-direction: column; gap: 2px; font-family: monospace; font-size: 0.85rem; background: #fff; border: 1px solid var(--border-wiki); border-radius: 4px; overflow: hidden; margin-top: 1rem; display: none; }
-        .diff-line { display: flex; padding: 0.15rem 0.5rem; white-space: pre-wrap; align-items: flex-start; }
+        .diff-line { display: flex; padding: 0.15rem 0.5rem; white-space: pre-wrap; }
         .diff-line.removed { background-color: var(--diff-remove-bg); color: var(--diff-remove-text); }
         .diff-line.added { background-color: var(--diff-add-bg); color: var(--diff-add-text); }
         .diff-line.neutral { background-color: #ffffff; color: #555555; }
-        .diff-marker { width: 25px; display: inline-block; user-select: none; font-weight: bold; flex-shrink: 0; }
-        .diff-word { display: inline; margin: 0 2px; }
-        .diff-word.changed { font-weight: bold; }
+        .diff-marker { width: 25px; display: inline-block; user-select: none; font-weight: bold; }
 
         /* Reference Super & Footnote Layout Modules */
         .reference-citation { font-size: 0.75rem; font-weight: bold; vertical-align: super; line-height: 0; margin-left: 2px; color: var(--wiki-blue); cursor: pointer; }
@@ -443,30 +359,16 @@
 
         /* System Action Blocks Layout */
         .btn-set { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
-        .action-btn { 
-            padding: 0.5rem 1rem; 
-            border-radius: 4px; 
-            font-size: 0.85rem; 
-            font-weight: bold; 
-            border: 1px solid var(--border-wiki); 
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+        .action-btn { padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border-wiki); cursor: pointer; transition: all 0.2s; }
         .action-btn.primary { background: var(--wiki-blue); color: white; border-color: var(--wiki-blue); }
         .action-btn.primary:hover { background: var(--wiki-blue-hover); }
-        .action-btn.success { background: var(--success); color: white; border-color: var(--success); }
+        .action-btn.success { background: #10b981; color: white; border-color: #10b981; }
         .action-btn.success:hover { background: #059669; }
-        .action-btn.danger { background: var(--error); color: white; border-color: var(--error); }
+        .action-btn.danger { background: #ef4444; color: white; border-color: #ef4444; }
         .action-btn.danger:hover { background: #dc2626; }
-        .action-btn:hover { opacity: 0.9; }
 
         /* General Wiki Modules Grid */
-        .history-log-item { 
-            padding: 0.5rem; 
-            border-bottom: 1px solid #eaecf0; 
-            font-size: 0.85rem; 
-            line-height: 1.4;
-        }
+        .history-log-item { padding: 0.5rem; border-bottom: 1px solid #eaecf0; font-size: 0.85rem; line-height: 1.4; }
         .history-log-item:last-child { border-bottom: none; }
         .history-timestamp { color: var(--text-muted); font-size: 0.8rem; }
         .history-summary { font-style: italic; color: #444; background: #f8f9fa; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
@@ -514,68 +416,52 @@
             max-width: 400px;
         }
         
-        .confirmation-dialog.active {
-            display: flex;
-        }
-        
-        .confirmation-dialog h3 {
-            margin: 0;
-            font-size: 1.1rem;
-        }
-        
-        .confirmation-dialog p {
-            margin: 0;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-        
-        .confirmation-dialog .btn-set {
-            justify-content: flex-end;
+        .confirmation-dialog.active { display: flex; }
+        .confirmation-dialog h3 { margin: 0; font-size: 1.1rem; }
+        .confirmation-dialog p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
+        .confirmation-dialog .btn-set { justify-content: flex-end; }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            main { padding: 1rem 1.5rem; }
+            .search-container { max-width: 100%; }
         }
 
-        /* Byte indicator styling */
-        .byte-change {
-            font-size: 0.75rem;
-            font-weight: bold;
-            padding: 2px 6px;
-            border-radius: 3px;
-            display: inline-block;
-        }
-        
-        .byte-change.positive {
-            background: #e6ffec;
-            color: #0a3014;
-        }
-        
-        .byte-change.negative {
-            background: #ffebe9;
-            color: #65020c;
-        }
-
-        /* Responsive adjustments */
         @media (max-width: 768px) {
-            aside { width: 50px; }
-            aside.collapsed .sidebar-content { display: none; }
-            .search-results { max-width: 300px; }
+            body { flex-direction: column; }
+            aside { width: 100%; max-height: auto; border-right: none; border-bottom: 1px solid var(--border-wiki); padding: 1rem; }
+            aside.collapsed { width: 100%; padding: 0.5rem 1rem; }
+            main { padding: 1rem; }
+            .article-info-sidebar { width: 100%; height: auto; border-left: none; border-top: 1px solid var(--border-wiki); position: relative; right: auto; top: auto; }
+            .firstHeading { flex-direction: column; gap: 0.5rem; }
+            .wiki-tabs { flex-wrap: wrap; }
+            .search-container { max-width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            aside { padding: 0.5rem; }
+            main { padding: 0.5rem; }
+            .modal-card { width: 90%; }
+            .portable-infobox { float: none; width: 100%; margin: 1rem 0; }
         }
     </style>
 </head>
 <body>
 
     <aside>
-        <button class="toggle-sidebar-btn" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
-        <div class="sidebar-content">
+        <button class="sidebar-toggle-btn" onclick="toggleMainSidebar()" title="Toggle Sidebar">≡</button>
+        <div class="sidebar-text">
             <div class="logo-area">Orle<span>Pedia</span></div>
-            <a class="nav-link" onclick="loadArticle('Main Page')">🏠 Main Page</a>
-            <a class="nav-link" onclick="loadRecentChangesView()">📝 Recent Changes</a>
-            <a class="nav-link" onclick="openNewArticleModal()">➕ New Article</a>
-            <a class="nav-link" onclick="loadStatisticsView()">📊 Statistics</a>
+            <a class="nav-link" onclick="loadArticle('Main Page')">Main Page</a>
+            <a class="nav-link" onclick="loadRecentChangesView()">Recent Changes</a>
+            <a class="nav-link" onclick="openNewArticleModal()">Create Article</a>
+            <a class="nav-link" onclick="loadStatisticsView()">Statistics</a>
             <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
             <div style="font-size:0.75rem; font-weight:bold; color:var(--text-muted)">BROWSE</div>
-            <a class="nav-link" onclick="loadAllArticlesView()">📚 All Articles</a>
-            <a class="nav-link" onclick="loadCategoryView('all')">🏷️ Categories</a>
+            <a class="nav-link" onclick="loadAllArticlesView()">All Articles</a>
+            <a class="nav-link" onclick="loadCategoryView('all')">Categories</a>
             <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-            <a class="nav-link" onclick="openProfileWindow()">👤 My Profile</a>
+            <a class="nav-link" onclick="openProfileWindow()">My Profile</a>
         </div>
     </aside>
 
@@ -586,27 +472,28 @@
         </div>
 
         <div class="search-container">
-            <input type="text" class="search-input" id="globalSearchInput" placeholder="Search articles, files, categories..." onkeyup="performGlobalSearch()">
+            <input type="text" class="search-input" id="globalSearchInput" placeholder="Search articles..." onkeyup="performGlobalSearch()">
             <div class="search-results" id="searchResults"></div>
         </div>
 
         <div id="articleContainerWrapper">
             <div class="firstHeading">
-                <div class="heading-left">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
                     <span id="displayArticleTitle">Main Page</span>
                     <div class="star-rating-cluster" id="articleStarsContainer"></div>
                 </div>
-                <div class="heading-right">
-                    <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;">✏️ Edit</button>
-                    <button class="tool-btn" id="deleteArticleBtn" onclick="openDeleteArticleDialog()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px; color:var(--wiki-red);">🗑️ Delete</button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem;">Edit</button>
+                    <button class="tool-btn" id="deleteArticleBtn" onclick="openDeleteArticleDialog()" style="font-size:0.8rem; color:var(--wiki-red); display:none;">Delete</button>
+                    <button class="tool-btn" id="infoToggleBtn" onclick="toggleArticleInfoSidebar()" style="font-size:0.8rem;">Info</button>
                 </div>
             </div>
 
             <div class="wiki-tabs">
                 <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
-                <div class="wiki-tab" id="tabTalk" onclick="switchSubTab('talk')">Talk</div>
-                <div class="wiki-tab" id="tabHistory" onclick="switchSubTab('history')">History</div>
-                <div class="wiki-tab" id="tabMeta" onclick="switchSubTab('meta')">Info</div>
+                <div class="wiki-tab" id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
+                <div class="wiki-tab" id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
+                <div class="wiki-tab" id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
             </div>
 
             <div id="wikiTabContentBody" class="wiki-body">
@@ -617,27 +504,27 @@
             <div class="toolbar">
                 <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
                 <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
-                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 Link</button>
-                <button class="tool-btn" onclick="wrapEditorText('[[File|URL|200px|', ']]')">🖼️ Image</button>
-                <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">📑 Ref</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">WikiLink</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[File|URL|200px|', ']]')">Image</button>
+                <button class="tool-btn" onclick="openInfoboxWizard()">Infobox</button>
+                <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">Citation</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n=== ', ' ===\n')">H3</button>
-                <button class="tool-btn" onclick="wrapEditorText('[[Category:', ']]')">🏷️ Category</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[Category:', ']]')">Category</button>
             </div>
-            <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write MediaWiki markup here..."></textarea>
+            <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
             
-            <input type="text" id="wikiEditSummaryInput" class="summary-input" placeholder="Edit summary (optional)...">
+            <input type="text" id="wikiEditSummaryInput" class="summary-input" placeholder="Describe what adjustments you made (Edit Summary - optional)...">
             
             <div class="btn-set">
-                <button class="action-btn success" onclick="saveActiveArticleState()">Save Changes</button>
-                <button class="action-btn" onclick="triggerClientPreview()">Preview</button>
-                <button class="action-btn" onclick="triggerGitDiffCalculation()">Show Changes</button>
+                <button class="action-btn success" onclick="saveActiveArticleState()">Commit Adjustments</button>
+                <button class="action-btn" onclick="triggerClientPreview()">Live Preview</button>
+                <button class="action-btn" onclick="triggerGitDiffCalculation()">Show Code Changes</button>
                 <button class="action-btn" onclick="exitEditorDashboard()" style="background:#64748b; color:white; border-color:#64748b;">Cancel</button>
             </div>
 
             <div class="preview-pane-container" id="editorLivePreviewCard">
-                <div class="preview-title">Live Preview</div>
+                <div class="preview-title">Live Client Render Preview</div>
                 <div id="editorLivePreviewContent" class="wiki-body"></div>
             </div>
 
@@ -647,43 +534,43 @@
     </main>
 
     <!-- Article Info Sidebar -->
-    <div class="article-sidebar" id="articleSidebar">
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0;">
-            <span style="font-weight:bold;">Article Info</span>
-            <button class="tool-btn" onclick="closeArticleSidebar()" style="padding:0.2rem 0.4rem;">✕</button>
+    <div class="article-info-sidebar" id="articleInfoSidebar">
+        <div class="info-header">
+            <span style="font-weight:bold; font-size:0.9rem;">Article Info</span>
+            <button class="info-toggle-btn" onclick="toggleArticleInfoSidebar()" title="Close">×</button>
         </div>
         
-        <div class="sidebar-section">
-            <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+        <div class="info-section">
+            <div class="info-section-header" onclick="toggleInfoSection(this)">
                 <span>Page Information</span>
                 <span>▼</span>
             </div>
-            <div class="sidebar-section-content expanded">
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Author:</span>
-                    <span class="sidebar-stat-value" id="sidebarAuthor">Unknown</span>
+            <div class="info-section-content expanded">
+                <div class="info-stat">
+                    <span class="info-stat-label">Author:</span>
+                    <span class="info-stat-value" id="infoAuthor">Unknown</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Created:</span>
-                    <span class="sidebar-stat-value" id="sidebarCreated">—</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Created:</span>
+                    <span class="info-stat-value" id="infoCreated">—</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Size:</span>
-                    <span class="sidebar-stat-value" id="sidebarSize">0 B</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Size:</span>
+                    <span class="info-stat-value" id="infoSize">0 B</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Revisions:</span>
-                    <span class="sidebar-stat-value" id="sidebarRevisions">0</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Revisions:</span>
+                    <span class="info-stat-value" id="infoRevisions">0</span>
                 </div>
             </div>
         </div>
         
-        <div class="sidebar-section">
-            <div class="sidebar-section-header" onclick="toggleSidebarSection(this)">
+        <div class="info-section">
+            <div class="info-section-header" onclick="toggleInfoSection(this)">
                 <span>Recent Changes</span>
                 <span>▼</span>
             </div>
-            <div class="sidebar-section-content" id="sidebarRecentChanges">
+            <div class="info-section-content" id="infoRecentChanges">
                 <div style="color:var(--text-muted);">No changes yet</div>
             </div>
         </div>
@@ -692,32 +579,32 @@
     <!-- Modal Overlays -->
     <div class="modal-overlay" id="infoboxWizardModal">
         <div class="modal-card">
-            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Infobox Builder</div>
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Infobox Structural Data Builder</div>
             <div class="modal-row">
-                <label>Name</label>
-                <input type="text" id="ib_name" placeholder="Entity name">
+                <label>Entity / Name Heading</label>
+                <input type="text" id="ib_name" value="Commonwealth Territory">
             </div>
             <div class="modal-horizontal">
                 <div class="modal-row">
-                    <label>Seal URL</label>
-                    <input type="text" id="ib_seal" placeholder="https://...">
+                    <label>State Seal Image URL</label>
+                    <input type="text" id="ib_seal" value="https://images.unsplash.com/photo-1599420186946-7b6fb4e297f0?w=80&auto=format&fit=crop">
                 </div>
                 <div class="modal-row">
-                    <label>Flag URL</label>
-                    <input type="text" id="ib_flag" placeholder="https://...">
+                    <label>Flag Image URL</label>
+                    <input type="text" id="ib_flag" value="">
                 </div>
             </div>
             <div class="modal-row">
-                <label>Map URL</label>
-                <input type="text" id="ib_map" placeholder="https://...">
+                <label>Map Image URL</label>
+                <input type="text" id="ib_map" value="">
             </div>
             <div class="modal-row">
-                <label>Custom Fields</label>
+                <label>Custom Parameters</label>
                 <div id="infoboxCustomParamsContainer"></div>
-                <button class="tool-btn" onclick="addCustomParamRowField()" style="margin-top:0.5rem;">+ Add Field</button>
+                <button class="tool-btn" onclick="addCustomParamRowField()" style="margin-top:0.5rem;">Add Field</button>
             </div>
             <div class="btn-set">
-                <button class="action-btn primary" onclick="compileAndInjectInfoboxMarkup()">Insert</button>
+                <button class="action-btn success" onclick="compileAndInjectInfoboxMarkup()">Insert Infobox</button>
                 <button class="action-btn" onclick="closeInfoboxWizard()">Cancel</button>
             </div>
         </div>
@@ -740,10 +627,6 @@
                     <option value="SpecialPages">Special Pages</option>
                 </select>
             </div>
-            <div class="modal-row">
-                <label>Description (optional)</label>
-                <textarea id="newArticleDescriptionInput" placeholder="Brief description..." style="height:80px;"></textarea>
-            </div>
             <div class="btn-set">
                 <button class="action-btn success" onclick="executeArticleCreationInit()">Create</button>
                 <button class="action-btn" onclick="closeNewArticleModal()">Cancel</button>
@@ -754,7 +637,7 @@
     <div class="modal-overlay" id="profileWindowModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">User Profile</div>
-            <div id="profileDisplayContent">
+            <div id="profileEditContent">
                 <div class="modal-row">
                     <label>Username</label>
                     <input type="text" id="profileUsernameInput" placeholder="Enter username...">
@@ -769,25 +652,25 @@
                 </div>
             </div>
             <div id="profileViewContent" style="display:none;">
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Username:</span>
-                    <span class="sidebar-stat-value" id="profileViewUsername">—</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Username:</span>
+                    <span class="info-stat-value" id="profileViewUsername">—</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Tag:</span>
-                    <span class="sidebar-stat-value" id="profileViewTag">—</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Tag:</span>
+                    <span class="info-stat-value" id="profileViewTag">—</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Bio:</span>
-                    <span class="sidebar-stat-value" id="profileViewBio">—</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Bio:</span>
+                    <span class="info-stat-value" id="profileViewBio">—</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Total Edits:</span>
-                    <span class="sidebar-stat-value" id="profileViewEdits">0</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Total Edits:</span>
+                    <span class="info-stat-value" id="profileViewEdits">0</span>
                 </div>
-                <div class="sidebar-stat">
-                    <span class="sidebar-stat-label">Pages Created:</span>
-                    <span class="sidebar-stat-value" id="profileViewPages">0</span>
+                <div class="info-stat">
+                    <span class="info-stat-label">Pages Created:</span>
+                    <span class="info-stat-value" id="profileViewPages">0</span>
                 </div>
             </div>
             <div class="btn-set">
@@ -802,7 +685,7 @@
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem; color:var(--wiki-red); border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Delete Article</div>
             <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:0.8rem; margin-bottom:0.5rem; font-size:0.9rem;">
-                <strong>⚠️ Warning:</strong> This action cannot be undone. The article will be permanently deleted.
+                <strong>Warning:</strong> This action cannot be undone. The article will be permanently deleted.
             </div>
             <div class="modal-row">
                 <label>Article to Delete</label>
@@ -834,16 +717,13 @@
         let orlePediaMemoryStore = {
             'Main Page': {
                 title: 'Main Page',
-                namespace: 'Article',
-                content: `== Welcome to OrlePedia ==\n\nOrlePedia is a free online encyclopedia that anyone can edit. We have ''${Object.keys(orlePediaMemoryStore).length}'' articles.\n\n== Getting Started ==\n\n* [[Help:Contents|Help Contents]]\n* [[Special:RecentChanges|Recent Changes]]\n* [[Special:Statistics|Statistics]]`,
+                category: 'General Indexes',
+                content: `'''Main Page''' is the front page of OrlePedia. Welcome to our free encyclopedia!`,
                 talk: `== Main Discussion ==\nUse this page for discussing the Main Page.`,
                 history: [],
                 ratings: [],
                 createdTime: Date.now(),
-                author: 'System',
-                categories: [],
-                imageUrl: null,
-                size: 0
+                author: 'System Core'
             }
         };
 
@@ -857,7 +737,6 @@
             totalPagesCreated: parseInt(localStorage.getItem('orlepedia_pages') || '0')
         };
 
-        let fileNamespace = {};
         let pendingConfirmation = null;
 
         // ============ INITIALIZATION ============
@@ -869,42 +748,40 @@
         });
 
         // ============ SIDEBAR TOGGLE ============
-        function toggleSidebar() {
+        function toggleMainSidebar() {
             const aside = document.querySelector('aside');
             aside.classList.toggle('collapsed');
             localStorage.setItem('sidebar_collapsed', aside.classList.contains('collapsed'));
         }
 
-        // ============ ARTICLE SIDEBAR ============
-        function openArticleSidebar() {
-            document.getElementById('articleSidebar').classList.add('visible');
-            updateArticleSidebarInfo();
+        // ============ ARTICLE INFO SIDEBAR ============
+        function toggleArticleInfoSidebar() {
+            const sidebar = document.getElementById('articleInfoSidebar');
+            sidebar.classList.toggle('visible');
+            if (sidebar.classList.contains('visible')) {
+                updateArticleInfoSidebar();
+            }
         }
 
-        function closeArticleSidebar() {
-            document.getElementById('articleSidebar').classList.remove('visible');
-        }
-
-        function toggleSidebarSection(header) {
+        function toggleInfoSection(header) {
             const content = header.nextElementSibling;
             content.classList.toggle('expanded');
             const arrow = header.querySelector('span:last-child');
             arrow.textContent = content.classList.contains('expanded') ? '▼' : '▶';
         }
 
-        function updateArticleSidebarInfo() {
+        function updateArticleInfoSidebar() {
             const article = orlePediaMemoryStore[currentActiveArticleKey];
             if (!article) return;
 
             const createdDate = new Date(article.createdTime).toLocaleDateString();
             const sizeInBytes = new Blob([article.content]).size;
 
-            document.getElementById('sidebarAuthor').textContent = article.author || 'Unknown';
-            document.getElementById('sidebarCreated').textContent = createdDate;
-            document.getElementById('sidebarSize').textContent = formatBytes(sizeInBytes);
-            document.getElementById('sidebarRevisions').textContent = article.history.length;
+            document.getElementById('infoAuthor').textContent = article.author || 'Unknown';
+            document.getElementById('infoCreated').textContent = createdDate;
+            document.getElementById('infoSize').textContent = formatBytes(sizeInBytes);
+            document.getElementById('infoRevisions').textContent = article.history.length;
 
-            // Recent changes
             const recentChanges = article.history.slice(-3).reverse();
             let recentHtml = '';
             if (recentChanges.length === 0) {
@@ -919,7 +796,7 @@
                     </div>`;
                 });
             }
-            document.getElementById('sidebarRecentChanges').innerHTML = recentHtml;
+            document.getElementById('infoRecentChanges').innerHTML = recentHtml;
         }
 
         function formatBytes(bytes) {
@@ -946,9 +823,8 @@
                     article.content.toLowerCase().includes(query)) {
                     results.push({
                         title: key,
-                        namespace: article.namespace || 'Article',
-                        imageUrl: article.imageUrl,
-                        preview: article.content.substring(0, 100)
+                        category: article.category || 'Article',
+                        preview: article.content.substring(0, 80)
                     });
                 }
             }
@@ -958,13 +834,8 @@
             } else {
                 resultsContainer.innerHTML = results.map(r => `
                     <div class="search-result-item" onclick="loadArticle('${r.title}'); document.getElementById('globalSearchInput').value = ''; document.getElementById('searchResults').classList.remove('active');">
-                        <div class="search-result-image">
-                            ${r.imageUrl ? `<img src="${r.imageUrl}" alt="${r.title}">` : '<div style="width:100%; height:100%; background:#e0e0e0;"></div>'}
-                        </div>
-                        <div class="search-result-info">
-                            <div class="search-result-title">${r.title}</div>
-                            <div class="search-result-namespace">${r.namespace}</div>
-                        </div>
+                        <div class="search-result-title">${r.title}</div>
+                        <div class="search-result-namespace">${r.category}</div>
                     </div>
                 `).join('');
             }
@@ -984,7 +855,7 @@
         }
 
         function showProfileEdit() {
-            document.getElementById('profileDisplayContent').style.display = 'block';
+            document.getElementById('profileEditContent').style.display = 'block';
             document.getElementById('profileViewContent').style.display = 'none';
             document.getElementById('profileSaveBtn').style.display = 'block';
             document.getElementById('profileEditBtn').style.display = 'none';
@@ -995,7 +866,7 @@
         }
 
         function showProfileView() {
-            document.getElementById('profileDisplayContent').style.display = 'none';
+            document.getElementById('profileEditContent').style.display = 'none';
             document.getElementById('profileViewContent').style.display = 'block';
             document.getElementById('profileSaveBtn').style.display = 'none';
             document.getElementById('profileEditBtn').style.display = 'block';
@@ -1031,7 +902,7 @@
 
             updateUIProfileDisplays();
             closeProfileWindow();
-            triggerToastBannerNotification('✓ Profile saved successfully');
+            triggerToastBannerNotification('Profile saved successfully.');
 
             dispatchDataPayloadToRemoteDataNetworks('USER_REGISTER_OR_MOD', currentUserSessionProfile);
         }
@@ -1041,8 +912,8 @@
         }
 
         function updateUIProfileDisplays() {
-            document.getElementById('identityGreeting').innerHTML = `Hi <span style="font-weight:bold; color:var(--wiki-blue);">${currentUserSessionProfile.username}</span>, welcome to OrlePedia!`;
-            document.getElementById('headerUserBadge').innerHTML = `<span class="user-tag" onclick="openProfileWindow()">${currentUserSessionProfile.tag || 'User'}</span>`;
+            document.getElementById('identityGreeting').innerHTML = `Hi <span style="font-weight:bold; color:var(--wiki-blue);">${currentUserSessionProfile.username}</span>, welcome to your operations sector workspace!`;
+            document.getElementById('headerUserBadge').innerHTML = `<span class="user-tag">${currentUserSessionProfile.tag || 'User'}</span>`;
         }
 
         // ============ ARTICLE LOADING & MANAGEMENT ============
@@ -1053,23 +924,21 @@
             if (!orlePediaMemoryStore[articleTitle]) {
                 orlePediaMemoryStore[articleTitle] = {
                     title: articleTitle,
-                    namespace: 'Article',
-                    content: '',
-                    talk: `== Discussion for ${articleTitle} ==\nStart a discussion here.`,
+                    category: 'General Indexes',
+                    content: `'''${articleTitle}''' does not contain logged data arrays. Click Edit to initialize this page mapping.`,
+                    talk: `== Talk Channel for ${articleTitle} ==\nInitialized structural discussion line.`,
                     history: [],
                     ratings: [],
                     createdTime: Date.now(),
-                    author: currentUserSessionProfile.username || 'System',
-                    categories: [],
-                    imageUrl: null,
-                    size: 0
+                    author: currentUserSessionProfile.username || 'System Core'
                 };
             }
 
             document.getElementById('displayArticleTitle').innerText = articleTitle;
+            document.getElementById('deleteArticleBtn').style.display = 'inline-block';
             renderRatingStarsCluster();
-            openArticleSidebar();
             switchSubTab(activeSubTabState);
+            updateArticleInfoSidebar();
         }
 
         function switchSubTab(targetTab) {
@@ -1082,10 +951,10 @@
             if (targetTab === 'article') {
                 document.getElementById('tabArticle').classList.add('active');
                 contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.content);
-                injectCategoryFooterBox(targetArticle.categories);
+                injectCategoryFooterBox(targetArticle.category);
             } else if (targetTab === 'talk') {
                 document.getElementById('tabTalk').classList.add('active');
-                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.talk || '== Discussion ==\nNo discussion yet.');
+                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.talk || '== Discussion Room ==\nNo records logged here yet.');
             } else if (targetTab === 'history') {
                 document.getElementById('tabHistory').classList.add('active');
                 renderRevisionLogsHistoryList(targetArticle);
@@ -1095,7 +964,7 @@
             }
         }
 
-        // ============ ADVANCED MEDIAWIKI PARSING ============
+        // ============ ADVANCED MEDIAWIKI PARSING REGEX PARSER MOTOR ENGINE ============
         function compileRawMarkupToHtml(wikiMarkupText) {
             if (!wikiMarkupText) return '';
 
@@ -1113,7 +982,6 @@
                 }
             }
 
-            // Handle citations
             const citationRegex = /<ref>(.*?)<\/ref>/g;
             let referenceMatch;
             let citationIndex = 1;
@@ -1123,7 +991,6 @@
                 citationIndex++;
             }
 
-            // Handle infobox
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
             let compiledInfoboxHtmlString = '';
@@ -1147,12 +1014,12 @@
                     <div class="portable-infobox">
                         <div class="infobox-title">${infoboxDataRecords['name'] || currentActiveArticleKey}</div>
                         <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">State Seal</span></div>
                             <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
                         </div>
                         <div class="infobox-map">
                             <img src="${infoboxDataRecords['map'] || ''}" onerror="this.style.display='none'">
-                            <span class="infobox-media-caption">Map</span>
+                            <span class="infobox-media-caption">Map and Coordinates Placement</span>
                         </div>
                         <table class="infobox-data-table">
                 `;
@@ -1164,14 +1031,12 @@
                 compiledInfoboxHtmlString += `</table></div>`;
             }
 
-            // Text formatting
             workingTextStr = workingTextStr.replace(/'''(.*?)'''/g, '<b>$1</b>');
             workingTextStr = workingTextStr.replace(/''(.*?)''/g, '<i>$1</i>');
             workingTextStr = workingTextStr.replace(/==== (.*?) ====/g, '<h4>$1</h4>');
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
 
-            // Handle files
             const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, url, param2, param3) {
                 let caption = param3 ? param3 : param2;
@@ -1186,11 +1051,9 @@
                 `;
             });
 
-            // Handle wiki links
             workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="handleWikiLink(\'$1\')">$2</span>');
             workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="handleWikiLink(\'$1\')">$1</span>');
 
-            // Paragraphs
             let textParagraphBlocks = workingTextStr.split('\n\n');
             let structuredOutputHtml = '';
 
@@ -1209,7 +1072,6 @@
                 }
             });
 
-            // References
             if (citationsArrayStorage.length > 0) {
                 let referencesSubBlockHtml = `<div class="wiki-references-section" id="footnotesGroupContainer"><h2>References</h2><ol class="wiki-references-list">`;
                 citationsArrayStorage.forEach(citeText => {
@@ -1243,16 +1105,10 @@
             dialog.classList.add('active');
         }
 
-        function injectCategoryFooterBox(categories) {
-            if (!categories || categories.length === 0) return;
-
+        function injectCategoryFooterBox(categoryName) {
             const footerBox = document.createElement('div');
             footerBox.className = 'category-box-footer';
-            let categoryHtml = 'Categories: ';
-            categoryHtml += categories.map(cat => 
-                `<span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span>`
-            ).join(', ');
-            footerBox.innerHTML = categoryHtml;
+            footerBox.innerHTML = `Categories: <span class="wiki-link" onclick="loadCategoryView('${categoryName}')">${categoryName}</span>`;
             document.getElementById('wikiTabContentBody').appendChild(footerBox);
         }
 
@@ -1260,11 +1116,11 @@
         function renderRevisionLogsHistoryList(articleObj) {
             const container = document.getElementById('wikiTabContentBody');
             if (!articleObj.history || articleObj.history.length === 0) {
-                container.innerHTML = '<div>No revision history for this article.</div>';
+                container.innerHTML = '<div>No operational modification logs found for this registry workspace.</div>';
                 return;
             }
 
-            let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;"><strong>Revision History:</strong></div>`;
+            let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;">Revision History Tracking Stream:</div>`;
 
             for (let index = articleObj.history.length - 1; index >= 0; index--) {
                 let revision = articleObj.history[index];
@@ -1282,23 +1138,23 @@
                 let byteChangeHtml = '';
                 if (byteChange !== 0) {
                     const sign = byteChange > 0 ? '+' : '';
-                    const className = byteChange > 0 ? 'positive' : 'negative';
+                    const className = byteChange > 0 ? 'added' : 'removed';
                     const isBold = Math.abs(byteChange) >= 500 ? 'large' : '';
-                    byteChangeHtml = `<span class="byte-change ${className} ${isBold}">${sign}${byteChange}</span>`;
+                    byteChangeHtml = `<span class="history-bytes ${className} ${isBold}">${sign}${byteChange}</span>`;
                 }
 
                 let undoOptionButtonMarkup = '';
                 if (index === articleObj.history.length - 1 && articleObj.history.length > 1) {
-                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo(${index})">Undo</button>`;
+                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo(${index})">Undo Change</button>`;
                 }
 
                 logHistoryListHtml += `
                     <div class="history-log-item">
-                        <span class="history-timestamp">${timeString}</span> — 
+                        • <span class="history-timestamp">${timeString}</span> — 
                         <strong>${revision.editor}</strong> 
-                        <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>
+                        <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
+                        <span class="history-summary" onclick="renderSingleSummaryDiff(${index})">"${revision.summary || 'No edit description summary provided.'}"</span>
                         ${byteChangeHtml}
-                        <span class="history-summary" onclick="renderSingleSummaryDiff(${index})">"${revision.summary || 'No summary'}"</span>
                         ${undoOptionButtonMarkup}
                     </div>
                 `;
@@ -1309,12 +1165,12 @@
 
         function executeRevisionRollbackUndo(currentIndex) {
             if (!currentUserSessionProfile.username) {
-                alert('You must register to perform this action.');
+                alert('Action Blocked: You must create a profile signature identity prior to forcing database rollbacks.');
                 openProfileWindow();
                 return;
             }
 
-            if (confirm('Are you sure you want to undo this revision?')) {
+            if (confirm('Are you sure you want to rollback the latest configuration update to its previous state?')) {
                 let article = orlePediaMemoryStore[currentActiveArticleKey];
                 article.history.pop();
 
@@ -1322,35 +1178,38 @@
                 article.content = targetPrecedingState.content;
 
                 switchSubTab('history');
-                triggerToastBannerNotification('✓ Revision rolled back.');
+                triggerToastBannerNotification('Rollback operation committed to repository.');
 
                 dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: currentActiveArticleKey, databaseNode: article });
             }
         }
 
         // ============ WORD-LEVEL DIFF ============
-        function generateWordLevelDiff(oldText, newText) {
-            const oldWords = oldText.split(/(\s+)/);
-            const newWords = newText.split(/(\s+)/);
+        function generateLineByLineGithubStyleDiff(oldTextRaw, newTextRaw) {
+            let oldTextLines = oldTextRaw.split('\n');
+            let newTextLines = newTextRaw.split('\n');
+            let longestIndexBound = Math.max(oldTextLines.length, newTextLines.length);
 
-            let diffHtml = '';
-            let i = 0, j = 0;
+            let htmlDiffStreamRows = '';
 
-            while (i < oldWords.length || j < newWords.length) {
-                if (i < oldWords.length && j < newWords.length && oldWords[i] === newWords[j]) {
-                    diffHtml += `<span class="diff-word">${escapeHtmlCode(oldWords[i])}</span>`;
-                    i++;
-                    j++;
-                } else if (i < oldWords.length) {
-                    diffHtml += `<span class="diff-word changed" style="background:var(--diff-remove-bg); color:var(--diff-remove-text);">${escapeHtmlCode(oldWords[i])}</span>`;
-                    i++;
-                } else if (j < newWords.length) {
-                    diffHtml += `<span class="diff-word changed" style="background:var(--diff-add-bg); color:var(--diff-add-text);">${escapeHtmlCode(newWords[j])}</span>`;
-                    j++;
+            for (let i = 0; i < longestIndexBound; i++) {
+                let originalLine = oldTextLines[i];
+                let modifiedLine = newTextLines[i];
+
+                if (originalLine !== modifiedLine) {
+                    if (originalLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line removed"><span class="diff-marker">-</span>${escapeHtmlCode(originalLine)}</div>`;
+                    }
+                    if (modifiedLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(modifiedLine)}</div>`;
+                    }
+                } else {
+                    if (originalLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(originalLine)}</div>`;
+                    }
                 }
             }
-
-            return diffHtml;
+            return htmlDiffStreamRows;
         }
 
         function renderSingleSummaryDiff(historyIndex) {
@@ -1362,40 +1221,24 @@
                 baseContentStr = article.history[historyIndex - 1].content;
             }
 
-            let diffHtml = generateWordLevelDiff(baseContentStr, currentSelectedContent);
+            let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
             let displayTargetBox = document.getElementById('wikiTabContentBody');
-            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Back to History</button><h3>Diff View</h3>`;
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
 
-            displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div style="background:#f8f9fa; border:1px solid var(--border-wiki); border-radius:4px; padding:1rem; line-height:1.8;">${diffHtml}</div>`;
+            displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
         }
 
         function triggerGitDiffCalculation() {
             let oldContentText = orlePediaMemoryStore[currentActiveArticleKey].content;
             let currentEditorText = document.getElementById('wikiRawInputTextarea').value;
 
-            let lines = [];
-            const oldLines = oldContentText.split('\n');
-            const newLines = currentEditorText.split('\n');
-
-            for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
-                if (oldLines[i] !== newLines[i]) {
-                    if (oldLines[i] !== undefined) {
-                        lines.push(`<div class="diff-line removed"><span class="diff-marker">−</span>${escapeHtmlCode(oldLines[i])}</div>`);
-                    }
-                    if (newLines[i] !== undefined) {
-                        lines.push(`<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(newLines[i])}</div>`);
-                    }
-                } else if (oldLines[i] !== undefined) {
-                    lines.push(`<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(oldLines[i])}</div>`);
-                }
-            }
-
+            let compiledRows = generateLineByLineGithubStyleDiff(oldContentText, currentEditorText);
             const panel = document.getElementById('editorGitDiffContainer');
-            panel.innerHTML = lines.join('');
+            panel.innerHTML = compiledRows;
             panel.style.display = 'block';
         }
 
-        // ============ PAGE METADATA ============
+        // ============ PAGE METADATA MATRIX SYSTEM CONTROL PANEL ============
         function renderMetaInformationDashboard(articleObj) {
             const container = document.getElementById('wikiTabContentBody');
             let createdDateString = new Date(articleObj.createdTime).toLocaleString();
@@ -1403,25 +1246,20 @@
 
             container.innerHTML = `
                 <div style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; line-height:2;">
-                    <h3>Page Information</h3>
+                    <h3>System Database Page Information</h3>
                     <hr style="border:none; border-top:1px solid var(--border-wiki); margin:0.5rem 0;">
-                    <div><b>Title:</b> ${articleObj.title}</div>
-                    <div><b>Namespace:</b> ${articleObj.namespace || 'Article'}</div>
-                    <div><b>Created:</b> ${createdDateString}</div>
-                    <div><b>Author:</b> <span class="user-tag" onclick="viewUserProfile('${articleObj.author}')">${articleObj.author || 'System'}</span></div>
-                    <div><b>Total Revisions:</b> ${articleObj.history.length}</div>
-                    <div><b>Size:</b> ${formatBytes(sizeInBytes)}</div>
-                    <div><b>Average Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
+                    <div><b>Entity Target Field Label:</b> ${articleObj.title}</div>
+                    <div><b>Administrative Core Index Category:</b> ${articleObj.category}</div>
+                    <div><b>Initialization Mapping Date:</b> ${createdDateString}</div>
+                    <div><b>Original Base System Author:</b> <span class="user-tag">${articleObj.author || 'System Core'}</span></div>
+                    <div><b>Total Processing Modifications Committed:</b> ${articleObj.history.length} operations</div>
+                    <div><b>Total Article Size:</b> ${formatBytes(sizeInBytes)}</div>
+                    <div><b>Average Active User Page Quality Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
                 </div>
             `;
         }
 
-        function viewUserProfile(username) {
-            // This would load user profile data from database
-            alert(`User: ${username}\n\nProfile information would be displayed here.`);
-        }
-
-        // ============ RATING SYSTEM ============
+        // ============ RATING SYSTEM LOGIC ENGINE CALCULATOR ============
         function renderRatingStarsCluster() {
             const container = document.getElementById('articleStarsContainer');
             let article = orlePediaMemoryStore[currentActiveArticleKey];
@@ -1448,12 +1286,12 @@
 
             article.ratings.push(selectedScoreValue);
             renderRatingStarsCluster();
-            triggerToastBannerNotification(`⭐ Rating submitted: ${selectedScoreValue}/5`);
+            triggerToastBannerNotification(`Verified: Logged rating score entry [${selectedScoreValue}/5].`);
 
             dispatchDataPayloadToRemoteDataNetworks('RATING_SUBMIT', { title: currentActiveArticleKey, score: selectedScoreValue });
         }
 
-        // ============ EDITOR FUNCTIONS ============
+        // ============ DYNAMIC WIKIPEDIA TEXT WRAPPING UTILITY TOOL ============
         function wrapEditorText(openingSyntaxTag, closingSyntaxTag) {
             const txtarea = document.getElementById('wikiRawInputTextarea');
             let selectionStartPos = txtarea.selectionStart;
@@ -1470,9 +1308,10 @@
             txtarea.selectionEnd = selectionStartPos + openingSyntaxTag.length + highlightedSubstring.length;
         }
 
+        // ============ MASTER CONTROL BOARD SYSTEM TRIGGERS ============
         function toggleEditMode() {
             if (!currentUserSessionProfile.username) {
-                alert('You must register to edit articles.');
+                alert('Security Restriction: Modifying records requires registration. Please add your Profile Handle first.');
                 openProfileWindow();
                 return;
             }
@@ -1509,7 +1348,7 @@
                 timestamp: Date.now(),
                 editor: currentUserSessionProfile.username,
                 tag: currentUserSessionProfile.tag,
-                summary: changeSummaryText || '(No summary)',
+                summary: changeSummaryText || '(No summary provided)',
                 content: editorTextContent
             });
 
@@ -1518,7 +1357,7 @@
 
             exitEditorDashboard();
             switchSubTab('article');
-            triggerToastBannerNotification('✓ Changes saved successfully.');
+            triggerToastBannerNotification('Data securely locked down and dispatched to cloud vectors.');
 
             dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: currentActiveArticleKey, databaseNode: article });
         }
@@ -1544,7 +1383,6 @@
 
             const article = orlePediaMemoryStore[currentActiveArticleKey];
 
-            // Save deletion as a revision
             article.history.push({
                 timestamp: Date.now(),
                 editor: currentUserSessionProfile.username,
@@ -1557,69 +1395,12 @@
             delete orlePediaMemoryStore[currentActiveArticleKey];
             closeDeleteArticleDialog();
             loadArticle('Main Page');
-            triggerToastBannerNotification('✓ Article deleted successfully.');
+            triggerToastBannerNotification('Article deleted successfully.');
 
             dispatchDataPayloadToRemoteDataNetworks('ARTICLE_DELETE', { title: currentActiveArticleKey, reason: reason });
         }
 
-        // ============ ARTICLE CREATION ============
-        function openNewArticleModal() {
-            document.getElementById('newArticleTitleInput').value = '';
-            document.getElementById('newArticleNamespaceSelect').value = 'Article';
-            document.getElementById('newArticleDescriptionInput').value = '';
-            document.getElementById('newArticleConstructorModal').style.display = 'flex';
-        }
-
-        function closeNewArticleModal() {
-            document.getElementById('newArticleConstructorModal').style.display = 'none';
-        }
-
-        function executeArticleCreationInit() {
-            let targetTitleStr = document.getElementById('newArticleTitleInput').value.trim();
-            let selectedNamespace = document.getElementById('newArticleNamespaceSelect').value;
-            let description = document.getElementById('newArticleDescriptionInput').value.trim();
-
-            if (!targetTitleStr) {
-                alert('Article title is required.');
-                return;
-            }
-
-            if (orlePediaMemoryStore[targetTitleStr]) {
-                alert(`An article with the title "${targetTitleStr}" already exists.`);
-                return;
-            }
-
-            orlePediaMemoryStore[targetTitleStr] = {
-                title: targetTitleStr,
-                namespace: selectedNamespace,
-                content: description ? description : '',
-                talk: `== Discussion for ${targetTitleStr} ==`,
-                history: [{
-                    timestamp: Date.now(),
-                    editor: currentUserSessionProfile.username || 'System',
-                    tag: currentUserSessionProfile.tag || 'User',
-                    summary: 'Article created',
-                    content: description || ''
-                }],
-                ratings: [],
-                createdTime: Date.now(),
-                author: currentUserSessionProfile.username || 'System',
-                categories: [],
-                imageUrl: null,
-                size: 0
-            };
-
-            currentUserSessionProfile.totalPagesCreated++;
-            localStorage.setItem('orlepedia_pages', currentUserSessionProfile.totalPagesCreated);
-
-            closeNewArticleModal();
-            loadArticle(targetTitleStr);
-            triggerToastBannerNotification('✓ Article created successfully.');
-
-            dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: targetTitleStr, databaseNode: orlePediaMemoryStore[targetTitleStr] });
-        }
-
-        // ============ CATEGORY MANAGEMENT ============
+        // ============ CATEGORY EXPLORER VIEW MODULE ============
         function loadCategoryView(categoryName) {
             exitEditorDashboard();
             document.getElementById('displayArticleTitle').innerText = categoryName === 'all' ? 'All Categories' : `Category: ${categoryName}`;
@@ -1628,9 +1409,7 @@
             if (categoryName === 'all') {
                 let allCategories = new Set();
                 for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
-                    if (obj.categories) {
-                        obj.categories.forEach(cat => allCategories.add(cat));
-                    }
+                    allCategories.add(obj.category);
                 }
 
                 let categoryHtml = '<p>Available categories:</p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">';
@@ -1646,18 +1425,18 @@
                 return;
             }
 
-            let matchedArticlesListHtml = `<p>Articles in category: <b>${categoryName}</b></p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
+            let matchedArticlesListHtml = `<p>Listing records indexed inside administrative sector category: <b>${categoryName}</b></p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
 
             let matchesFoundCount = 0;
             for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
-                if (obj.categories && obj.categories.includes(categoryName)) {
+                if (obj.category === categoryName) {
                     matchesFoundCount++;
                     matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${obj.title}')">${obj.title}</span></li>`;
                 }
             }
 
             if (matchesFoundCount === 0) {
-                matchedArticlesListHtml += `<li style="color:var(--text-muted);">No articles in this category.</li>`;
+                matchedArticlesListHtml += `<li style="color:var(--text-muted);">No articles registered inside this jurisdiction yet.</li>`;
             }
 
             matchedArticlesListHtml += `</ul>`;
@@ -1672,21 +1451,16 @@
 
             let totalPages = Object.keys(orlePediaMemoryStore).length;
             let totalEdits = 0;
-            let editCounts = {};
             let topEdited = [];
-            let leastEdited = [];
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 totalEdits += article.history.length;
-                editCounts[key] = article.history.length;
-
                 if (article.history.length > 0) {
                     topEdited.push({ title: key, edits: article.history.length });
                 }
             }
 
             topEdited.sort((a, b) => b.edits - a.edits);
-            leastEdited = topEdited.slice().reverse();
 
             let statsHtml = `
                 <div style="background:#f8f9fa; border:1px solid var(--border-wiki); border-radius:4px; padding:1.5rem; margin-bottom:1rem;">
@@ -1733,10 +1507,10 @@
             document.getElementById('wikiTabContentBody').innerHTML = articlesHtml;
         }
 
-        // ============ RECENT CHANGES ============
+        // ============ RECENT CHANGES LOG FEED GENERATOR ============
         function loadRecentChangesView() {
             exitEditorDashboard();
-            document.getElementById('displayArticleTitle').innerText = 'Recent Changes';
+            document.getElementById('displayArticleTitle').innerText = 'Special: Recent Changes';
             document.getElementById('articleStarsContainer').innerHTML = '';
 
             let aggregateLogsArray = [];
@@ -1747,8 +1521,7 @@
                             articleTitle: article.title,
                             timestamp: historyLogNode.timestamp,
                             editor: historyLogNode.editor,
-                            summary: historyLogNode.summary,
-                            tag: historyLogNode.tag
+                            summary: historyLogNode.summary
                         });
                     });
                 }
@@ -1756,16 +1529,15 @@
 
             aggregateLogsArray.sort((a, b) => b.timestamp - a.timestamp);
 
-            let recentChangesMarkupHtml = `<p>Recent modifications across OrlePedia:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
+            let recentChangesMarkupHtml = `<p>Tracking operational data modification history across the encyclopedia system network:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
 
-            aggregateLogsArray.slice(0, 50).forEach(item => {
+            aggregateLogsArray.forEach(item => {
                 let formattedTime = new Date(item.timestamp).toLocaleString();
                 recentChangesMarkupHtml += `
                     <div style="font-size:0.85rem; padding:0.4rem; border-bottom:1px dashed #ddd;">
                         <span>${formattedTime}</span> — 
                         (<span class="wiki-link" onclick="loadArticle('${item.articleTitle}')">${item.articleTitle}</span>) 
-                        <strong>${item.editor}</strong>
-                        <span class="user-tag" style="font-size:0.7rem;">${item.tag || 'User'}</span>: 
+                        <strong>${item.editor}</strong>: 
                         <span style="color:#666; font-style:italic;">"${item.summary}"</span>
                     </div>
                 `;
@@ -1775,35 +1547,78 @@
             document.getElementById('wikiTabContentBody').innerHTML = recentChangesMarkupHtml;
         }
 
-        // ============ INFOBOX WIZARD ============
-        function openInfoboxWizard() {
-            document.getElementById('infoboxCustomParamsContainer').innerHTML = '';
-            document.getElementById('infoboxWizardModal').style.display = 'flex';
+        // ============ SYSTEM CREATION ROUTERS ============
+        function openNewArticleModal() {
+            document.getElementById('newArticleTitleInput').value = '';
+            document.getElementById('newArticleNamespaceSelect').value = 'Article';
+            document.getElementById('newArticleConstructorModal').style.display = 'flex';
         }
 
-        function closeInfoboxWizard() {
-            document.getElementById('infoboxWizardModal').style.display = 'none';
+        function closeNewArticleModal() {
+            document.getElementById('newArticleConstructorModal').style.display = 'none';
         }
+
+        function executeArticleCreationInit() {
+            let targetTitleStr = document.getElementById('newArticleTitleInput').value.trim();
+            let selectedNamespace = document.getElementById('newArticleNamespaceSelect').value;
+
+            if (!targetTitleStr) {
+                alert('Field Verification Failure: Article asset name identifier required.');
+                return;
+            }
+
+            if (orlePediaMemoryStore[targetTitleStr]) {
+                alert(`An article with the title "${targetTitleStr}" already exists.`);
+                return;
+            }
+
+            orlePediaMemoryStore[targetTitleStr] = {
+                title: targetTitleStr,
+                category: selectedNamespace,
+                content: '',
+                talk: `== Talk Board for ${targetTitleStr} ==`,
+                history: [{
+                    timestamp: Date.now(),
+                    editor: currentUserSessionProfile.username || 'System Core',
+                    tag: currentUserSessionProfile.tag || 'Core System',
+                    summary: 'Initialized configuration schema mapping boundaries.',
+                    content: ''
+                }],
+                ratings: [],
+                createdTime: Date.now(),
+                author: currentUserSessionProfile.username || 'System Core'
+            };
+
+            currentUserSessionProfile.totalPagesCreated++;
+            localStorage.setItem('orlepedia_pages', currentUserSessionProfile.totalPagesCreated);
+
+            closeNewArticleModal();
+            loadArticle(targetTitleStr);
+            triggerToastBannerNotification('Dynamic layout canvas successfully created.');
+
+            dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: targetTitleStr, databaseNode: orlePediaMemoryStore[targetTitleStr] });
+        }
+
+        // ============ MODAL INFOBOX GENERATION WIZARD FUNCTIONS ============
+        function openInfoboxWizard() { document.getElementById('infoboxWizardModal').style.display = 'flex'; }
+        function closeInfoboxWizard() { document.getElementById('infoboxWizardModal').style.display = 'none'; }
 
         function addCustomParamRowField() {
             const container = document.getElementById('infoboxCustomParamsContainer');
             const row = document.createElement('div');
             row.className = 'modal-horizontal';
             row.style.marginBottom = '0.5rem';
-            row.innerHTML = `<input type="text" placeholder="Key" class="p-key" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;"><input type="text" placeholder="Value" class="p-val" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;">`;
+            row.innerHTML = `<input type="text" placeholder="Key (e.g. Governor)" class="p-key" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;"><input type="text" placeholder="Value" class="p-val" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;">`;
             container.appendChild(row);
         }
 
         function compileAndInjectInfoboxMarkup() {
-            let nameVal = document.getElementById('ib_name').value || 'Infobox';
+            let nameVal = document.getElementById('ib_name').value;
             let sealVal = document.getElementById('ib_seal').value;
             let flagVal = document.getElementById('ib_flag').value;
             let mapVal = document.getElementById('ib_map').value;
 
-            let markupBuffer = `{{Infobox\n|name=${nameVal}\n`;
-            if (sealVal) markupBuffer += `|seal=${sealVal}\n`;
-            if (flagVal) markupBuffer += `|flag=${flagVal}\n`;
-            if (mapVal) markupBuffer += `|map=${mapVal}\n`;
+            let markupBuffer = `{{Infobox\n|name=${nameVal}\n|seal=${sealVal}\n|flag=${flagVal}\n|map=${mapVal}\n`;
 
             const rows = document.querySelectorAll('.modal-horizontal');
             rows.forEach(r => {
@@ -1848,7 +1663,7 @@
         }
 
         function triggerToastBannerNotification(messageText) {
-            console.log(`[NOTIFICATION]: ${messageText}`);
+            console.log(`[ALERT BROADCAST]: ${messageText}`);
             alert(messageText);
         }
 
@@ -1857,25 +1672,26 @@
             if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // ============ DATABASE OPERATIONS (SUPABASE) ============
+        // ============ DATABASE OPERATIONS ============
         function dispatchDataPayloadToRemoteDataNetworks(operationType, dataPayload) {
             console.log(`[DB OPERATION]: ${operationType}`, dataPayload);
-            // This would connect to Supabase in production
-            // For now, data is stored in localStorage
             localStorage.setItem('orlepedia_store', JSON.stringify(orlePediaMemoryStore));
         }
 
         // Load data from localStorage on startup
-        window.addEventListener('load', function() {
-            const savedStore = localStorage.getItem('orlepedia_store');
-            if (savedStore) {
-                try {
-                    orlePediaMemoryStore = JSON.parse(savedStore);
-                } catch (e) {
-                    console.log('Could not load saved data');
-                }
-            }
+        window.addEventListener('beforeunload', function() {
+            localStorage.setItem('orlepedia_store', JSON.stringify(orlePediaMemoryStore));
         });
+
+        // Restore from localStorage if available
+        const savedStore = localStorage.getItem('orlepedia_store');
+        if (savedStore) {
+            try {
+                orlePediaMemoryStore = JSON.parse(savedStore);
+            } catch (e) {
+                console.log('Could not load saved data');
+            }
+        }
     </script>
 </body>
 </html>
