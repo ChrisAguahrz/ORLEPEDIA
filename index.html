@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <style>
-        /* Modern Wiki Design Tokens */
         :root {
             --bg-canvas: #f6f6f6;
             --bg-page: #ffffff;
@@ -15,8 +14,6 @@
             --border-wiki: #a2a9b1;
             --text-dark: #202122;
             --text-muted: #54595d;
-            
-            /* GitHub Diff Theme Colors */
             --diff-remove-bg: #ffebe9;
             --diff-remove-text: #65020c;
             --diff-add-bg: #e6ffec;
@@ -24,26 +21,106 @@
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
+        body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); }
 
-        /* Left Vector Navigation Sidebar - COLLAPSIBLE */
-        aside { 
-            width: 180px; 
-            padding: 1.5rem 1rem; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 1rem; 
-            border-right: 1px solid var(--border-wiki); 
-            background-color: var(--bg-canvas);
-            transition: width 0.3s ease;
-            overflow-y: auto;
-            max-height: 100vh;
-            position: relative;
+        /* LAYOUT FOR DESKTOP */
+        @media (min-width: 1024px) {
+            body { display: flex; min-height: 100vh; }
+            
+            aside { 
+                width: 180px; 
+                padding: 1.5rem 1rem; 
+                display: flex; 
+                flex-direction: column; 
+                gap: 1rem; 
+                border-right: 1px solid var(--border-wiki); 
+                background-color: var(--bg-canvas);
+                overflow-y: auto;
+                max-height: 100vh;
+            }
+            
+            aside.collapsed { width: 50px; }
+            aside.collapsed .sidebar-text { display: none; }
+            
+            main { 
+                flex: 1; 
+                background-color: var(--bg-page); 
+                padding: 1.5rem 2.5rem; 
+                display: flex; 
+                flex-direction: column; 
+                gap: 1rem;
+                overflow-y: auto;
+                max-height: 100vh;
+                margin-right: 280px;
+            }
+            
+            .article-info-sidebar {
+                position: fixed;
+                right: 0;
+                top: 0;
+                width: 280px;
+                height: 100vh;
+                background: #f8f9fa;
+                border-left: 1px solid var(--border-wiki);
+                padding: 1rem;
+                overflow-y: auto;
+                display: flex;
+                z-index: 50;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .article-info-sidebar.collapsed { width: 40px; }
+            .article-info-sidebar.collapsed .info-content { display: none; }
         }
-        
-        aside.collapsed { width: 50px; padding: 1rem 0.5rem; }
-        aside.collapsed .sidebar-text { display: none; }
-        
+
+        /* LAYOUT FOR MOBILE/TABLET */
+        @media (max-width: 1023px) {
+            body { display: flex; flex-direction: column; min-height: 100vh; }
+            
+            aside { 
+                width: 100%; 
+                padding: 1rem; 
+                display: flex; 
+                flex-direction: row;
+                gap: 1rem; 
+                border-bottom: 1px solid var(--border-wiki); 
+                background-color: var(--bg-canvas);
+                overflow-x: auto;
+                max-height: auto;
+            }
+            
+            aside.collapsed { width: 100%; padding: 0.5rem; }
+            aside.collapsed .sidebar-text { display: flex; gap: 0.5rem; overflow-x: auto; }
+            
+            main { 
+                flex: 1; 
+                background-color: var(--bg-page); 
+                padding: 1rem; 
+                display: flex; 
+                flex-direction: column; 
+                gap: 1rem;
+                overflow-y: auto;
+                margin-right: 0;
+            }
+            
+            .article-info-sidebar {
+                position: relative;
+                width: 100%;
+                height: auto;
+                background: #f8f9fa;
+                border-top: 1px solid var(--border-wiki);
+                border-left: none;
+                padding: 1rem;
+                display: flex;
+                z-index: 50;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .article-info-sidebar.collapsed { width: 100%; }
+        }
+
         .sidebar-toggle-btn {
             background: none;
             border: none;
@@ -52,13 +129,13 @@
             padding: 0.5rem;
             color: var(--wiki-blue);
             border-radius: 4px;
-            transition: background 0.2s;
-            width: 100%;
-            text-align: center;
             display: none;
         }
         
-        aside.collapsed .sidebar-toggle-btn { display: block; }
+        @media (max-width: 1023px) {
+            .sidebar-toggle-btn { display: block; }
+        }
+        
         .sidebar-toggle-btn:hover { background: #eaecf0; }
         
         .sidebar-text { transition: opacity 0.2s; }
@@ -71,8 +148,10 @@
             border-bottom: 1px solid var(--border-wiki); 
             padding-bottom: 0.5rem; 
             text-align: center; 
+            white-space: nowrap;
         }
         .logo-area span { color: var(--wiki-blue); }
+        
         .nav-link { 
             font-size: 0.85rem; 
             color: var(--wiki-blue); 
@@ -82,37 +161,22 @@
             border-radius: 3px;
             transition: background 0.2s;
             display: block;
+            white-space: nowrap;
         }
         .nav-link:hover { 
             background: #eaecf0;
             text-decoration: none;
         }
         
-        /* Main Workspace Window Layout */
-        main { 
-            flex: 1; 
-            background-color: var(--bg-page); 
-            padding: 1.5rem 2.5rem; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 1rem;
-            overflow-y: auto;
-            max-height: 100vh;
-            margin-right: 280px;
-            transition: margin-right 0.3s ease;
-        }
-        
-        main.article-sidebar-hidden { margin-right: 0; }
-        
-        /* Global User Status Header */
         #userHeaderBanner { 
             display: flex; 
-            justify-content: flex-end; 
+            justify-content: space-between; 
             align-items: center; 
             gap: 1rem; 
             font-size: 0.85rem; 
             border-bottom: 1px solid #eaecf0; 
             padding-bottom: 0.5rem;
+            flex-wrap: wrap;
         }
         
         .user-tag { 
@@ -126,9 +190,61 @@
         }
         .user-tag:hover { background: #d0e8ff; }
 
-        /* Article Structure Presentation */
+        /* Modern Search Bar */
+        .search-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+            max-width: 400px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: 1px solid var(--border-wiki);
+            border-radius: 4px;
+            font-size: 0.9rem;
+            background: #fff;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--wiki-blue);
+            box-shadow: 0 0 0 2px rgba(51, 102, 187, 0.1);
+        }
+        
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border: 1px solid var(--border-wiki);
+            border-top: none;
+            border-radius: 0 0 4px 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .search-results.active { display: block; }
+        
+        .search-result-item {
+            padding: 0.6rem;
+            border-bottom: 1px solid #eaecf0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .search-result-item:hover { background: #f8f9fa; }
+        .search-result-title { font-weight: bold; color: var(--wiki-blue); font-size: 0.9rem; }
+        .search-result-namespace { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
+
         .firstHeading { 
-            font-family: 'Linux Libertine', Georgia, Times, serif; 
+            font-family: Georgia, serif; 
             font-size: 1.8rem; 
             border-bottom: 1px solid var(--border-wiki); 
             padding-bottom: 0.25rem; 
@@ -136,6 +252,7 @@
             display: flex; 
             justify-content: space-between; 
             align-items: flex-end;
+            flex-wrap: wrap;
         }
         
         .wiki-tabs { 
@@ -165,28 +282,6 @@
             font-weight: bold;
         }
 
-        /* Right Sidebar for Article Info - COLLAPSIBLE */
-        .article-info-sidebar {
-            position: fixed;
-            right: 0;
-            top: 0;
-            width: 280px;
-            height: 100vh;
-            background: #f8f9fa;
-            border-left: 1px solid var(--border-wiki);
-            padding: 1rem;
-            overflow-y: auto;
-            display: flex;
-            z-index: 50;
-            flex-direction: column;
-            gap: 1rem;
-            transition: width 0.3s ease;
-        }
-        
-        .article-info-sidebar.collapsed { width: 40px; }
-        .article-info-sidebar.collapsed .info-content { display: none; }
-        .article-info-sidebar.collapsed .info-header { flex-direction: column; }
-        
         .info-header {
             display: flex;
             justify-content: space-between;
@@ -246,8 +341,7 @@
         .info-stat-label { font-weight: bold; color: var(--text-muted); }
         .info-stat-value { color: var(--text-dark); font-weight: bold; }
 
-        /* Built-In MediaWiki Styles */
-        .wiki-body p { margin-bottom: 0.8rem; line-height: 1.6; font-size: 0.95rem; text-align: justify; }
+        .wiki-body p { margin-bottom: 0.8rem; line-height: 1.6; font-size: 0.95rem; }
         .wiki-body h2 { font-family: Georgia, serif; font-size: 1.5rem; border-bottom: 1px solid var(--border-wiki); margin: 1.5rem 0 0.5rem 0; padding-bottom: 0.2rem; }
         .wiki-body h3 { font-size: 1.2rem; margin: 1.2rem 0 0.4rem 0; }
         .wiki-body h4 { font-size: 1rem; margin: 1rem 0 0.3rem 0; }
@@ -255,38 +349,27 @@
         .wiki-link:hover { text-decoration: underline; }
         .wiki-link.redlink { color: var(--wiki-red); }
 
-        /* Standard Wikipedia Center-Image Layout Frame */
         .wiki-file-container { display: block; text-align: center; margin: 1.5rem auto; clear: both; }
         .wiki-file-box { display: inline-block; border: 1px solid var(--border-wiki); background-color: #f8f9fa; padding: 4px; border-radius: 2px; max-width: 100%; }
         .wiki-file-img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
         .wiki-file-caption { display: block; font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 4px; padding: 2px 8px; }
 
-        /* Exact Wikipedia Right-Hand Infobox Matrix Architecture */
         .portable-infobox { float: right; width: 300px; background: #f8f9fa; border: 1px solid var(--border-wiki); padding: 0.5rem; margin: 0 0 1rem 1rem; font-size: 0.8rem; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
         .infobox-title { font-size: 1.1rem; font-weight: bold; text-align: center; padding: 0.3rem; background: #eaecf0; margin-bottom: 0.5rem; }
-        .infobox-media-row { display: flex; gap: 4px; justify-content: space-between; margin-bottom: 0.5rem; }
-        .infobox-media-box { flex: 1; border: 1px solid #dddddd; background: #ffffff; padding: 2px; text-align: center; }
-        .infobox-media-box img { max-width: 100%; height: 50px; object-fit: contain; display: block; margin: 0 auto; }
-        .infobox-media-caption { font-size: 0.7rem; color: var(--text-muted); text-align: center; display: block; margin-top: 2px; }
-        .infobox-map { border: 1px solid #dddddd; background: white; padding: 2px; margin-bottom: 0.5rem; text-align: center; }
-        .infobox-map img { max-width: 100%; height: auto; max-height: 150px; }
         .infobox-data-table { width: 100%; border-collapse: collapse; }
-        .infobox-data-table th { text-align: left; background: #f2f2f2; width: 40%; padding: 0.3rem; border-bottom: 1px solid #ddd; font-weight: bold; vertical-align: top; }
-        .infobox-data-table td { padding: 0.3rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+        .infobox-data-table th { text-align: left; background: #f2f2f2; width: 40%; padding: 0.3rem; border-bottom: 1px solid #ddd; font-weight: bold; }
+        .infobox-data-table td { padding: 0.3rem; border-bottom: 1px solid #ddd; }
 
-        /* Advanced Engineering Edit Cockpit */
         .editor-dashboard { display: none; flex-direction: column; gap: 1rem; }
-        .toolbar { background: #f8f9fa; border: 1px solid var(--border-wiki); padding: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-radius: 4px 4px 0 0; border-bottom: none; }
-        .tool-btn { background: #fff; border: 1px solid var(--border-wiki); padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer; border-radius: 2px; font-weight: bold; transition: background 0.2s; }
+        .toolbar { background: #f8f9fa; border: 1px solid var(--border-wiki); padding: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; border-radius: 4px 4px 0 0; }
+        .tool-btn { background: #fff; border: 1px solid var(--border-wiki); padding: 0.3rem 0.6rem; font-size: 0.8rem; cursor: pointer; border-radius: 2px; font-weight: bold; }
         .tool-btn:hover { background: #f0f0f0; }
         textarea.wiki-editor { width: 100%; height: 350px; font-family: monospace; font-size: 0.9rem; padding: 0.75rem; border: 1px solid var(--border-wiki); border-radius: 0 0 4px 4px; outline: none; resize: vertical; background: #fff; color: #000; }
         .summary-input { width: 100%; padding: 0.5rem; border: 1px solid var(--border-wiki); border-radius: 4px; font-size: 0.85rem; }
 
-        /* Info Layout Engine Panels */
         .preview-pane-container { border: 1px dashed var(--wiki-blue); border-radius: 4px; padding: 1rem; background: #fafafa; margin-top: 1rem; display: none; }
         .preview-title { font-size: 0.85rem; font-weight: bold; color: var(--wiki-blue); margin-bottom: 0.5rem; text-transform: uppercase; }
         
-        /* GitHub Styling Split Diff Grid */
         .github-diff-board { display: flex; flex-direction: column; gap: 2px; font-family: monospace; font-size: 0.85rem; background: #fff; border: 1px solid var(--border-wiki); border-radius: 4px; overflow: hidden; margin-top: 1rem; display: none; }
         .diff-line { display: flex; padding: 0.15rem 0.5rem; white-space: pre-wrap; }
         .diff-line.removed { background-color: var(--diff-remove-bg); color: var(--diff-remove-text); }
@@ -294,51 +377,31 @@
         .diff-line.neutral { background-color: #ffffff; color: #555555; }
         .diff-marker { width: 25px; display: inline-block; user-select: none; font-weight: bold; }
 
-        /* Reference Super & Footnote Layout Modules */
-        .reference-citation { font-size: 0.75rem; font-weight: bold; vertical-align: super; line-height: 0; margin-left: 2px; color: var(--wiki-blue); cursor: pointer; }
-        .wiki-references-section { margin-top: 2rem; border-top: 1px solid var(--border-wiki); padding-top: 0.5rem; }
-        .wiki-references-list { list-style-type: decimal; margin-left: 1.5rem; font-size: 0.85rem; }
-
-        /* Dynamic Infobox Builder Modal Window */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 2000; }
-        .modal-card { background: #fff; width: 450px; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; max-height: 90vh; overflow-y: auto; }
+        .modal-card { background: #fff; width: 90%; max-width: 450px; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; max-height: 90vh; overflow-y: auto; }
         .modal-row { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; }
-        .modal-row input { padding: 0.4rem; border: 1px solid var(--border-wiki); border-radius: 4px; }
-        .modal-horizontal { display: flex; gap: 0.5rem; }
-        .modal-horizontal div { flex: 1; display: flex; flex-direction: column; gap: 0.3rem; }
+        .modal-row input, .modal-row textarea, .modal-row select { padding: 0.4rem; border: 1px solid var(--border-wiki); border-radius: 4px; }
 
-        /* System Action Blocks Layout */
-        .btn-set { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .btn-set { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
         .action-btn { padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.85rem; font-weight: bold; border: 1px solid var(--border-wiki); cursor: pointer; }
         .action-btn.primary { background: var(--wiki-blue); color: white; border-color: var(--wiki-blue); }
         .action-btn.success { background: #10b981; color: white; border-color: #10b981; }
         .action-btn.danger { background: var(--wiki-red); color: white; border-color: var(--wiki-red); }
 
-        /* General Wiki Modules Grid */
         .history-log-item { padding: 0.5rem; border-bottom: 1px solid #eaecf0; font-size: 0.85rem; line-height: 1.4; }
-        .history-log-item:last-child { border-bottom: none; }
         .history-timestamp { color: var(--text-muted); font-size: 0.8rem; }
-        .history-summary { font-style: italic; color: #444; background: #f8f9fa; padding: 2px 6px; border-radius: 3px; cursor: pointer; }
         .category-box-footer { border: 1px solid var(--border-wiki); background: #f8f9fa; padding: 0.5rem; margin-top: 2rem; font-size: 0.85rem; }
 
-        /* Rating Module Style */
         .star-rating-cluster { display: inline-flex; gap: 4px; align-items: center; margin-left: 10px; font-size: 0.9rem; }
         .star-element { color: #ccc; cursor: pointer; transition: color 0.1s; }
         .star-element.filled { color: #f59e0b; }
 
-        /* Responsive Design */
-        @media (max-width: 1024px) {
-            main { margin-right: 0; padding: 1rem; }
-            .article-info-sidebar { width: 200px; }
-            aside { width: 150px; }
-        }
-
-        @media (max-width: 768px) {
-            body { flex-direction: column; }
-            aside { width: 100%; max-height: auto; border-right: none; border-bottom: 1px solid var(--border-wiki); }
-            main { margin-right: 0; padding: 1rem; }
-            .article-info-sidebar { position: relative; width: 100%; height: auto; border-left: none; border-top: 1px solid var(--border-wiki); }
+        @media (max-width: 600px) {
+            .firstHeading { font-size: 1.4rem; }
+            .wiki-tabs { font-size: 0.75rem; }
+            .tool-btn { padding: 0.2rem 0.4rem; font-size: 0.75rem; }
             textarea.wiki-editor { height: 250px; }
+            .modal-card { width: 95%; padding: 1rem; }
         }
     </style>
 </head>
@@ -346,25 +409,26 @@
 
     <aside>
         <button class="sidebar-toggle-btn" onclick="toggleMainSidebar()">≡</button>
-        <div class="sidebar-text">
+        <div class="sidebar-text" style="display: flex; flex-direction: column; gap: 1rem;">
             <div class="logo-area">Orle<span>Pedia</span></div>
             <a class="nav-link" onclick="loadArticle('Main Page')">Main Page</a>
             <a class="nav-link" onclick="loadRecentChangesView()">Recent Changes</a>
             <a class="nav-link" onclick="openNewArticleModal()">Create Article</a>
             <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-            <div style="font-size:0.75rem; font-weight:bold; color:var(--text-muted)">BROWSE</div>
-            <a class="nav-link" onclick="loadCategoryView('Administrative Jurisdictions')">Jurisdictions</a>
-            <a class="nav-link" onclick="loadCategoryView('Historical Records')">History</a>
             <a class="nav-link" onclick="loadStatisticsView()">Statistics</a>
-            <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
             <a class="nav-link" onclick="openProfileWindow()">My Profile</a>
         </div>
     </aside>
 
     <main id="mainContent">
         <div id="userHeaderBanner">
-            <div id="identityGreeting">Welcome to OrlePedia. Please register to contribute.</div>
+            <div id="identityGreeting">Welcome to OrlePedia.</div>
             <div id="headerUserBadge"></div>
+        </div>
+
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search articles..." onkeyup="performLiveSearch()">
+            <div class="search-results" id="searchResults"></div>
         </div>
 
         <div id="articleContainerWrapper">
@@ -373,7 +437,7 @@
                     <span id="displayArticleTitle">Main Page</span>
                     <div class="star-rating-cluster" id="articleStarsContainer"></div>
                 </div>
-                <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem;">Edit</button>
+                <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()">Edit</button>
             </div>
 
             <div class="wiki-tabs">
@@ -390,15 +454,15 @@
             <div class="toolbar">
                 <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
                 <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
-                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">WikiLink</button>
-                <button class="tool-btn" onclick="wrapEditorText('[[File|URL|200px|', ']]')">Image</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">Link</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[File|', ']]')">File</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">Citation</button>
+                <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">Ref</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n=== ', ' ===\n')">H3</button>
                 <button class="tool-btn" onclick="wrapEditorText('[[Category:', ']]')">Category</button>
             </div>
-            <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
+            <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write MediaWiki markup..."></textarea>
             
             <input type="text" id="wikiEditSummaryInput" class="summary-input" placeholder="Edit summary (optional)...">
             
@@ -418,16 +482,15 @@
         </div>
     </main>
 
-    <!-- Article Info Sidebar - RIGHT SIDE -->
     <div class="article-info-sidebar" id="articleInfoSidebar">
         <div class="info-header">
             <span style="font-weight:bold; font-size:0.9rem;" class="info-content">Article Info</span>
-            <button class="info-toggle-btn" onclick="toggleArticleInfoSidebar()" title="Toggle">◀</button>
+            <button class="info-toggle-btn" onclick="toggleArticleInfoSidebar()">◀</button>
         </div>
         
         <div class="info-section">
             <div class="info-section-header" onclick="toggleInfoSection(this)">
-                <span>Page Information</span>
+                <span>Page Info</span>
                 <span>▼</span>
             </div>
             <div class="info-section-content expanded info-content">
@@ -459,29 +522,19 @@
                 <div style="color:var(--text-muted);">No changes yet</div>
             </div>
         </div>
+
+        <div class="btn-set">
+            <button class="tool-btn" onclick="openDeleteArticleDialog()" style="color:var(--wiki-red);">Delete</button>
+        </div>
     </div>
 
-    <!-- Modal Overlays -->
+    <!-- Modals -->
     <div class="modal-overlay" id="infoboxWizardModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Infobox Builder</div>
             <div class="modal-row">
                 <label>Name</label>
-                <input type="text" id="ib_name" value="Commonwealth Territory">
-            </div>
-            <div class="modal-horizontal">
-                <div class="modal-row">
-                    <label>Seal URL</label>
-                    <input type="text" id="ib_seal" value="">
-                </div>
-                <div class="modal-row">
-                    <label>Flag URL</label>
-                    <input type="text" id="ib_flag" value="">
-                </div>
-            </div>
-            <div class="modal-row">
-                <label>Map URL</label>
-                <input type="text" id="ib_map" value="">
+                <input type="text" id="ib_name" value="">
             </div>
             <div class="modal-row">
                 <label>Custom Parameters</label>
@@ -500,7 +553,7 @@
             <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Create Article</div>
             <div class="modal-row">
                 <label>Title</label>
-                <input type="text" id="newArticleTitleInput" placeholder="Enter article title...">
+                <input type="text" id="newArticleTitleInput" placeholder="Article title...">
             </div>
             <div class="modal-row">
                 <label>Namespace</label>
@@ -525,11 +578,11 @@
             <div id="profileEditContent">
                 <div class="modal-row">
                     <label>Username</label>
-                    <input type="text" id="profileUsernameInput" placeholder="Enter username...">
+                    <input type="text" id="profileUsernameInput" placeholder="Username...">
                 </div>
                 <div class="modal-row">
                     <label>Tag</label>
-                    <input type="text" id="profileTagInput" placeholder="e.g., Editor, Admin...">
+                    <input type="text" id="profileTagInput" placeholder="e.g., Editor...">
                 </div>
                 <div class="modal-row">
                     <label>Bio</label>
@@ -578,7 +631,7 @@
             </div>
             <div class="modal-row">
                 <label>Reason</label>
-                <textarea id="deleteArticleReason" placeholder="Why delete this article?" style="height:80px;"></textarea>
+                <textarea id="deleteArticleReason" placeholder="Why delete?" style="height:80px;"></textarea>
             </div>
             <div class="btn-set">
                 <button class="action-btn danger" onclick="executeArticleDeletion()">Delete</button>
@@ -588,11 +641,10 @@
     </div>
 
     <script>
-        // ============ SUPABASE CONFIGURATION ============
+        // SUPABASE CONFIG
         const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
 
-        // Network Helper Function
         async function supabaseRequest(endpoint, method = 'GET', body = null) {
             const headers = {
                 'apikey': SUPABASE_KEY,
@@ -611,13 +663,13 @@
             return await response.json();
         }
 
-        // ============ GLOBAL STATE MANAGEMENT ============
+        // GLOBAL STATE
         let orlePediaMemoryStore = {
             'Main Page': {
                 title: 'Main Page',
-                category: 'General Indexes',
-                content: `'''Main Page''' is the front page of OrlePedia. Welcome to our free encyclopedia!`,
-                talk: `== Main Discussion ==\nUse this page for discussing the Main Page.`,
+                category: 'General',
+                content: `'''Main Page''' is the front page of OrlePedia. Welcome!`,
+                talk: `== Discussion ==`,
                 history: [],
                 ratings: [],
                 createdTime: Date.now(),
@@ -635,52 +687,71 @@
             totalPagesCreated: parseInt(localStorage.getItem('orlepedia_pages') || '0')
         };
 
-        // ============ FETCH ALL DATA FROM CLOUD ============
+        // LOAD DATA FROM SUPABASE
         async function loadOrlePediaDataFromCloud() {
             try {
-                console.log("Fetching encyclopedia records from Supabase...");
+                console.log("Fetching from Supabase...");
                 const articles = await supabaseRequest('articles?select=*');
                 
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
                         orlePediaMemoryStore[art.title] = {
                             title: art.title,
-                            category: art.summary || "General Indexes",
+                            category: art.summary || "General",
                             content: art.content,
-                            talk: `== Talk Board for ${art.title} ==`,
-                            history: [{
-                                timestamp: Date.parse(art.created_at) || Date.now(),
-                                editor: "Cloud Sync",
-                                tag: "System",
-                                summary: "Restored from database.",
-                                content: art.content
-                            }],
+                            talk: `== Talk ==`,
+                            history: [],
                             ratings: [],
                             createdTime: Date.parse(art.created_at) || Date.now(),
-                            author: "Cloud Contributor"
+                            author: art.author || "Cloud"
                         };
                     });
-                    console.log(`Loaded ${articles.length} articles from Supabase.`);
+                    console.log(`Loaded ${articles.length} articles`);
+
+                    // Load revisions
+                    const revisions = await supabaseRequest('revisions?select=*');
+                    if (Array.isArray(revisions)) {
+                        revisions.forEach(rev => {
+                            const article = Object.values(orlePediaMemoryStore).find(a => a.title === rev.article_id || a.title === rev.article_title);
+                            if (article) {
+                                article.history.push({
+                                    timestamp: Date.parse(rev.created_at) || Date.now(),
+                                    editor: rev.editor_name || "Unknown",
+                                    tag: "User",
+                                    summary: rev.edit_summary || "No summary",
+                                    content: rev.new_content || article.content
+                                });
+                            }
+                        });
+                    }
+
+                    // Load ratings
+                    const ratings = await supabaseRequest('ratings?select=*');
+                    if (Array.isArray(ratings)) {
+                        ratings.forEach(rating => {
+                            const article = Object.values(orlePediaMemoryStore).find(a => a.title === rating.article_id || a.title === rating.article_title);
+                            if (article) {
+                                article.ratings.push(rating.score);
+                            }
+                        });
+                    }
                 }
             } catch (err) {
-                console.error("Failed to fetch from Supabase:", err);
+                console.error("Fetch error:", err);
             }
         }
 
-        // ============ SAVE TO SUPABASE ============
+        // SAVE TO SUPABASE
         async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
             console.log(`Cloud dispatch: [${actionType}]`);
             try {
-                if (actionType === "ARTICLE_COMMIT_SAVE" || actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE") {
-                    
+                if (actionType === "ARTICLE_COMMIT_SAVE") {
                     const title = payloadData.title;
-                    const content = payloadData.databaseNode?.content || payloadData.content || "";
-                    const category = payloadData.databaseNode?.category || "General Indexes";
-                    
+                    const content = payloadData.databaseNode?.content || "";
+                    const category = payloadData.databaseNode?.category || "General";
                     const totalRevs = payloadData.databaseNode?.history?.length || 1;
                     const summaryTxt = payloadData.databaseNode?.history?.slice(-1)[0]?.summary || 'Update';
 
-                    // Check if article exists
                     const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
                     let targetArticleId;
                     
@@ -688,56 +759,67 @@
                         title: title,
                         content: content,
                         summary: category,
-                        total_revisions: totalRevs
+                        total_revisions: totalRevs,
+                        author: currentUserSessionProfile.username || "System"
                     };
 
                     if (existing.length === 0) {
-                        // NEW ARTICLE
                         const newArt = await supabaseRequest('articles', 'POST', articlePayload);
-                        targetArticleId = newArt[0].id; 
-                        console.log("Created new article in Supabase!");
+                        targetArticleId = newArt[0].id;
+                        console.log("Article created");
                     } else {
-                        // UPDATE EXISTING
                         targetArticleId = existing[0].id;
                         await supabaseRequest(`articles?id=eq.${targetArticleId}`, 'PATCH', articlePayload);
-                        console.log("Updated article in Supabase!");
+                        console.log("Article updated");
                     }
                     
-                    // SAVE REVISION
+                    // Save revision
                     await supabaseRequest('revisions', 'POST', {
                         article_id: targetArticleId,
                         new_content: content,
                         edit_summary: summaryTxt,
-                        revision_number: totalRevs
+                        revision_number: totalRevs,
+                        editor_name: currentUserSessionProfile.username || "System"
                     });
                     
-                    console.log("Database transaction completed successfully.");
+                    console.log("Saved successfully");
+                } else if (actionType === "RATING_SUBMIT") {
+                    const title = payloadData.title;
+                    const score = payloadData.score;
+
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
+                    if (existing.length > 0) {
+                        await supabaseRequest('ratings', 'POST', {
+                            article_id: existing[0].id,
+                            article_title: title,
+                            score: score,
+                            user: currentUserSessionProfile.username || "Anonymous"
+                        });
+                    }
                 }
             } catch (err) {
-                console.error("Failed to save to Supabase:", err);
-                alert("Database Error: " + err.message); 
+                console.error("Save error:", err);
+                alert("Database Error: " + err.message);
             }
         }
 
-        // ============ INITIALIZATION ============
+        // INITIALIZATION
         document.addEventListener('DOMContentLoaded', async () => {
             loadUserProfileFromVirtualDeviceStore();
             await loadOrlePediaDataFromCloud();
             loadArticle('Main Page');
         });
 
-        // ============ SIDEBAR TOGGLE ============
+        // SIDEBAR TOGGLE
         function toggleMainSidebar() {
             const aside = document.querySelector('aside');
             aside.classList.toggle('collapsed');
-            localStorage.setItem('sidebar_collapsed', aside.classList.contains('collapsed'));
         }
 
         function toggleArticleInfoSidebar() {
             const sidebar = document.getElementById('articleInfoSidebar');
             const main = document.getElementById('mainContent');
             sidebar.classList.toggle('collapsed');
-            main.classList.toggle('article-sidebar-hidden');
         }
 
         function toggleInfoSection(header) {
@@ -762,11 +844,11 @@
             const recentChanges = article.history.slice(-3).reverse();
             let recentHtml = '';
             if (recentChanges.length === 0) {
-                recentHtml = '<div style="color:var(--text-muted);">No changes yet</div>';
+                recentHtml = '<div style="color:var(--text-muted);">No changes</div>';
             } else {
                 recentChanges.forEach(change => {
                     const time = new Date(change.timestamp).toLocaleString();
-                    recentHtml += `<div style="font-size:0.75rem; margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid #eaecf0;">
+                    recentHtml += `<div style="font-size:0.75rem; margin-bottom:0.5rem;">
                         <strong>${change.editor}</strong><br>
                         <span style="color:var(--text-muted);">${time}</span>
                     </div>`;
@@ -783,7 +865,7 @@
             return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
         }
 
-        // ============ PROFILE MANAGEMENT ============
+        // PROFILE
         function loadUserProfileFromVirtualDeviceStore() {
             if(currentUserSessionProfile.username) {
                 updateUIProfileDisplays();
@@ -832,7 +914,7 @@
             const bio = document.getElementById('profileBioInput').value.trim();
 
             if (!username) {
-                alert('Username is required');
+                alert('Username required');
                 return;
             }
 
@@ -846,9 +928,7 @@
 
             updateUIProfileDisplays();
             closeProfileWindow();
-            triggerToastBannerNotification('Profile saved successfully.');
-
-            dispatchDataPayloadToRemoteDataNetworks('USER_REGISTER_OR_MOD', currentUserSessionProfile);
+            alert('Profile saved');
         }
 
         function closeProfileWindow() {
@@ -856,11 +936,40 @@
         }
 
         function updateUIProfileDisplays() {
-            document.getElementById('identityGreeting').innerHTML = `Hi <span style="font-weight:bold; color:var(--wiki-blue);">${currentUserSessionProfile.username}</span>, welcome to OrlePedia!`;
+            document.getElementById('identityGreeting').innerHTML = `Hi <span style="font-weight:bold; color:var(--wiki-blue);">${currentUserSessionProfile.username}</span>`;
             document.getElementById('headerUserBadge').innerHTML = `<span class="user-tag" onclick="openProfileWindow()">${currentUserSessionProfile.tag || 'User'}</span>`;
         }
 
-        // ============ ARTICLE LOADING & MANAGEMENT ============
+        // SEARCH
+        function performLiveSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('searchResults');
+
+            if (!query) {
+                resultsDiv.classList.remove('active');
+                return;
+            }
+
+            let results = [];
+            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                if (key.toLowerCase().includes(query) || article.content.toLowerCase().includes(query)) {
+                    results.push({ title: key, namespace: article.category });
+                }
+            }
+
+            let html = '';
+            results.slice(0, 10).forEach(result => {
+                html += `<div class="search-result-item" onclick="loadArticle('${result.title}')">
+                    <div class="search-result-title">${result.title}</div>
+                    <div class="search-result-namespace">${result.namespace}</div>
+                </div>`;
+            });
+
+            resultsDiv.innerHTML = html;
+            resultsDiv.classList.add('active');
+        }
+
+        // ARTICLES
         function loadArticle(articleTitle) {
             currentActiveArticleKey = articleTitle;
             exitEditorDashboard();
@@ -870,12 +979,11 @@
                     title: articleTitle,
                     category: 'Article',
                     content: '',
-                    talk: `== Discussion for ${articleTitle} ==\nStart a discussion here.`,
+                    talk: `== Discussion ==`,
                     history: [],
                     ratings: [],
                     createdTime: Date.now(),
-                    author: currentUserSessionProfile.username || 'System',
-                    categories: []
+                    author: currentUserSessionProfile.username || 'System'
                 };
             }
 
@@ -895,10 +1003,9 @@
             if (targetTab === 'article') {
                 document.getElementById('tabArticle').classList.add('active');
                 contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.content);
-                injectCategoryFooterBox(targetArticle.category);
             } else if (targetTab === 'talk') {
                 document.getElementById('tabTalk').classList.add('active');
-                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.talk || '== Discussion ==\nNo discussion yet.');
+                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.talk || '== Discussion ==');
             } else if (targetTab === 'history') {
                 document.getElementById('tabHistory').classList.add('active');
                 renderRevisionLogsHistoryList(targetArticle);
@@ -908,7 +1015,7 @@
             }
         }
 
-        // ============ ADVANCED MEDIAWIKI PARSING ============
+        // MARKUP PARSER
         function compileRawMarkupToHtml(wikiMarkupText) {
             if (!wikiMarkupText) return '';
 
@@ -926,17 +1033,17 @@
                 }
             }
 
-            // Handle citations
+            // Citations
             const citationRegex = /<ref>(.*?)<\/ref>/g;
             let referenceMatch;
             let citationIndex = 1;
             while ((referenceMatch = citationRegex.exec(workingTextStr)) !== null) {
                 citationsArrayStorage.push(referenceMatch[1]);
-                workingTextStr = workingTextStr.replace(referenceMatch[0], `<span class="reference-citation" onclick="jumpToFootnotesSection()">[${citationIndex}]</span>`);
+                workingTextStr = workingTextStr.replace(referenceMatch[0], `<span class="reference-citation">[${citationIndex}]</span>`);
                 citationIndex++;
             }
 
-            // Handle infobox
+            // Infobox
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
             let compiledInfoboxHtmlString = '';
@@ -959,20 +1066,13 @@
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox">
                         <div class="infobox-title">${infoboxDataRecords['name'] || currentActiveArticleKey}</div>
-                        <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
-                        </div>
-                        <div class="infobox-map">
-                            <img src="${infoboxDataRecords['map'] || ''}" onerror="this.style.display='none'">
-                            <span class="infobox-media-caption">Map</span>
-                        </div>
                         <table class="infobox-data-table">
                 `;
 
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
-                    if (['name', 'seal', 'flag', 'map'].includes(k)) continue;
-                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${v}</td></tr>`;
+                    if (k !== 'name') {
+                        compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${v}</td></tr>`;
+                    }
                 }
                 compiledInfoboxHtmlString += `</table></div>`;
             }
@@ -984,22 +1084,14 @@
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
 
-            // Handle files
+            // Files
             const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, url, param2, param3) {
                 let caption = param3 ? param3 : param2;
-                let sizeWidth = param3 ? param2 : '220px';
-                return `
-                    <div class="wiki-file-container">
-                        <div class="wiki-file-box">
-                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.style.display='none'">
-                            <span class="wiki-file-caption">${caption}</span>
-                        </div>
-                    </div>
-                `;
+                return `<div class="wiki-file-container"><div class="wiki-file-box"><img src="${url}" class="wiki-file-img" onerror="this.style.display='none'"><span class="wiki-file-caption">${caption}</span></div></div>`;
             });
 
-            // Handle wiki links
+            // Wiki links
             workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
             workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>');
 
@@ -1023,7 +1115,7 @@
             });
 
             if (citationsArrayStorage.length > 0) {
-                let referencesSubBlockHtml = `<div class="wiki-references-section" id="footnotesGroupContainer"><h2>References</h2><ol class="wiki-references-list">`;
+                let referencesSubBlockHtml = `<div class="wiki-references-section"><h2>References</h2><ol>`;
                 citationsArrayStorage.forEach(citeText => {
                     referencesSubBlockHtml += `<li>${citeText}</li>`;
                 });
@@ -1034,18 +1126,11 @@
             return structuredOutputHtml;
         }
 
-        function injectCategoryFooterBox(categoryName) {
-            const footerBox = document.createElement('div');
-            footerBox.className = "category-box-footer";
-            footerBox.innerHTML = `Categories: <span class="wiki-link" onclick="loadCategoryView('${categoryName}')">${categoryName}</span>`;
-            document.getElementById('wikiTabContentBody').appendChild(footerBox);
-        }
-
-        // ============ REVISION LOGS ============
+        // HISTORY
         function renderRevisionLogsHistoryList(articleObj) {
             const container = document.getElementById('wikiTabContentBody');
             if(!articleObj.history || articleObj.history.length === 0) {
-                container.innerHTML = "<div>No revision history found.</div>";
+                container.innerHTML = "<div>No revisions</div>";
                 return;
             }
 
@@ -1054,19 +1139,12 @@
             for (let index = articleObj.history.length - 1; index >= 0; index--) {
                 let revision = articleObj.history[index];
                 let timeString = new Date(revision.timestamp).toLocaleString();
-                
-                let undoOptionButtonMarkup = "";
-                if (index === articleObj.history.length - 1 && articleObj.history.length > 1) {
-                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo(${index})">Undo</button>`;
-                }
 
                 logHistoryListHtml += `
                     <div class="history-log-item">
                         <span class="history-timestamp">${timeString}</span> — 
-                        <strong>${revision.editor}</strong> 
-                        <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
-                        <span class="history-summary" onclick="renderSingleSummaryDiff(${index})">"${revision.summary || 'No summary'}"</span>
-                        ${undoOptionButtonMarkup}
+                        <strong>${revision.editor}</strong>: 
+                        <span style="color:#666;">"${revision.summary || 'No summary'}"</span>
                     </div>
                 `;
             }
@@ -1074,95 +1152,7 @@
             container.innerHTML = logHistoryListHtml;
         }
 
-        function executeRevisionRollbackUndo(currentIndex) {
-            if(!currentUserSessionProfile.username) {
-                alert("You must register to perform this action.");
-                openProfileWindow();
-                return;
-            }
-
-            if(confirm("Are you sure you want to undo this revision?")) {
-                let article = orlePediaMemoryStore[currentActiveArticleKey];
-                article.history.pop();
-                
-                let targetPrecedingState = article.history[article.history.length - 1];
-                article.content = targetPrecedingState.content;
-                
-                switchSubTab('history');
-                triggerToastBannerNotification("Revision rolled back.");
-
-                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
-            }
-        }
-
-        // ============ WORD-LEVEL DIFF ============
-        function generateWordLevelDiff(oldText, newText) {
-            const oldWords = oldText.split(/(\s+)/);
-            const newWords = newText.split(/(\s+)/);
-
-            let diffHtml = '';
-            let i = 0, j = 0;
-
-            while (i < oldWords.length || j < newWords.length) {
-                if (i < oldWords.length && j < newWords.length && oldWords[i] === newWords[j]) {
-                    diffHtml += `<span class="diff-word">${escapeHtmlCode(oldWords[i])}</span>`;
-                    i++;
-                    j++;
-                } else if (i < oldWords.length) {
-                    diffHtml += `<span class="diff-word changed" style="background:var(--diff-remove-bg); color:var(--diff-remove-text);">${escapeHtmlCode(oldWords[i])}</span>`;
-                    i++;
-                } else if (j < newWords.length) {
-                    diffHtml += `<span class="diff-word changed" style="background:var(--diff-add-bg); color:var(--diff-add-text);">${escapeHtmlCode(newWords[j])}</span>`;
-                    j++;
-                }
-            }
-
-            return diffHtml;
-        }
-
-        function renderSingleSummaryDiff(historyIndex) {
-            let article = orlePediaMemoryStore[currentActiveArticleKey];
-            let currentSelectedContent = article.history[historyIndex].content;
-
-            let baseContentStr = '';
-            if (parseInt(historyIndex) > 0) {
-                baseContentStr = article.history[historyIndex - 1].content;
-            }
-
-            let diffHtml = generateWordLevelDiff(baseContentStr, currentSelectedContent);
-            let displayTargetBox = document.getElementById('wikiTabContentBody');
-            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">Back to History</button><h3>Diff View</h3>`;
-
-            displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div style="background:#f8f9fa; border:1px solid var(--border-wiki); border-radius:4px; padding:1rem; line-height:1.8;">${diffHtml}</div>`;
-        }
-
-        function triggerGitDiffCalculation() {
-            let oldContentText = orlePediaMemoryStore[currentActiveArticleKey].content;
-            let currentEditorText = document.getElementById('wikiRawInputTextarea').value;
-
-            let lines = [];
-            const oldLines = oldContentText.split('\n');
-            const newLines = currentEditorText.split('\n');
-
-            for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
-                if (oldLines[i] !== newLines[i]) {
-                    if (oldLines[i] !== undefined) {
-                        lines.push(`<div class="diff-line removed"><span class="diff-marker">−</span>${escapeHtmlCode(oldLines[i])}</div>`);
-                    }
-                    if (newLines[i] !== undefined) {
-                        lines.push(`<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(newLines[i])}</div>`);
-                    }
-                } else if (oldLines[i] !== undefined) {
-                    lines.push(`<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(oldLines[i])}</div>`);
-                }
-            }
-
-            const panel = document.getElementById('editorGitDiffContainer');
-            panel.innerHTML = lines.join('');
-            panel.style.display = 'block';
-        }
-
-        // ============ PAGE METADATA ============
+        // METADATA
         function renderMetaInformationDashboard(articleObj) {
             const container = document.getElementById('wikiTabContentBody');
             let createdDateString = new Date(articleObj.createdTime).toLocaleString();
@@ -1173,21 +1163,17 @@
                     <h3>Page Information</h3>
                     <hr style="border:none; border-top:1px solid var(--border-wiki); margin:0.5rem 0;">
                     <div><b>Title:</b> ${articleObj.title}</div>
-                    <div><b>Category:</b> ${articleObj.category || 'Article'}</div>
+                    <div><b>Category:</b> ${articleObj.category}</div>
                     <div><b>Created:</b> ${createdDateString}</div>
-                    <div><b>Author:</b> <span class="user-tag" onclick="viewUserProfile('${articleObj.author}')">${articleObj.author || 'System'}</span></div>
-                    <div><b>Total Revisions:</b> ${articleObj.history.length}</div>
+                    <div><b>Author:</b> ${articleObj.author || 'System'}</div>
+                    <div><b>Revisions:</b> ${articleObj.history.length}</div>
                     <div><b>Size:</b> ${formatBytes(sizeInBytes)}</div>
-                    <div><b>Average Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
+                    <div><b>Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5</div>
                 </div>
             `;
         }
 
-        function viewUserProfile(username) {
-            alert(`User: ${username}\n\nProfile information would be displayed here.`);
-        }
-
-        // ============ RATING SYSTEM ============
+        // RATINGS
         function renderRatingStarsCluster() {
             const container = document.getElementById('articleStarsContainer');
             let article = orlePediaMemoryStore[currentActiveArticleKey];
@@ -1198,7 +1184,7 @@
                 let filledClass = (idx <= Math.round(averageNum)) ? 'filled' : '';
                 starClusterMarkup += `<span class="star-element ${filledClass}" onclick="submitPageUserRatingMetric(${idx})">★</span>`;
             }
-            starClusterMarkup += `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:4px;">(${averageNum.toFixed(1)} avg)</span>`;
+            starClusterMarkup += `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:4px;">(${averageNum.toFixed(1)})</span>`;
             container.innerHTML = starClusterMarkup;
         }
 
@@ -1214,12 +1200,12 @@
 
             article.ratings.push(selectedScoreValue);
             renderRatingStarsCluster();
-            triggerToastBannerNotification(`Rating submitted: ${selectedScoreValue}/5`);
+            alert(`Rating: ${selectedScoreValue}/5`);
 
             dispatchDataPayloadToRemoteDataNetworks('RATING_SUBMIT', { title: currentActiveArticleKey, score: selectedScoreValue });
         }
 
-        // ============ EDITOR FUNCTIONS ============
+        // EDITOR
         function wrapEditorText(openingSyntaxTag, closingSyntaxTag) {
             const txtarea = document.getElementById('wikiRawInputTextarea');
             let selectionStartPos = txtarea.selectionStart;
@@ -1238,7 +1224,7 @@
 
         function toggleEditMode() {
             if (!currentUserSessionProfile.username) {
-                alert('You must register to edit articles.');
+                alert('Register first');
                 openProfileWindow();
                 return;
             }
@@ -1284,12 +1270,38 @@
 
             exitEditorDashboard();
             switchSubTab('article');
-            triggerToastBannerNotification('Changes saved successfully.');
+            alert('Saved');
 
             dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: currentActiveArticleKey, databaseNode: article });
         }
 
-        // ============ ARTICLE DELETION ============
+        function triggerGitDiffCalculation() {
+            let oldContentText = orlePediaMemoryStore[currentActiveArticleKey].content;
+            let currentEditorText = document.getElementById('wikiRawInputTextarea').value;
+
+            let lines = [];
+            const oldLines = oldContentText.split('\n');
+            const newLines = currentEditorText.split('\n');
+
+            for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
+                if (oldLines[i] !== newLines[i]) {
+                    if (oldLines[i] !== undefined) {
+                        lines.push(`<div class="diff-line removed"><span class="diff-marker">−</span>${escapeHtmlCode(oldLines[i])}</div>`);
+                    }
+                    if (newLines[i] !== undefined) {
+                        lines.push(`<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(newLines[i])}</div>`);
+                    }
+                } else if (oldLines[i] !== undefined) {
+                    lines.push(`<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(oldLines[i])}</div>`);
+                }
+            }
+
+            const panel = document.getElementById('editorGitDiffContainer');
+            panel.innerHTML = lines.join('');
+            panel.style.display = 'block';
+        }
+
+        // DELETION
         function openDeleteArticleDialog() {
             document.getElementById('deleteArticleTitle').value = currentActiveArticleKey;
             document.getElementById('deleteArticleReason').value = '';
@@ -1304,7 +1316,7 @@
             const reason = document.getElementById('deleteArticleReason').value.trim();
 
             if (!reason) {
-                alert('Please provide a reason for deletion.');
+                alert('Provide a reason');
                 return;
             }
 
@@ -1315,19 +1327,16 @@
                 editor: currentUserSessionProfile.username,
                 tag: currentUserSessionProfile.tag,
                 summary: `DELETED: ${reason}`,
-                content: '[DELETED]',
-                isDeleted: true
+                content: '[DELETED]'
             });
 
             delete orlePediaMemoryStore[currentActiveArticleKey];
             closeDeleteArticleDialog();
             loadArticle('Main Page');
-            triggerToastBannerNotification('Article deleted successfully.');
-
-            dispatchDataPayloadToRemoteDataNetworks('ARTICLE_DELETE', { title: currentActiveArticleKey, reason: reason });
+            alert('Deleted');
         }
 
-        // ============ ARTICLE CREATION ============
+        // CREATION
         function openNewArticleModal() {
             document.getElementById('newArticleTitleInput').value = '';
             document.getElementById('newArticleNamespaceSelect').value = 'Article';
@@ -1343,12 +1352,12 @@
             let selectedNamespace = document.getElementById('newArticleNamespaceSelect').value;
 
             if (!targetTitleStr) {
-                alert('Article title is required.');
+                alert('Title required');
                 return;
             }
 
             if (orlePediaMemoryStore[targetTitleStr]) {
-                alert(`An article with the title "${targetTitleStr}" already exists.`);
+                alert(`Article "${targetTitleStr}" already exists`);
                 return;
             }
 
@@ -1356,12 +1365,12 @@
                 title: targetTitleStr,
                 category: selectedNamespace,
                 content: '',
-                talk: `== Discussion for ${targetTitleStr} ==`,
+                talk: `== Discussion ==`,
                 history: [{
                     timestamp: Date.now(),
                     editor: currentUserSessionProfile.username || 'System',
                     tag: currentUserSessionProfile.tag || 'User',
-                    summary: 'Article created',
+                    summary: 'Created',
                     content: ''
                 }],
                 ratings: [],
@@ -1374,57 +1383,12 @@
 
             closeNewArticleModal();
             loadArticle(targetTitleStr);
-            triggerToastBannerNotification('Article created successfully.');
+            alert('Created');
 
             dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: targetTitleStr, databaseNode: orlePediaMemoryStore[targetTitleStr] });
         }
 
-        // ============ CATEGORY MANAGEMENT ============
-        function loadCategoryView(categoryName) {
-            exitEditorDashboard();
-            document.getElementById('displayArticleTitle').innerText = categoryName === 'all' ? 'All Categories' : `Category: ${categoryName}`;
-            document.getElementById('articleStarsContainer').innerHTML = '';
-
-            if (categoryName === 'all') {
-                let allCategories = new Set();
-                for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
-                    if (obj.category) {
-                        allCategories.add(obj.category);
-                    }
-                }
-
-                let categoryHtml = '<p>Available categories:</p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">';
-                if (allCategories.size === 0) {
-                    categoryHtml += '<li style="color:var(--text-muted);">No categories yet.</li>';
-                } else {
-                    allCategories.forEach(cat => {
-                        categoryHtml += `<li><span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span></li>`;
-                    });
-                }
-                categoryHtml += '</ul>';
-                document.getElementById('wikiTabContentBody').innerHTML = categoryHtml;
-                return;
-            }
-
-            let matchedArticlesListHtml = `<p>Articles in category: <b>${categoryName}</b></p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
-
-            let matchesFoundCount = 0;
-            for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
-                if (obj.category === categoryName) {
-                    matchesFoundCount++;
-                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${obj.title}')">${obj.title}</span></li>`;
-                }
-            }
-
-            if (matchesFoundCount === 0) {
-                matchedArticlesListHtml += `<li style="color:var(--text-muted);">No articles in this category.</li>`;
-            }
-
-            matchedArticlesListHtml += `</ul>`;
-            document.getElementById('wikiTabContentBody').innerHTML = matchedArticlesListHtml;
-        }
-
-        // ============ STATISTICS VIEW ============
+        // STATISTICS
         function loadStatisticsView() {
             exitEditorDashboard();
             document.getElementById('displayArticleTitle').innerText = 'Statistics';
@@ -1432,12 +1396,10 @@
 
             let totalPages = Object.keys(orlePediaMemoryStore).length;
             let totalEdits = 0;
-            let editCounts = {};
             let topEdited = [];
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 totalEdits += article.history.length;
-                editCounts[key] = article.history.length;
 
                 if (article.history.length > 0) {
                     topEdited.push({ title: key, edits: article.history.length });
@@ -1448,7 +1410,7 @@
 
             let statsHtml = `
                 <div style="background:#f8f9fa; border:1px solid var(--border-wiki); border-radius:4px; padding:1.5rem; margin-bottom:1rem;">
-                    <h3>Overall Statistics</h3>
+                    <h3>Statistics</h3>
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1rem;">
                         <div style="background:#fff; padding:1rem; border-radius:4px; border:1px solid var(--border-wiki);">
                             <div style="font-size:1.5rem; font-weight:bold; color:var(--wiki-blue);">${totalPages}</div>
@@ -1461,12 +1423,12 @@
                     </div>
                 </div>
 
-                <h3>Most Edited Articles</h3>
+                <h3>Most Edited</h3>
                 <ul style="margin-left:2rem; line-height:2;">
             `;
 
             topEdited.slice(0, 10).forEach(item => {
-                statsHtml += `<li><span class="wiki-link" onclick="loadArticle('${item.title}')">${item.title}</span> (${item.edits} edits)</li>`;
+                statsHtml += `<li><span class="wiki-link" onclick="loadArticle('${item.title}')">${item.title}</span> (${item.edits})</li>`;
             });
 
             statsHtml += `</ul>`;
@@ -1474,24 +1436,7 @@
             document.getElementById('wikiTabContentBody').innerHTML = statsHtml;
         }
 
-        // ============ ALL ARTICLES VIEW ============
-        function loadAllArticlesView() {
-            exitEditorDashboard();
-            document.getElementById('displayArticleTitle').innerText = 'All Articles';
-            document.getElementById('articleStarsContainer').innerHTML = '';
-
-            let articlesHtml = '<p>All articles in OrlePedia:</p><ul style="margin-left:2rem; margin-top:1rem; line-height:2;">';
-
-            let articles = Object.keys(orlePediaMemoryStore).sort();
-            articles.forEach(title => {
-                articlesHtml += `<li><span class="wiki-link" onclick="loadArticle('${title}')">${title}</span></li>`;
-            });
-
-            articlesHtml += '</ul>';
-            document.getElementById('wikiTabContentBody').innerHTML = articlesHtml;
-        }
-
-        // ============ RECENT CHANGES ============
+        // RECENT CHANGES
         function loadRecentChangesView() {
             exitEditorDashboard();
             document.getElementById('displayArticleTitle').innerText = 'Recent Changes';
@@ -1514,7 +1459,7 @@
 
             aggregateLogsArray.sort((a, b) => b.timestamp - a.timestamp);
 
-            let recentChangesMarkupHtml = `<p>Recent modifications across OrlePedia:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
+            let recentChangesMarkupHtml = `<p>Recent changes:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
 
             aggregateLogsArray.slice(0, 50).forEach(item => {
                 let formattedTime = new Date(item.timestamp).toLocaleString();
@@ -1522,9 +1467,8 @@
                     <div style="font-size:0.85rem; padding:0.4rem; border-bottom:1px dashed #ddd;">
                         <span>${formattedTime}</span> — 
                         (<span class="wiki-link" onclick="loadArticle('${item.articleTitle}')">${item.articleTitle}</span>) 
-                        <strong>${item.editor}</strong>
-                        <span class="user-tag" style="font-size:0.7rem;">${item.tag || 'User'}</span>: 
-                        <span style="color:#666; font-style:italic;">"${item.summary}"</span>
+                        <strong>${item.editor}</strong>: 
+                        <span style="color:#666;">"${item.summary}"</span>
                     </div>
                 `;
             });
@@ -1533,7 +1477,7 @@
             document.getElementById('wikiTabContentBody').innerHTML = recentChangesMarkupHtml;
         }
 
-        // ============ INFOBOX WIZARD ============
+        // INFOBOX
         function openInfoboxWizard() {
             document.getElementById('infoboxCustomParamsContainer').innerHTML = '';
             document.getElementById('infoboxWizardModal').style.display = 'flex';
@@ -1546,28 +1490,27 @@
         function addCustomParamRowField() {
             const container = document.getElementById('infoboxCustomParamsContainer');
             const row = document.createElement('div');
-            row.className = 'modal-horizontal';
+            row.style.display = 'flex';
+            row.style.gap = '0.5rem';
             row.style.marginBottom = '0.5rem';
-            row.innerHTML = `<input type="text" placeholder="Key" class="p-key" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;"><input type="text" placeholder="Value" class="p-val" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;">`;
+            row.innerHTML = `<input type="text" placeholder="Key" class="p-key" style="flex:1; padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;"><input type="text" placeholder="Value" class="p-val" style="flex:1; padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;">`;
             container.appendChild(row);
         }
 
         function compileAndInjectInfoboxMarkup() {
             let nameVal = document.getElementById('ib_name').value || 'Infobox';
-            let sealVal = document.getElementById('ib_seal').value;
-            let flagVal = document.getElementById('ib_flag').value;
-            let mapVal = document.getElementById('ib_map').value;
 
             let markupBuffer = `{{Infobox\n|name=${nameVal}\n`;
-            if (sealVal) markupBuffer += `|seal=${sealVal}\n`;
-            if (flagVal) markupBuffer += `|flag=${flagVal}\n`;
-            if (mapVal) markupBuffer += `|map=${mapVal}\n`;
 
-            const rows = document.querySelectorAll('.modal-horizontal');
+            const rows = document.querySelectorAll('.modal-row');
             rows.forEach(r => {
-                let k = r.querySelector('.p-key').value.trim();
-                let v = r.querySelector('.p-val').value.trim();
-                if (k && v) { markupBuffer += `|${k}=${v}\n`; }
+                const keyInput = r.querySelector('.p-key');
+                const valInput = r.querySelector('.p-val');
+                if (keyInput && valInput) {
+                    let k = keyInput.value.trim();
+                    let v = valInput.value.trim();
+                    if (k && v) { markupBuffer += `|${k}=${v}\n`; }
+                }
             });
 
             markupBuffer += `}}\n`;
@@ -1582,20 +1525,10 @@
             triggerClientPreview();
         }
 
-        // ============ HELPER UTILITIES ============
+        // UTILITIES
         function escapeHtmlCode(textString) {
             if (!textString) return '';
             return textString.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-
-        function triggerToastBannerNotification(messageText) {
-            console.log(`[NOTIFICATION]: ${messageText}`);
-            alert(messageText);
-        }
-
-        function jumpToFootnotesSection() {
-            const targetEl = document.getElementById('footnotesGroupContainer');
-            if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
         }
     </script>
 </body>
