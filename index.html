@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <style>
@@ -789,12 +789,10 @@
 
                     const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
                     if (existing.length > 0) {
-                        await supabaseRequest('ratings', 'POST', {
-                            article_id: existing[0].id,
-                            article_title: title,
-                            score: score,
-                            user: currentUserSessionProfile.username || "Anonymous"
-                        });
+                    await supabaseRequest('ratings', 'POST', {
+                        article_id: existing[0].id,
+                        score: score
+                    });
                     }
                 }
             } catch (err) {
@@ -959,7 +957,7 @@
 
             let html = '';
             results.slice(0, 10).forEach(result => {
-                html += `<div class="search-result-item" onclick="loadArticle('${result.title}')">
+                html += `<div class="search-result-item" onclick="loadArticle('${result.title}'); document.getElementById('searchResults').classList.remove('active'); document.getElementById('searchInput').value=''">
                     <div class="search-result-title">${result.title}</div>
                     <div class="search-result-namespace">${result.namespace}</div>
                 </div>`;
@@ -1526,6 +1524,19 @@
         }
 
         // UTILITIES
+        function handleWikiLink(articleTitle) {
+            if (orlePediaMemoryStore[articleTitle]) {
+                loadArticle(articleTitle);
+            } else {
+                const confirmed = confirm(`Article "${articleTitle}" does not exist.\n\nDo you want to create it?`);
+                if (confirmed) {
+                    document.getElementById('newArticleTitleInput').value = articleTitle;
+                    document.getElementById('newArticleNamespaceSelect').value = 'Article';
+                    document.getElementById('newArticleConstructorModal').style.display = 'flex';
+                }
+            }
+        }
+
         function escapeHtmlCode(textString) {
             if (!textString) return '';
             return textString.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
