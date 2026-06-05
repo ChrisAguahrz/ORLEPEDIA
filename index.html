@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-        <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <style>
@@ -104,11 +104,25 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .nav-link span.icon {
+            font-size: 1rem; /* Reduced icon size */
+            width: 1.2rem;
+            text-align: center;
         }
         
         aside.collapsed .nav-link {
             font-size: 1.2rem;
             text-indent: -9999px;
+            justify-content: center;
+        }
+        
+        aside.collapsed .nav-link span.icon {
+            text-indent: 0;
         }
         
         .nav-link:hover { text-decoration: underline; }
@@ -1071,15 +1085,15 @@
     <aside id="mainSidebar">
         <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
         <div class="logo-area">Orle<span>Pedia</span></div>
-        <a class="nav-link" onclick="loadArticle('Main Page')">🏠 Main Page</a>
-        <a class="nav-link" onclick="loadRecentChangesView()">🕒 Recent Changes</a>
-        <a class="nav-link" onclick="openNewArticleModal()">➕ Create New Article</a>
+        <a class="nav-link" onclick="loadArticle('Main Page')"><span class="icon">🏠</span> Main Page</a>
+        <a class="nav-link" onclick="loadRecentChangesView()"><span class="icon">🕒</span> Recent Changes</a>
+        <a class="nav-link" onclick="openNewArticleModal()"><span class="icon">➕</span> Create New Article</a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         <div style="font-size:0.75rem; font-weight:bold; color:var(--text-muted)">BROWSE SECTORS</div>
-        <a class="nav-link" onclick="loadStatisticsView()">📊 Statistics</a>
-        <a class="nav-link" onclick="loadCategoryView('All')">📁 All Categories</a>
+        <a class="nav-link" onclick="loadStatisticsView()"><span class="icon">📊</span> Statistics</a>
+        <a class="nav-link" onclick="loadCategoryView('All')"><span class="icon">📁</span> All Categories</a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-        <a class="nav-link" onclick="openProfileWindow()">👤 Edit My Profile</a>
+        <a class="nav-link" onclick="openProfileWindow()"><span class="icon">👤</span> Edit My Profile</a>
     </aside>
 
     <main>
@@ -1121,7 +1135,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
                 <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
                 <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 WikiLink</button>
-                <button class="tool-btn" onclick="wrapEditorText('[[File|URL|200px|', ']]')">🖼️ Image</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[File|', '|200px|Caption]]')">🖼️ Image</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">📊 Add Infobox</button>
                 <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">📑 Citation</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
@@ -1388,6 +1402,19 @@
                     }
                 }
 
+                // NEW: Route for Deleting Article
+                else if (actionType === "ARTICLE_DELETE") {
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(payloadData.title)}`, 'GET');
+                    if (existing.length > 0) {
+                        const id = existing[0].id;
+                        // Delete related ratings, revisions first if needed (Supabase usually handles cascade if set)
+                        await supabaseRequest(`ratings?article_id=eq.${id}`, 'DELETE');
+                        await supabaseRequest(`revisions?article_id=eq.${id}`, 'DELETE');
+                        await supabaseRequest(`articles?id=eq.${id}`, 'DELETE');
+                        console.log("✅ Article permanently deleted from cloud.");
+                    }
+                }
+
             } catch (err) {
                 console.error("❌ Failed to save to database transaction pipelines:", err);
                 alert("Database Error: " + err.message); 
@@ -1526,6 +1553,14 @@
         });
 
         // ============ USER PROFILE MANAGEMENT ============
+        function loadUserProfile() {
+            const saved = localStorage.getItem('orlepedia_profile');
+            if (saved) {
+                currentUserSessionProfile = JSON.parse(saved);
+                updateUIProfileDisplays();
+            }
+        }
+
         function openProfileWindow() {
             document.getElementById('profileUsernameInput').value = currentUserSessionProfile.username;
             document.getElementById('profileTagInput').value = currentUserSessionProfile.tag;
@@ -1548,6 +1583,7 @@
             currentUserSessionProfile.username = userVal;
             currentUserSessionProfile.tag = tagVal;
 
+            localStorage.setItem('orlepedia_profile', JSON.stringify(currentUserSessionProfile));
             updateUIProfileDisplays();
             closeProfileWindow();
 
@@ -1680,7 +1716,7 @@
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
 
-            // Handle files
+            // Handle files - Fixed to support full URLs
             const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, url, param2, param3) {
                 let caption = param3 ? param3 : param2;
@@ -1688,7 +1724,7 @@
                 return `
                     <div class="wiki-file-container">
                         <div class="wiki-file-box">
-                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.style.display='none'">
+                            <img src="${url.trim()}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
                             <span class="wiki-file-caption">${caption}</span>
                         </div>
                     </div>
@@ -1882,8 +1918,21 @@
                     <div><b>Original Base System Author:</b> <span class="user-tag">${articleObj.author || 'System Core'}</span></div>
                     <div><b>Total Processing Modifications Committed:</b> ${articleObj.history.length} operations</div>
                     <div><b>Average Active User Page Quality Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
+                    <div style="margin-top:1rem;">
+                        <button class="action-btn danger" onclick="executePermanentDeletion()">Delete This Article</button>
+                    </div>
                 </div>
             `;
+        }
+
+        function executePermanentDeletion() {
+            if (confirm("⚠️ WARNING: This will permanently delete the article and all its history from the database. This cannot be undone. Proceed?")) {
+                const title = currentActiveArticleKey;
+                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: title });
+                delete orlePediaMemoryStore[title];
+                loadArticle("Main Page");
+                triggerToastBannerNotification("🗑️ Article permanently purged from system records.");
+            }
         }
 
         // ============ RATING SYSTEM LOGIC ENGINE CALCULATOR ============
@@ -2051,6 +2100,17 @@
         function saveActiveArticleState() {
             let editorTextContent = document.getElementById('wikiRawInputTextarea').value;
             let changeSummaryText = document.getElementById('wikiEditSummaryInput').value.trim();
+
+            // Check for Delete template
+            if (editorTextContent.includes("{{Delete}}")) {
+                if (confirm("⚠️ DETECTED: {{Delete}} template found. Do you want to permanently delete this article instead of saving?")) {
+                    executePermanentDeletion();
+                    return;
+                } else {
+                    // Remove the delete template if they choose not to delete
+                    editorTextContent = editorTextContent.replace("{{Delete}}", "").trim();
+                }
+            }
 
             let article = orlePediaMemoryStore[currentActiveArticleKey];
             article.content = editorTextContent;
@@ -2268,6 +2328,7 @@
 
         // ============ APP INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
+            loadUserProfile();
             await loadOrlePediaDataFromCloud();
             loadArticle(currentActiveArticleKey);
         });
