@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Modern Wiki Design Tokens */
         :root {
@@ -1021,6 +1022,25 @@
             }
         }
 
+        /* New Feature Styles */
+        .collapsible-section.collapsed { display: none; }
+        .h2-header { cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+        .h2-header::after { content: '▼'; font-size: 0.8rem; transition: transform 0.3s; }
+        .h2-header.collapsed::after { transform: rotate(-90deg); }
+        
+        .category-footer { margin-top: 2rem; padding: 0.5rem; border: 1px solid var(--border-wiki); background: #f8f9fa; font-size: 0.85rem; }
+        .category-item { color: var(--wiki-blue); cursor: pointer; margin-right: 0.5rem; }
+        .category-item:hover { text-decoration: underline; }
+        
+        .article-footer-info { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eaecf0; color: var(--text-muted); font-size: 0.8rem; font-style: italic; }
+        
+        .wiki-table { width: 100%; border-collapse: collapse; margin: 1rem 0; border: 1px solid var(--border-wiki); }
+        .wiki-table th, .wiki-table td { border: 1px solid var(--border-wiki); padding: 0.5rem; text-align: left; }
+        .wiki-table th { background: #eaecf0; }
+        
+        .pie-chart-container { max-width: 400px; margin: 1rem auto; text-align: center; }
+        .pie-chart-title { font-weight: bold; margin-bottom: 0.5rem; }
+        
         @media (max-width: 480px) {
             body {
                 font-size: 14px;
@@ -1084,16 +1104,21 @@
 
     <aside id="mainSidebar">
         <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
-        <div class="logo-area">Orle<span>Pedia</span></div>
-        <a class="nav-link" onclick="loadArticle('Main Page')"><span class="icon">🏠</span> Main Page</a>
-        <a class="nav-link" onclick="loadRecentChangesView()"><span class="icon">🕒</span> Recent Changes</a>
-        <a class="nav-link" onclick="openNewArticleModal()"><span class="icon">➕</span> Create New Article</a>
+        <div class="logo-area" style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding:1rem 0;">
+            <img src="/home/ubuntu/orlepedia_logo_1.png" style="width:40px; height:40px; border-radius:50%;" onerror="this.style.display='none'">
+            <div style="font-size: 1.2rem;">Orle<span>Pedia</span></div>
+        </div>
+        <a class="nav-link" onclick="navigateTo('Main Page')"><i data-lucide="home"></i> <span>Main Page</span></a>
+        <a class="nav-link" onclick="loadRecentChangesView()"><i data-lucide="clock"></i> <span>Recent Changes</span></a>
+        <a class="nav-link" onclick="openNewArticleModal()"><i data-lucide="plus-circle"></i> <span>Create Article</span></a>
+        <a class="nav-link" onclick="openFileUploadModal()"><i data-lucide="upload"></i> <span>Upload File</span></a>
+        <a class="nav-link" onclick="openTemplateManager()"><i data-lucide="layout"></i> <span>Templates</span></a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         <div style="font-size:0.75rem; font-weight:bold; color:var(--text-muted)">BROWSE SECTORS</div>
-        <a class="nav-link" onclick="loadStatisticsView()"><span class="icon">📊</span> Statistics</a>
-        <a class="nav-link" onclick="loadCategoryView('All')"><span class="icon">📁</span> All Categories</a>
+        <a class="nav-link" onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> <span>Statistics</span></a>
+        <a class="nav-link" onclick="loadCategoryView('All')"><i data-lucide="folder"></i> <span>Categories</span></a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-        <a class="nav-link" onclick="openProfileWindow()"><span class="icon">👤</span> Edit My Profile</a>
+        <a class="nav-link" onclick="openProfileWindow()"><i data-lucide="user"></i> <span>My Profile</span></a>
     </aside>
 
     <main>
@@ -1114,7 +1139,8 @@
                     <span id="displayArticleTitle">Main Page</span>
                     <div class="star-rating-cluster" id="articleStarsContainer"></div>
                 </div>
-                <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;">✏️ Edit</button>
+                <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="edit-3"></i> Edit</button>
+                <button class="tool-btn" onclick="openMovePageModal()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="move"></i> Move</button>
             </div>
             
             <div class="article-meta-info" id="articleMetaInfo"></div>
@@ -1134,14 +1160,13 @@
             <div class="toolbar">
                 <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
                 <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
-                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 WikiLink</button>
-                <button class="tool-btn" onclick="wrapEditorText('[[File|', '|200px|Caption]]')">🖼️ Image</button>
-                <button class="tool-btn" onclick="openInfoboxWizard()">📊 Add Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('<ref>', '</ref>')">📑 Citation</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 Link</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[File|DB|', '|200px|Caption]]')">🖼️ DB File</button>
+                <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Table|title=Title|titlecolumn1=Col1|row1c1=Data}}', '')">📅 Table</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
-                <button class="tool-btn" onclick="wrapEditorText('\n=== ', ' ===\n')">H3</button>
-                <button class="tool-btn" onclick="wrapEditorText('\n[[Category:', ']]\n')">📂 Category</button>
-                <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', ']]')">↪️ Redirect</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
             </div>
             <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
             
@@ -1251,15 +1276,55 @@
         </div>
     </div>
 
+    <!-- File Upload Modal -->
+    <div class="modal-overlay" id="fileUploadModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Upload File to Supabase</div>
+            <div class="modal-row">
+                <label>File Name (to use in articles)</label>
+                <input type="text" id="fileNameInput" placeholder="e.g. MyImage.png">
+            </div>
+            <div class="modal-row">
+                <label>Select File</label>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="handleFileUpload()">Upload</button>
+                <button class="action-btn" onclick="closeModal('fileUploadModal')" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move Page Modal -->
+    <div class="modal-overlay" id="movePageModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Move Page</div>
+            <div class="modal-row">
+                <label>New Title</label>
+                <input type="text" id="movePageNewTitle" placeholder="Enter new title">
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="executePageMove()">Move</button>
+                <button class="action-btn" onclick="closeModal('movePageModal')" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============ GLOBAL STATE MANAGEMENT ============
         let orlePediaMemoryStore = {};
+        let orlePediaFileStore = {}; // For DB-backed files
         let currentActiveArticleKey = "Main Page";
         let activeSubTabState = "article";
         let currentUserSessionProfile = {
             username: "",
             tag: ""
         };
+        
+        function openFileUploadModal() { document.getElementById('fileUploadModal').style.display = 'flex'; }
+        function openMovePageModal() { document.getElementById('movePageModal').style.display = 'flex'; }
+        function openTemplateManager() { loadCategoryView('Template'); }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
         // Global Supabase Configuration Credentials
         const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
@@ -1596,8 +1661,28 @@
         }
 
         // ============ ARTICLE CONTROLLER PIPELINES ============
-        function loadArticle(articleTitle) {
+        function loadArticleWithCheck(articleTitle) {
+            if (!orlePediaMemoryStore[articleTitle]) {
+                if (confirm(`The page "${articleTitle}" does not exist. Do you want to create it?`)) {
+                    openNewArticleModal();
+                    document.getElementById('newArticleTitleInput').value = articleTitle;
+                }
+                return;
+            }
+            loadArticle(articleTitle);
+        }
+
+        function loadArticle(articleTitle, pushState = true) {
+            // Handle Redirects
+            if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
+                const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
+                return loadArticle(target, pushState);
+            }
+
             currentActiveArticleKey = articleTitle;
+            if (pushState) {
+                window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
+            }
             exitEditorDashboard();
 
             if (!orlePediaMemoryStore[articleTitle]) {
@@ -1634,8 +1719,24 @@
 
             if (targetTab === 'article') {
                 document.getElementById('tabArticle').classList.add('active');
-                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.content);
-                injectCategoryFooterBox(targetArticle.category);
+                let finalHtml = compileRawMarkupToHtml(targetArticle.content);
+                
+                // Add Category Footer
+                const cats = targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g);
+                if (cats) {
+                    finalHtml += `<div class="category-footer">Categories: ${cats.map(c => {
+                        const name = c.match(/\[\[Category:([^\]]+)\]\]/)[1];
+                        return `<span class="category-item" onclick="loadCategoryView('${name}')">${name}</span>`;
+                    }).join(' | ')}</div>`;
+                }
+                
+                // Add Relative Time Footer
+                const lastRev = targetArticle.history[targetArticle.history.length-1];
+                finalHtml += `<div class="article-footer-info">Last edited ${getRelativeTime(lastRev ? lastRev.timestamp : targetArticle.createdTime)}</div>`;
+
+                contentBox.innerHTML = finalHtml;
+                updateArticleSidebar();
+                lucide.createIcons();
             } 
             else if (targetTab === 'talk') {
                 document.getElementById('tabTalk').classList.add('active');
@@ -2168,6 +2269,15 @@
             document.getElementById('wikiTabContentBody').innerHTML = matchedArticlesListHtml;
         }
 
+        async function executePermanentDeletion() {
+            if (!confirm("Are you absolutely sure you want to PURGE this article? This cannot be undone.")) return;
+            const title = currentActiveArticleKey;
+            delete orlePediaMemoryStore[title];
+            await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: title });
+            loadArticle('Main Page');
+            triggerToastBannerNotification("🗑️ Article purged from neural network.");
+        }
+
         // ============ SYSTEM CREATION ROUTERS ============
         function openNewArticleModal() {
             document.getElementById('newArticleTitleInput').value = "";
@@ -2327,11 +2437,82 @@
         }
 
         // ============ APP INITIALIZATION ============
+        // ============ NEW FEATURES LOGIC ============
+        async function handleFileUpload() {
+            const file = document.getElementById('fileInput').files[0];
+            const name = document.getElementById('fileNameInput').value.trim();
+            if (!file || !name) return alert("File and Name required");
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64 = e.target.result;
+                await supabaseRequest('files', 'POST', { name, url: base64, uploader: currentUserSessionProfile.username });
+                orlePediaFileStore[name] = base64;
+                alert("File uploaded!");
+                closeModal('fileUploadModal');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function executePageMove() {
+            const newTitle = document.getElementById('movePageNewTitle').value.trim();
+            if (!newTitle) return;
+            const oldTitle = currentActiveArticleKey;
+            const art = orlePediaMemoryStore[oldTitle];
+            art.content = `#REDIRECT [[${newTitle}]]`;
+            await saveArticle(oldTitle, art.content, `Redirected to ${newTitle}`);
+            orlePediaMemoryStore[newTitle] = { ...art, title: newTitle, history: [] };
+            await saveArticle(newTitle, art.content, `Moved from ${oldTitle}`);
+            navigateTo(newTitle);
+            closeModal('movePageModal');
+        }
+
+        function getRelativeTime(timestamp) {
+            const diff = Date.now() - timestamp;
+            const seconds = Math.floor(diff / 1000);
+            if (seconds < 60) return "just now";
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return minutes + "m ago";
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return hours + "h ago";
+            const days = Math.floor(hours / 24);
+            return days + "d ago";
+        }
+
+        function toggleSection(id) {
+            const sec = document.getElementById('sec-' + id);
+            const h2 = document.getElementById('h2-' + id);
+            if(sec) sec.classList.toggle('collapsed');
+            if(h2) h2.classList.toggle('collapsed');
+        }
+
+        function navigateTo(title) {
+            window.history.pushState({ article: title }, '', '/ORLEPEDIA/' + encodeURIComponent(title));
+            loadArticle(title);
+        }
+
+        // ============ APP INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
             loadUserProfile();
             await loadOrlePediaDataFromCloud();
-            loadArticle(currentActiveArticleKey);
+            
+            // Routing Init
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('p');
+            if (p) {
+                const articleName = decodeURIComponent(p.replace(/^\//, ''));
+                navigateTo(articleName);
+            } else {
+                const path = window.location.pathname.split('/').pop();
+                if (path && path !== 'index.html' && !path.includes('.html')) {
+                    loadArticle(decodeURIComponent(path));
+                } else {
+                    loadArticle(currentActiveArticleKey);
+                }
+            }
+            lucide.createIcons();
         });
+
+        window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
 </html>
