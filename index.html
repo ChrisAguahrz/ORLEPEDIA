@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -98,32 +98,24 @@
         .logo-area span { color: var(--wiki-blue); }
         
         .nav-link { 
-            font-size: 0.85rem; 
+            font-size: 1.2rem; 
             color: var(--wiki-blue); 
             text-decoration: none; 
             cursor: pointer;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .nav-link span.icon {
-            font-size: 1rem; /* Reduced icon size */
-            width: 1.2rem;
-            text-align: center;
-        }
-        
-        aside.collapsed .nav-link {
-            font-size: 1.2rem;
-            text-indent: -9999px;
             justify-content: center;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: background 0.2s;
         }
         
-        aside.collapsed .nav-link span.icon {
-            text-indent: 0;
+        .nav-link:hover {
+            background: rgba(51, 102, 187, 0.1);
+        }
+        
+        .nav-link span {
+            display: none;
         }
         
         .nav-link:hover { text-decoration: underline; }
@@ -277,7 +269,7 @@
             font-size: 0.8rem; 
             margin-bottom: 1rem; 
             border-bottom: 1px solid #eaecf0;
-            flex-wrap: wrap;
+            align-items: center;
         }
         
         .wiki-tab { 
@@ -296,6 +288,72 @@
             color: var(--text-dark); 
             font-weight: bold; 
         }
+
+        .more-tabs-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .more-tabs-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: #f9f9f9;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1001;
+            border: 1px solid var(--border-wiki);
+            border-radius: 4px;
+        }
+
+        .more-tabs-content div {
+            color: var(--wiki-blue);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            cursor: pointer;
+        }
+
+        .more-tabs-content div:hover { background-color: #f1f1f1; }
+        .more-tabs-dropdown:hover .more-tabs-content { display: block; }
+
+        .h2-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-wiki);
+            margin: 1.5rem 0 0.5rem 0;
+            padding-bottom: 0.2rem;
+            font-family: Georgia, serif;
+            font-size: 1.5rem;
+        }
+
+        .h2-section-header:hover { background: #f8f9fa; }
+
+        .h2-section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: normal !important;
+        }
+
+        .h2-section-content {
+            display: block;
+            margin-bottom: 1rem;
+        }
+
+        .h2-section-content.collapsed { display: none; }
+
+        .edit-pencil {
+            font-size: 0.8rem;
+            color: var(--wiki-blue);
+            cursor: pointer;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .edit-pencil:hover { opacity: 1; }
 
         /* Built-In MediaWiki Styles */
         .wiki-body p { 
@@ -395,8 +453,15 @@
             font-size: 0.9rem;
             text-align: center;
             padding: 0.2rem;
-            font-style: italic;
             margin-bottom: 0.5rem;
+        }
+        .infobox-settlement-type {
+            background: #f2f2f2;
+            text-align: center;
+            padding: 0.2rem;
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-wiki);
+            border-bottom: 1px solid var(--border-wiki);
         }
         .infobox-header {
             background: #eaecf0;
@@ -1153,17 +1218,17 @@
             <img src="/home/ubuntu/orlepedia_logo_1.png" style="width:40px; height:40px; border-radius:50%;" onerror="this.style.display='none'">
             <div style="font-size: 1.2rem;">Orle<span>Pedia</span></div>
         </div>
-        <a class="nav-link" onclick="navigateTo('Main Page')"><i data-lucide="home"></i> <span>Main Page</span></a>
-        <a class="nav-link" onclick="loadRecentChangesView()"><i data-lucide="clock"></i> <span>Recent Changes</span></a>
-        <a class="nav-link" onclick="openNewArticleModal()"><i data-lucide="plus-circle"></i> <span>Create Article</span></a>
-        <a class="nav-link" onclick="openFileUploadModal()"><i data-lucide="upload"></i> <span>Upload File</span></a>
-        <a class="nav-link" onclick="loadCategoryView('Article')"><i data-lucide="file-text"></i> <span>Articles</span></a>
-        <a class="nav-link" onclick="openTemplateManager()"><i data-lucide="layout"></i> <span>Templates</span></a>
+        <a class="nav-link" onclick="navigateTo('Main Page')" title="Main Page"><i data-lucide="home"></i></a>
+        <a class="nav-link" onclick="loadRecentChangesView()" title="Recent Changes"><i data-lucide="clock"></i></a>
+        <a class="nav-link" onclick="openNewArticleModal()" title="Create Article"><i data-lucide="plus-circle"></i></a>
+        <a class="nav-link" onclick="openFileUploadModal()" title="Upload File"><i data-lucide="upload"></i></a>
+        <a class="nav-link" onclick="loadCategoryView('Article')" title="Articles"><i data-lucide="file-text"></i></a>
+        <a class="nav-link" onclick="openTemplateManager()" title="Templates"><i data-lucide="layout"></i></a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-        <a class="nav-link" onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> <span>Statistics</span></a>
-        <a class="nav-link" onclick="loadCategoryView('All')"><i data-lucide="folder"></i> <span>Categories</span></a>
+        <a class="nav-link" onclick="loadStatisticsView()" title="Statistics"><i data-lucide="bar-chart-2"></i></a>
+        <a class="nav-link" onclick="loadCategoryView('All')" title="Categories"><i data-lucide="folder"></i></a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-        <a class="nav-link" onclick="openProfileWindow()"><i data-lucide="user"></i> <span>My Profile</span></a>
+        <a class="nav-link" onclick="openProfileWindow()" title="My Profile"><i data-lucide="user"></i></a>
     </aside>
 
     <main>
@@ -1192,9 +1257,15 @@
 
             <div class="wiki-tabs">
                 <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
-                <div class="wiki-tab" id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
-                <div class="wiki-tab" id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
-                <div class="wiki-tab" id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
+                <div style="flex:1"></div>
+                <div class="more-tabs-dropdown">
+                    <button class="tool-btn" style="border:none; background:none; font-size:1.2rem;">⋮</button>
+                    <div class="more-tabs-content">
+                        <div id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
+                        <div id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
+                        <div id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
+                    </div>
+                </div>
             </div>
 
             <div id="wikiTabContentBody" class="wiki-body">
@@ -1257,6 +1328,31 @@
             <div class="btn-set">
                 <button class="action-btn success" onclick="saveUserProfile()">Save Profile</button>
                 <button class="action-btn" onclick="closeProfileWindow()" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Manager Modal -->
+    <div class="modal-overlay" id="templateManagerModal">
+        <div class="modal-card" style="max-width: 600px;">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Template Manager</div>
+            <div class="modal-row">
+                <label>Template Name (e.g. Notes)</label>
+                <input type="text" id="templateNameInput" placeholder="Enter template name">
+            </div>
+            <div class="modal-row">
+                <label>HTML/JS Content</label>
+                <textarea id="templateContentInput" class="wiki-editor" style="height:150px;" placeholder="<div>{{text}}</div>"></textarea>
+            </div>
+            <div class="btn-set">
+                <button class="action-btn" onclick="previewTemplate()">Preview</button>
+                <button class="action-btn success" onclick="saveTemplate()">Save Template</button>
+            </div>
+            <div id="templatePreviewArea" style="margin-top:10px; border:1px dashed #ccc; padding:10px; display:none;"></div>
+            <div style="font-weight:bold; margin-top:1rem; border-bottom:1px solid var(--border-wiki);">Existing Templates</div>
+            <div id="existingTemplatesList" style="max-height:150px; overflow-y:auto; font-size:0.85rem;"></div>
+            <div class="btn-set">
+                <button class="action-btn" onclick="closeModal('templateManagerModal')" style="background:#64748b; color:white;">Close</button>
             </div>
         </div>
     </div>
@@ -1368,7 +1464,55 @@
         
         function openFileUploadModal() { document.getElementById('fileUploadModal').style.display = 'flex'; }
         function openMovePageModal() { document.getElementById('movePageModal').style.display = 'flex'; }
-        function openTemplateManager() { loadCategoryView('Template'); }
+        let orlePediaTemplateStore = {};
+        function openTemplateManager() { 
+            renderTemplatesList();
+            document.getElementById('templateManagerModal').style.display = 'flex'; 
+        }
+
+        function renderTemplatesList() {
+            const list = document.getElementById('existingTemplatesList');
+            list.innerHTML = Object.keys(orlePediaTemplateStore).map(name => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px; border-bottom:1px solid #eee;">
+                    <span>{{${name}|...}}</span>
+                    <button class="tool-btn" onclick="deleteTemplate('${name}')">🗑️</button>
+                </div>
+            `).join('') || '<div style="color:grey; padding:5px;">No templates created yet.</div>';
+        }
+
+        function previewTemplate() {
+            const content = document.getElementById('templateContentInput').value;
+            const preview = document.getElementById('templatePreviewArea');
+            // Mock preview by replacing a generic {{text}} placeholder
+            preview.innerHTML = content.replace(/\{\{text\}\}/g, "Sample Text Content");
+            preview.style.display = 'block';
+        }
+
+        async function saveTemplate() {
+            const name = document.getElementById('templateNameInput').value.trim();
+            const content = document.getElementById('templateContentInput').value;
+            if (!name || !content) return alert("Name and Content required");
+            
+            try {
+                await supabaseRequest('templates', 'POST', { name, content });
+                orlePediaTemplateStore[name] = content;
+                renderTemplatesList();
+                alert("Template saved!");
+            } catch (err) {
+                alert("Save failed: " + err.message);
+            }
+        }
+
+        async function deleteTemplate(name) {
+            if (!confirm(`Delete template {{${name}}}?`)) return;
+            try {
+                await supabaseRequest(`templates?name=eq.${name}`, 'DELETE');
+                delete orlePediaTemplateStore[name];
+                renderTemplatesList();
+            } catch (err) {
+                alert("Delete failed: " + err.message);
+            }
+        }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
         // Global Supabase Configuration Credentials
@@ -1404,10 +1548,16 @@
                 const revisions = await supabaseRequest('revisions?select=*');
                 const ratings = await supabaseRequest('ratings?select=*');
                 const files = await supabaseRequest('files?select=*');
+                const templates = await supabaseRequest('templates?select=*');
                 
                 if (Array.isArray(files)) {
                     files.forEach(f => {
                         orlePediaFileStore[f.name] = f.url;
+                    });
+                }
+                if (Array.isArray(templates)) {
+                    templates.forEach(t => {
+                        orlePediaTemplateStore[t.name] = t.content;
                     });
                 }
                 
@@ -1420,7 +1570,7 @@
                                 .filter(r => r.article_id === art.id)
                                 .map(r => ({
                                     timestamp: Date.parse(r.created_at) || Date.now(),
-                                    editor: "Cloud Contributor",
+                                    editor: r.editor_name || "Cloud Contributor",
                                     tag: "Synced",
                                     summary: r.edit_summary || "Interface update modification",
                                     content: r.new_content
@@ -1492,7 +1642,8 @@
                         article_id: targetArticleId,
                         new_content: content,
                         edit_summary: summaryTxt,
-                        revision_number: totalRevs
+                        revision_number: totalRevs,
+                        editor_name: currentUserSessionProfile.username
                     });
                     console.log("✅ Article & Revision transaction completely finished.");
                 } 
@@ -1842,6 +1993,14 @@
             const infoRegex = /\{\{Info\|(.*?)\}\}/g;
             workingTextStr = workingTextStr.replace(infoRegex, `<div class="wiki-info-box">$1</div>`);
 
+            // Handle Dynamic Database Templates
+            for (let [tName, tContent] of Object.entries(orlePediaTemplateStore)) {
+                const tRegex = new RegExp(`\\{\\{${tName}\\|(.*?)\\}\\}`, 'g');
+                workingTextStr = workingTextStr.replace(tRegex, function(m, param) {
+                    return tContent.replace(/\{\{text\}\}/g, param);
+                });
+            }
+
             // Handle infobox
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
@@ -1877,11 +2036,21 @@
 
                 const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2">${label}</td></tr>`;
 
+                const histRows = () => {
+                    let h = "";
+                    for(let i=1; i<=6; i++) {
+                        let ev = infoboxDataRecords['event' + i];
+                        let yr = infoboxDataRecords['year' + i];
+                        if(ev) h += `<tr><th>${parseWiki(ev)}</th><td>${yr || ''}</td></tr>`;
+                    }
+                    return h;
+                };
+
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox">
                         <div class="infobox-title">${parseWiki(infoboxDataRecords['name'] || currentActiveArticleKey)}</div>
-                        ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-subtitle">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
-                        ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
+                        ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
+                        ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         <div class="infobox-media-row">
                             <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
                             <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
@@ -1895,7 +2064,7 @@
                             ${row('Country', 'country')}
                             ${row('State', 'state')}
                             ${row('County', 'county')}
-                            ${row('Capital', 'capital')}
+                            <tr><th style="padding-left:1rem;">Capital</th><td>${parseWiki(infoboxDataRecords['capital'] || '')}</td></tr>
                             ${row('Largest city', 'largest_city')}
                             ${row('Ethnicity', 'ethnicity')}
                             ${row('Language', 'language')}
@@ -1905,13 +2074,7 @@
                             ${row('Leader', 'leader3')}
                             ${row('Leader', 'leader4')}
                             
-                            ${merged('History')}
-                            ${row('Event', 'event1')}
-                            ${row('Event', 'event2')}
-                            ${row('Event', 'event3')}
-                            ${row('Event', 'event4')}
-                            ${row('Event', 'event5')}
-                            ${row('Event', 'event6')}
+                            ${infoboxDataRecords['event1'] ? merged('History') + histRows() : ''}
                             
                             ${merged('Area')}
                             ${row('Total area', 'area_total')}
@@ -1954,7 +2117,27 @@
             workingTextStr = workingTextStr.replace(/''(.*?)''/g, '<i>$1</i>');
             workingTextStr = workingTextStr.replace(/==== (.*?) ====/g, '<h4>$1</h4>');
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
-            workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
+            
+            // Handle Collapsible H2 Sections
+            let h2Counter = 0;
+            workingTextStr = workingTextStr.replace(/== (.*?) ==/g, function(m, title) {
+                h2Counter++;
+                const id = `h2-sec-${h2Counter}`;
+                return `
+                    </div><!-- Close previous section -->
+                    <div class="h2-section-header" onclick="toggleH2Section('${id}')">
+                        <div class="h2-section-title">
+                            <span class="collapsible-arrow" id="arrow-${id}">▶</span>
+                            ${title}
+                        </div>
+                        <i data-lucide="edit-2" class="edit-pencil" onclick="event.stopPropagation(); toggleEditMode()"></i>
+                    </div>
+                    <div class="h2-section-content collapsed" id="${id}">
+                `;
+            });
+
+            // Wrap initial content before first H2
+            workingTextStr = `<div class="h2-section-content">` + workingTextStr + `</div>`;
 
             // Handle files - Fixed to support DB files and full URLs
             const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
@@ -2311,8 +2494,11 @@
                 pageRatings.push({ title: key, edits: editCount, rating: avgRating });
             }
 
-            const topRated = [...pageRatings].sort((a, b) => b.rating - a.rating).slice(0, 5);
-            const bottomRated = [...pageRatings].sort((a, b) => a.rating - b.rating).slice(0, 5);
+            const validRatings = pageRatings.filter(p => !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
+            const topRated = [...validRatings].sort((a, b) => b.rating - a.rating).slice(0, 5);
+            const bottomRated = [...validRatings].sort((a, b) => a.rating - b.rating).slice(0, 5);
+            const topEdited = [...validRatings].sort((a, b) => b.edits - a.edits).slice(0, 5);
+            const bottomEdited = [...validRatings].sort((a, b) => a.edits - b.edits).slice(0, 5);
 
             let statsHtml = `
                 <div class="statistics-grid">
@@ -2343,6 +2529,22 @@
                     <thead><tr><th>Article</th><th>Rating</th></tr></thead>
                     <tbody>
                         ${bottomRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Most Edited Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Edits</th></tr></thead>
+                    <tbody>
+                        ${topEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Least Edited Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Edits</th></tr></thead>
+                    <tbody>
+                        ${bottomEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
                     </tbody>
                 </table>
             `;
@@ -2652,14 +2854,27 @@
         async function handleFileUpload() {
             const file = document.getElementById('fileInput').files[0];
             const name = document.getElementById('fileNameInput').value.trim();
+            const btn = event.target;
             if (!file || !name) return alert("File and Name required");
+            
+            const originalText = btn.innerText;
+            btn.innerText = "⌛ Uploading...";
+            btn.disabled = true;
+
             const reader = new FileReader();
             reader.onload = async (e) => {
-                const base64 = e.target.result;
-                await supabaseRequest('files', 'POST', { name, url: base64, uploader: currentUserSessionProfile.username });
-                orlePediaFileStore[name] = base64;
-                alert("File uploaded!");
-                closeModal('fileUploadModal');
+                try {
+                    const base64 = e.target.result;
+                    await supabaseRequest('files', 'POST', { name, url: base64, uploader: currentUserSessionProfile.username });
+                    orlePediaFileStore[name] = base64;
+                    alert("File uploaded!");
+                    closeModal('fileUploadModal');
+                } catch (err) {
+                    alert("Upload failed: " + err.message);
+                } finally {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
             };
             reader.readAsDataURL(file);
         }
@@ -2689,11 +2904,13 @@
             return days + "d ago";
         }
 
-        function toggleSection(id) {
-            const sec = document.getElementById('sec-' + id);
-            const h2 = document.getElementById('h2-' + id);
-            if(sec) sec.classList.toggle('collapsed');
-            if(h2) h2.classList.toggle('collapsed');
+        function toggleH2Section(id) {
+            const content = document.getElementById(id);
+            const arrow = document.getElementById('arrow-' + id);
+            if (content) {
+                const isCollapsed = content.classList.toggle('collapsed');
+                if (arrow) arrow.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)';
+            }
         }
 
         function navigateTo(title) {
