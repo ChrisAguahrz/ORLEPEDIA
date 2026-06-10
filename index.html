@@ -384,12 +384,44 @@
         }
         
         .infobox-title { 
-            font-size: 1.1rem; 
+            font-size: 1.25rem; 
             font-weight: bold; 
             text-align: center; 
-            padding: 0.3rem; 
+            padding: 0.5rem; 
             background: #eaecf0; 
-            margin-bottom: 0.5rem; 
+            margin-bottom: 0.2rem; 
+        }
+        .infobox-subtitle {
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 0.2rem;
+            font-style: italic;
+            margin-bottom: 0.5rem;
+        }
+        .infobox-header {
+            background: #eaecf0;
+            font-weight: bold;
+            text-align: center;
+            padding: 0.2rem;
+        }
+        .infobox-merged-row {
+            text-align: center;
+            font-weight: bold;
+            background: #eaecf0;
+            padding: 0.2rem;
+        }
+        .wiki-info-box {
+            background: #f8f9fa;
+            border: 1px solid var(--border-wiki);
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            border-left: 10px solid var(--wiki-blue);
+        }
+        .wiki-list {
+            margin: 0;
+            padding-left: 1.2rem;
+            list-style-type: disc;
         }
         
         .infobox-media-row { 
@@ -943,14 +975,27 @@
             
             aside {
                 width: 100%;
-                padding: 1rem;
+                padding: 0.5rem;
                 border-right: none;
                 border-bottom: 1px solid var(--border-wiki);
                 flex-direction: row;
-                gap: 1rem;
+                gap: 0.75rem;
                 max-height: auto;
                 overflow-x: auto;
                 overflow-y: hidden;
+                align-items: center;
+                flex-wrap: nowrap;
+                white-space: nowrap;
+            }
+            aside .logo-area {
+                padding: 0.25rem !important;
+                margin-right: 0.5rem;
+            }
+            aside .nav-link {
+                flex-shrink: 0;
+            }
+            aside .sidebar-toggle-btn {
+                display: none;
             }
             
             aside.collapsed {
@@ -1112,9 +1157,9 @@
         <a class="nav-link" onclick="loadRecentChangesView()"><i data-lucide="clock"></i> <span>Recent Changes</span></a>
         <a class="nav-link" onclick="openNewArticleModal()"><i data-lucide="plus-circle"></i> <span>Create Article</span></a>
         <a class="nav-link" onclick="openFileUploadModal()"><i data-lucide="upload"></i> <span>Upload File</span></a>
+        <a class="nav-link" onclick="loadCategoryView('Article')"><i data-lucide="file-text"></i> <span>Articles</span></a>
         <a class="nav-link" onclick="openTemplateManager()"><i data-lucide="layout"></i> <span>Templates</span></a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-        <div style="font-size:0.75rem; font-weight:bold; color:var(--text-muted)">BROWSE SECTORS</div>
         <a class="nav-link" onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> <span>Statistics</span></a>
         <a class="nav-link" onclick="loadCategoryView('All')"><i data-lucide="folder"></i> <span>Categories</span></a>
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
@@ -1358,6 +1403,13 @@
                 const articles = await supabaseRequest('articles?select=*');
                 const revisions = await supabaseRequest('revisions?select=*');
                 const ratings = await supabaseRequest('ratings?select=*');
+                const files = await supabaseRequest('files?select=*');
+                
+                if (Array.isArray(files)) {
+                    files.forEach(f => {
+                        orlePediaFileStore[f.name] = f.url;
+                    });
+                }
                 
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
@@ -1580,13 +1632,17 @@
                 return;
             }
 
-            const results = [];
+            const titleResults = [];
+            const contentResults = [];
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                if (article.title.toLowerCase().includes(query) || 
-                    article.content.toLowerCase().includes(query)) {
-                    results.push(article);
+                if (article.title.toLowerCase().includes(query)) {
+                    titleResults.push(article);
+                } else if (article.content.toLowerCase().includes(query)) {
+                    contentResults.push(article);
                 }
             }
+
+            const results = [...titleResults, ...contentResults];
 
             if (results.length === 0) {
                 dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">No results found</div>';
@@ -1769,6 +1825,23 @@
                 citationIndex++;
             }
 
+            // Handle List Template
+            const listRegex = /\{\{List([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(listRegex, function(m, content) {
+                let listHtml = `<ul class="wiki-list">`;
+                content.split('\n').forEach(line => {
+                    let trimmed = line.trim();
+                    if (trimmed.startsWith('*')) {
+                        listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
+                    }
+                });
+                return listHtml + `</ul>`;
+            });
+
+            // Handle Info Template
+            const infoRegex = /\{\{Info\|(.*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(infoRegex, `<div class="wiki-info-box">$1</div>`);
+
             // Handle infobox
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
@@ -1782,30 +1855,96 @@
                 let infoboxDataRecords = {};
                 lines.forEach(ln => {
                     if (ln.startsWith('|') && ln.includes('=')) {
-                        let segments = ln.substring(1).split('=');
-                        let key = segments[0].trim();
-                        let value = segments[1].trim();
+                        let eqIdx = ln.indexOf('=');
+                        let key = ln.substring(1, eqIdx).trim();
+                        let value = ln.substring(eqIdx + 1).trim();
                         infoboxDataRecords[key] = value;
                     }
                 });
 
+                const parseWiki = (txt) => {
+                    if (!txt) return "";
+                    return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                              .replace(/''(.*?)''/g, '<i>$1</i>')
+                              .replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>')
+                              .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
+                };
+
+                const row = (label, key) => {
+                    if (!infoboxDataRecords[key]) return "";
+                    return `<tr><th>${label}</th><td>${parseWiki(infoboxDataRecords[key])}</td></tr>`;
+                };
+
+                const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2">${label}</td></tr>`;
+
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox">
-                        <div class="infobox-title">${infoboxDataRecords['name'] || currentActiveArticleKey}</div>
+                        <div class="infobox-title">${parseWiki(infoboxDataRecords['name'] || currentActiveArticleKey)}</div>
+                        ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-subtitle">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
+                        ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">State Seal</span></div>
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
                         </div>
                         <div class="infobox-map">
                             <img src="${infoboxDataRecords['map'] || ''}" onerror="this.style.display='none'">
-                            <span class="infobox-media-caption">Map and Coordinates Placement</span>
+                            <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
+                            <div class="infobox-media-caption" style="font-style:italic;">${parseWiki(infoboxDataRecords['nickname'] || '')}</div>
                         </div>
                         <table class="infobox-data-table">
+                            ${row('Country', 'country')}
+                            ${row('State', 'state')}
+                            ${row('County', 'county')}
+                            ${row('Capital', 'capital')}
+                            ${row('Largest city', 'largest_city')}
+                            ${row('Ethnicity', 'ethnicity')}
+                            ${row('Language', 'language')}
+                            ${row('Religion', 'religion')}
+                            ${row('Leader', 'leader1')}
+                            ${row('Leader', 'leader2')}
+                            ${row('Leader', 'leader3')}
+                            ${row('Leader', 'leader4')}
+                            
+                            ${merged('History')}
+                            ${row('Event', 'event1')}
+                            ${row('Event', 'event2')}
+                            ${row('Event', 'event3')}
+                            ${row('Event', 'event4')}
+                            ${row('Event', 'event5')}
+                            ${row('Event', 'event6')}
+                            
+                            ${merged('Area')}
+                            ${row('Total area', 'area_total')}
+                            ${row('Density', 'area_density')}
+                            ${row('Water %', 'area_water_percent')}
+                            
+                            ${merged('Population')}
+                            ${row('Estimate', 'pop_estimate')}
+                            ${row('Census', 'pop_census')}
+                            ${row('Density', 'pop_density')}
+                            
+                            ${merged('Economy')}
+                            ${row('GDP (PPP)', 'gdp_ppp')}
+                            ${row('GDP (PPP) per capita', 'gdp_ppp_capita')}
+                            ${row('GDP (nominal)', 'gdp_nominal')}
+                            ${row('GDP (nominal) per capita', 'gdp_nominal_capita')}
+                            
+                            ${merged('Household Income')}
+                            ${row('Income', 'household_income')}
+                            ${row('HDI', 'hdi')}
+                            ${row('Gini', 'gini')}
+                            ${row('Poverty Rate', 'poverty_rate')}
+                            
+                            ${merged('Other Information')}
+                            ${row('Time zone', 'timezone')}
+                            ${row('Website', 'website')}
                 `;
 
+                // Add any other custom fields not handled above
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'country', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
-                    if (['name', 'seal', 'flag', 'map'].includes(k)) continue;
-                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${v}</td></tr>`;
+                    if (handled.includes(k)) continue;
+                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${parseWiki(v)}</td></tr>`;
                 }
                 compiledInfoboxHtmlString += `</table></div>`;
             }
@@ -1817,16 +1956,101 @@
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             workingTextStr = workingTextStr.replace(/== (.*?) ==/g, '<h2>$1</h2>');
 
-            // Handle files - Fixed to support full URLs
-            const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?\]\]/g;
-            workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, url, param2, param3) {
-                let caption = param3 ? param3 : param2;
-                let sizeWidth = param3 ? param2 : "220px";
+            // Handle files - Fixed to support DB files and full URLs
+            const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
+            workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
+                let url = p1.trim();
+                let fileName = p2.trim();
+                let sizeWidth = "220px";
+                let caption = "";
+
+                if (url === "DB") {
+                    url = orlePediaFileStore[fileName] || "";
+                    sizeWidth = p3 || "220px";
+                    caption = p4 || p3 || "";
+                } else {
+                    caption = p3 ? p3 : p2;
+                    sizeWidth = p3 ? p2 : "220px";
+                    url = p1.trim();
+                }
+
                 return `
                     <div class="wiki-file-container">
                         <div class="wiki-file-box">
-                            <img src="${url.trim()}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
                             <span class="wiki-file-caption">${caption}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Handle Table Template
+            const tableRegex = /\{\{Table\|([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(tableRegex, function(m, content) {
+                let params = {};
+                content.split('|').forEach(p => {
+                    let [k, v] = p.split('=');
+                    if (k && v) params[k.trim()] = v.trim();
+                });
+                let html = `<table class="wiki-table">`;
+                if (params.title) html += `<caption>${params.title}</caption>`;
+                
+                // Header Row
+                html += `<thead><tr>`;
+                let colIdx = 1;
+                while (params['titlecolumn' + colIdx]) {
+                    html += `<th>${params['titlecolumn' + colIdx]}</th>`;
+                    colIdx++;
+                }
+                html += `</tr></thead><tbody>`;
+                
+                // Data Rows
+                let rowIdx = 1;
+                while (true) {
+                    let hasData = false;
+                    let rowHtml = `<tr>`;
+                    for (let i = 1; i < colIdx; i++) {
+                        let val = params[`row${rowIdx}c${i}`] || "";
+                        if (val) hasData = true;
+                        rowHtml += `<td>${val}</td>`;
+                    }
+                    rowHtml += `</tr>`;
+                    if (!hasData) break;
+                    html += rowHtml;
+                    rowIdx++;
+                }
+                return html + `</tbody></table>`;
+            });
+
+            // Handle Piechart Template
+            const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(pieRegex, function(m, content) {
+                let params = {};
+                content.split('|').forEach(p => {
+                    let [k, v] = p.split('=');
+                    if (k && v) params[k.trim()] = v.trim();
+                });
+                let data = params.data || "";
+                let slices = data.split(',').map(s => {
+                    let [label, val] = s.split(':');
+                    return { label: label.trim(), value: parseFloat(val.trim()) };
+                });
+                let total = slices.reduce((a, b) => a + b.value, 0);
+                let currentAngle = 0;
+                let gradientParts = slices.map((s, i) => {
+                    let start = (currentAngle / total) * 100;
+                    currentAngle += s.value;
+                    let end = (currentAngle / total) * 100;
+                    let color = `hsl(${i * (360 / slices.length)}, 70%, 60%)`;
+                    return `${color} ${start}% ${end}%`;
+                });
+                
+                return `
+                    <div class="pie-chart-container">
+                        <div class="pie-chart-title">${params.title || "Data Distribution"}</div>
+                        <div style="width:200px; height:200px; border-radius:50%; background:conic-gradient(${gradientParts.join(', ')}); margin: 0 auto;"></div>
+                        <div style="margin-top:1rem; display:flex; flex-wrap:wrap; justify-content:center; gap:10px;">
+                            ${slices.map((s, i) => `<div><span style="display:inline-block; width:12px; height:12px; background:hsl(${i * (360 / slices.length)}, 70%, 60%);"></span> ${s.label}: ${s.value}</div>`).join('')}
                         </div>
                     </div>
                 `;
@@ -2078,23 +2302,17 @@
 
             let totalPages = Object.keys(orlePediaMemoryStore).length;
             let totalEdits = 0;
-            let topEditedPages = {};
-            let leastEditedPages = {};
+            let pageRatings = [];
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 const editCount = article.history ? article.history.length : 0;
                 totalEdits += editCount;
-                topEditedPages[key] = editCount;
-                leastEditedPages[key] = editCount;
+                const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+                pageRatings.push({ title: key, edits: editCount, rating: avgRating });
             }
 
-            const sortedTopPages = Object.entries(topEditedPages)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10);
-
-            const sortedLeastPages = Object.entries(leastEditedPages)
-                .sort((a, b) => a[1] - b[1])
-                .slice(0, 10);
+            const topRated = [...pageRatings].sort((a, b) => b.rating - a.rating).slice(0, 5);
+            const bottomRated = [...pageRatings].sort((a, b) => a.rating - b.rating).slice(0, 5);
 
             let statsHtml = `
                 <div class="statistics-grid">
@@ -2112,39 +2330,19 @@
                     </div>
                 </div>
 
-                <h3>Top Edited Pages</h3>
+                <h3>Top 5 Highest Rated Articles</h3>
                 <table class="stat-table">
-                    <thead>
-                        <tr>
-                            <th>Article</th>
-                            <th>Edits</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Article</th><th>Rating</th></tr></thead>
                     <tbody>
-                        ${sortedTopPages.map(([title, count]) => `
-                            <tr>
-                                <td><span class="wiki-link" onclick="loadArticle('${title}')">${title}</span></td>
-                                <td>${count}</td>
-                            </tr>
-                        `).join('')}
+                        ${topRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
                     </tbody>
                 </table>
 
-                <h3>Least Edited Pages</h3>
+                <h3>Bottom 5 Lowest Rated Articles</h3>
                 <table class="stat-table">
-                    <thead>
-                        <tr>
-                            <th>Article</th>
-                            <th>Edits</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Article</th><th>Rating</th></tr></thead>
                     <tbody>
-                        ${sortedLeastPages.map(([title, count]) => `
-                            <tr>
-                                <td><span class="wiki-link" onclick="loadArticle('${title}')">${title}</span></td>
-                                <td>${count}</td>
-                            </tr>
-                        `).join('')}
+                        ${bottomRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
                     </tbody>
                 </table>
             `;
@@ -2235,33 +2433,46 @@
         function loadCategoryView(categoryName) {
             exitEditorDashboard();
             closeArticleSidebar();
-            document.getElementById('displayArticleTitle').innerText = `Category: ${categoryName}`;
+            document.getElementById('displayArticleTitle').innerText = categoryName === 'Article' ? 'All Articles' : `Category: ${categoryName}`;
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
 
-            let matchedArticlesListHtml = categoryName === 'All' 
-                ? `<p>Listing all categories in the encyclopedia:</p>` 
-                : `<p>Listing records indexed inside administrative sector category: <b>${categoryName}</b></p>`;
+            let matchedArticlesListHtml = "";
+            if (categoryName === 'Article') {
+                matchedArticlesListHtml = `<p>Listing all articles in ascending order:</p>`;
+            } else if (categoryName === 'All') {
+                matchedArticlesListHtml = `<p>Listing all categories in the encyclopedia:</p>`;
+            } else {
+                matchedArticlesListHtml = `<p>Listing records indexed inside administrative sector category: <b>${categoryName}</b></p>`;
+            }
             
             matchedArticlesListHtml += `<ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
 
             let matchesFoundCount = 0;
             const categories = new Set();
+            const allArticles = [];
 
             for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
-                if (categoryName === 'All') {
+                if (categoryName === 'Article') {
+                    allArticles.push(obj);
+                } else if (categoryName === 'All') {
                     categories.add(obj.category);
                 } else if (obj.category === categoryName) {
                     matchesFoundCount++;
-                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${obj.title}')">${obj.title}</span></li>`;
+                    allArticles.push(obj);
                 }
             }
 
-            if (categoryName === 'All') {
-                categories.forEach(cat => {
+            if (categoryName === 'Article' || (categoryName !== 'All' && matchesFoundCount > 0)) {
+                allArticles.sort((a, b) => a.title.localeCompare(b.title));
+                allArticles.forEach(art => {
+                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></li>`;
+                });
+            } else if (categoryName === 'All') {
+                Array.from(categories).sort().forEach(cat => {
                     matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span></li>`;
                 });
-            } else if (matchesFoundCount === 0) {
+            } else {
                 matchedArticlesListHtml += `<li style="color:var(--text-muted)">No articles registered inside this jurisdiction yet.</li>`;
             }
 
