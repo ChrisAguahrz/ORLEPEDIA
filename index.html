@@ -24,7 +24,7 @@
             --diff-add-text: #0a3014;
             
             /* Byte Change Colors */
-            --bytes-positive: #28a745;
+            --bytes-positive: darkgreen;
             --bytes-negative: #dc3545;
         }
 
@@ -320,10 +320,11 @@
         .h2-section-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 10px;
             cursor: pointer;
             border-bottom: 1px solid var(--border-wiki);
-            margin: 1rem 0 0.5rem 0;
+            margin: 0.2rem 0;
             padding-bottom: 0.2rem;
             font-family: sans-serif;
             font-size: 1.1rem;
@@ -343,7 +344,7 @@
 
         .h2-section-content {
             display: block;
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
 
         .h2-section-content.collapsed { display: none; }
@@ -361,11 +362,12 @@
         .edit-pencil:hover { opacity: 1; }
 
         /* Built-In MediaWiki Styles */
-        .wiki-body p { 
+        .wiki-body p, .first-para { 
             margin-bottom: 0.8rem; 
             line-height: 1.6; 
             font-size: 0.95rem; 
             text-align: justify; 
+            font-family: sans-serif;
         }
         
         .wiki-body h2 { 
@@ -1283,6 +1285,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
                 <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
                 <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 Link</button>
+                <button class="tool-btn" onclick="document.getElementById('citationModal').style.display='flex'">📚 APA</button>
                 <button class="tool-btn" onclick="wrapEditorText('[[File|DB|', '|200px|Caption]]')">🖼️ DB File</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Table|title=Title|titlecolumn1=Col1|row1c1=Data}}', '')">📅 Table</button>
@@ -1328,12 +1331,35 @@
                 <input type="text" id="profileUsernameInput" placeholder="Enter your username">
             </div>
             <div class="modal-row">
-                <label>User Tag / Signature</label>
-                <input type="text" id="profileTagInput" placeholder="e.g., Editor, Admin, Contributor">
+                <label>Profile Image URL</label>
+                <input type="text" id="profileImageInput" placeholder="Enter image URL">
+            </div>
+            <div class="modal-row">
+                <label>Description</label>
+                <textarea id="profileDescriptionInput" style="width:100%; height:80px; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;" placeholder="Tell us about yourself..."></textarea>
             </div>
             <div class="btn-set">
                 <button class="action-btn success" onclick="saveUserProfile()">Save Profile</button>
                 <button class="action-btn" onclick="closeProfileWindow()" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Edit Modal -->
+    <div class="modal-overlay" id="fileEditModal">
+        <div class="modal-card" style="max-width: 400px;">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Edit File Information</div>
+            <div class="modal-row">
+                <label>File Name</label>
+                <input type="text" id="editFileNameInput" readonly style="background:#f0f0f0;">
+            </div>
+            <div class="modal-row">
+                <label>Description</label>
+                <textarea id="editFileDescriptionInput" style="width:100%; height:80px; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;"></textarea>
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="saveFileEdit()">Save Changes</button>
+                <button class="action-btn" onclick="closeModal('fileEditModal')" style="background:#64748b; color:white;">Cancel</button>
             </div>
         </div>
     </div>
@@ -1445,14 +1471,33 @@
     <!-- Move Page Modal -->
     <div class="modal-overlay" id="movePageModal">
         <div class="modal-card">
-            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Move Page</div>
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Move Article</div>
             <div class="modal-row">
                 <label>New Title</label>
-                <input type="text" id="movePageNewTitle" placeholder="Enter new title">
+                <input type="text" id="movePageNewTitle" placeholder="Enter new article title">
+            </div>
+            <div class="modal-row">
+                <label>Reason / Summary</label>
+                <input type="text" id="movePageSummaryInput" placeholder="Optional move reason">
             </div>
             <div class="btn-set">
-                <button class="action-btn success" onclick="executePageMove()">Move</button>
+                <button class="action-btn success" onclick="executePageMove()">Move Page</button>
                 <button class="action-btn" onclick="closeModal('movePageModal')" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Citation Modal -->
+    <div class="modal-overlay" id="citationModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Add APA Reference</div>
+            <div class="modal-row"><label>Author(s)</label><input type="text" id="citeAuthor" placeholder="e.g. Smith, J."></div>
+            <div class="modal-row"><label>Year</label><input type="text" id="citeYear" placeholder="e.g. 2024"></div>
+            <div class="modal-row"><label>Title</label><input type="text" id="citeTitle" placeholder="Article/Book Title"></div>
+            <div class="modal-row"><label>Source/URL</label><input type="text" id="citeSource" placeholder="e.g. Journal Name or URL"></div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="insertApaCitation()">Insert Reference</button>
+                <button class="action-btn" onclick="closeModal('citationModal')" style="background:#64748b; color:white;">Cancel</button>
             </div>
         </div>
     </div>
@@ -1478,12 +1523,17 @@
 
         function renderTemplatesList() {
             const list = document.getElementById('existingTemplatesList');
+            list.style.display = 'grid';
+            list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
+            list.style.gap = '0.5rem';
+            list.style.marginTop = '1rem';
+            
             list.innerHTML = Object.keys(orlePediaTemplateStore).map(name => `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:5px; border-bottom:1px solid #eee;">
-                    <span style="cursor:pointer; color:var(--wiki-blue);" onclick="editTemplate('${name}')">{{${name}|...}}</span>
-                    <button class="tool-btn" onclick="deleteTemplate('${name}')">🗑️</button>
+                <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; position:relative;">
+                    <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue); cursor:pointer; height:40px; display:flex; align-items:center; justify-content:center;" onclick="editTemplate('${name}')">{{${name}}}</div>
+                    <button class="tool-btn" onclick="deleteTemplate('${name}')" style="position:absolute; top:2px; right:2px; font-size:0.6rem; padding:2px;">🗑️</button>
                 </div>
-            `).join('') || '<div style="color:grey; padding:5px;">No templates created yet.</div>';
+            `).join('') || '<div style="color:grey; padding:5px; grid-column: 1 / -1;">No templates created yet.</div>';
         }
 
         function editTemplate(name) {
@@ -1852,8 +1902,9 @@
         }
 
         function openProfileWindow() {
-            document.getElementById('profileUsernameInput').value = currentUserSessionProfile.username;
-            document.getElementById('profileTagInput').value = currentUserSessionProfile.tag;
+            document.getElementById('profileUsernameInput').value = currentUserSessionProfile.username || "";
+            document.getElementById('profileImageInput').value = currentUserSessionProfile.image || "";
+            document.getElementById('profileDescriptionInput').value = currentUserSessionProfile.description || "";
             document.getElementById('profileModal').style.display = "flex";
         }
 
@@ -1863,7 +1914,8 @@
 
         function saveUserProfile() {
             const userVal = document.getElementById('profileUsernameInput').value.trim();
-            const tagVal = document.getElementById('profileTagInput').value.trim();
+            const imageVal = document.getElementById('profileImageInput').value.trim();
+            const descVal = document.getElementById('profileDescriptionInput').value.trim();
 
             if (!userVal) {
                 alert("⛔ Username is required.");
@@ -1871,13 +1923,32 @@
             }
 
             currentUserSessionProfile.username = userVal;
-            currentUserSessionProfile.tag = tagVal;
+            currentUserSessionProfile.image = imageVal;
+            currentUserSessionProfile.description = descVal;
 
             localStorage.setItem('orlepedia_profile', JSON.stringify(currentUserSessionProfile));
             updateUIProfileDisplays();
             closeProfileWindow();
 
             dispatchDataPayloadToRemoteDataNetworks("USER_REGISTER_OR_MOD", currentUserSessionProfile);
+        }
+
+        let currentEditingFileName = "";
+        let orlePediaFileMetadataStore = {}; // Store descriptions
+
+        function openFileEditModal(name) {
+            currentEditingFileName = name;
+            document.getElementById('editFileNameInput').value = name;
+            document.getElementById('editFileDescriptionInput').value = orlePediaFileMetadataStore[name] || "";
+            document.getElementById('fileEditModal').style.display = 'flex';
+        }
+
+        async function saveFileEdit() {
+            const desc = document.getElementById('editFileDescriptionInput').value;
+            orlePediaFileMetadataStore[currentEditingFileName] = desc;
+            await supabaseRequest(`files?name=eq.${currentEditingFileName}`, 'PATCH', { description: desc });
+            closeModal('fileEditModal');
+            alert("File information updated!");
         }
 
         function updateUIProfileDisplays() {
@@ -2011,25 +2082,37 @@
             const infoRegex = /\{\{Info\|(.*?)\}\}/g;
             workingTextStr = workingTextStr.replace(infoRegex, `<div class="wiki-info-box">$1</div>`);
 
+            // Function to parse wiki-links and basic formatting
+            const parseGlobalWiki = (txt) => {
+                if (!txt) return "";
+                return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                          .replace(/''(.*?)''/g, '<i>$1</i>')
+                          .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
+                              if (p1.startsWith('File:')) return m; // Skip files
+                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
+                          })
+                          .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
+                              if (p1 === 'File') return m; // Skip files
+                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
+                          });
+            };
+
             // Handle Dynamic Database Templates with Multi-Parameter Support
             for (let [tName, tContent] of Object.entries(orlePediaTemplateStore)) {
                 const tRegex = new RegExp(`\\{\\{${tName}\\|(.*?)\\}\\}`, 'g');
                 workingTextStr = workingTextStr.replace(tRegex, function(m, paramsStr) {
                     let processed = tContent;
                     const params = paramsStr.split('|');
-                    // Replace {{1}}, {{2}}, etc.
                     params.forEach((p, i) => {
                         processed = processed.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), p.trim());
                     });
-                    // Fallback for old {{text}} placeholder
                     processed = processed.replace(/\{\{text\}\}/g, params[0].trim());
-                    return processed;
+                    return parseGlobalWiki(processed);
                 });
             }
 
-            // Global Wiki-Link Parsing (ensure links work everywhere)
-            workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>');
-            workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
+            // Global Wiki-Link Parsing
+            workingTextStr = parseGlobalWiki(workingTextStr);
 
             // Handle infobox
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
@@ -2106,31 +2189,15 @@
                             
                             ${infoboxDataRecords['event1'] ? merged('History') + histRows() : ''}
                             
-                            ${merged('Area')}
-                            ${row('Total area', 'area_total')}
-                            ${row('Density', 'area_density')}
-                            ${row('Water %', 'area_water_percent')}
+                            ${(infoboxDataRecords['area_total'] || infoboxDataRecords['area_density'] || infoboxDataRecords['area_water_percent']) ? merged('Area') + row('Total area', 'area_total') + row('Density', 'area_density') + row('Water %', 'area_water_percent') : ''}
                             
-                            ${merged('Population')}
-                            ${row('Estimate', 'pop_estimate')}
-                            ${row('Census', 'pop_census')}
-                            ${row('Density', 'pop_density')}
+                            ${(infoboxDataRecords['pop_estimate'] || infoboxDataRecords['pop_census'] || infoboxDataRecords['pop_density']) ? merged('Population') + row('Estimate', 'pop_estimate') + row('Census', 'pop_census') + row('Density', 'pop_density') : ''}
                             
-                            ${merged('Economy')}
-                            ${row('GDP (PPP)', 'gdp_ppp')}
-                            ${row('GDP (PPP) per capita', 'gdp_ppp_capita')}
-                            ${row('GDP (nominal)', 'gdp_nominal')}
-                            ${row('GDP (nominal) per capita', 'gdp_nominal_capita')}
+                            ${(infoboxDataRecords['gdp_ppp'] || infoboxDataRecords['gdp_ppp_capita'] || infoboxDataRecords['gdp_nominal'] || infoboxDataRecords['gdp_nominal_capita']) ? merged('Economy') + row('GDP (PPP)', 'gdp_ppp') + row('GDP (PPP) per capita', 'gdp_ppp_capita') + row('GDP (nominal)', 'gdp_nominal') + row('GDP (nominal) per capita', 'gdp_nominal_capita') : ''}
                             
-                            ${merged('Household Income')}
-                            ${row('Income', 'household_income')}
-                            ${row('HDI', 'hdi')}
-                            ${row('Gini', 'gini')}
-                            ${row('Poverty Rate', 'poverty_rate')}
+                            ${(infoboxDataRecords['household_income'] || infoboxDataRecords['hdi'] || infoboxDataRecords['gini'] || infoboxDataRecords['poverty_rate']) ? merged('Household Income') + row('Income', 'household_income') + row('HDI', 'hdi') + row('Gini', 'gini') + row('Poverty Rate', 'poverty_rate') : ''}
                             
-                            ${merged('Other Information')}
-                            ${row('Time zone', 'timezone')}
-                            ${row('Website', 'website')}
+                            ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
                 `;
 
                 // Add any other custom fields not handled above
@@ -2166,13 +2233,13 @@
             });
 
             // Wrap initial content before first H2
-            workingTextStr = `<div class="h2-section-content wiki-body" style="display:block;">` + workingTextStr + `</div>`;
+            workingTextStr = `<div class="h2-section-content wiki-body first-para" style="display:block;">` + workingTextStr + `</div>`;
 
             // Handle files - Fixed to support DB files and full URLs
-            const fileBlockRegex = /\[\[File\|(.*?)\|(.*?)(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
+            const fileBlockRegex = /\[\[File\|(.*?)(?:\|(.*?))?(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
                 let url = p1.trim();
-                let fileName = p2.trim();
+                let fileName = p2 ? p2.trim() : "";
                 let sizeWidth = "220px";
                 let caption = "";
 
@@ -2180,10 +2247,15 @@
                     url = orlePediaFileStore[fileName] || "";
                     sizeWidth = p3 || "220px";
                     caption = p4 || p3 || "";
-                } else {
+                } else if (url.startsWith('http')) {
                     caption = p3 ? p3 : p2;
-                    sizeWidth = p3 ? p2 : "220px";
+                    sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
                     url = p1.trim();
+                } else {
+                    // Fallback for just [[File|Filename]] assuming it's DB
+                    url = orlePediaFileStore[url] || "";
+                    caption = p2 || "";
+                    sizeWidth = "220px";
                 }
 
                 return `
@@ -2224,7 +2296,7 @@
                     for (let i = 1; i < colIdx; i++) {
                         let val = params[`row${rowIdx}c${i}`] || "";
                         if (val) hasData = true;
-                        rowHtml += `<td>${val}</td>`;
+                        rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
                     }
                     rowHtml += `</tr>`;
                     if (!hasData) break;
@@ -2314,8 +2386,8 @@
 
         // ============ REVISION LOGS & DIFF ENGINE ============
         function calculateByteChange(oldContent, newContent) {
-            const oldSize = new Blob([oldContent]).size;
-            const newSize = new Blob([newContent]).size;
+            const oldSize = new Blob([oldContent || ""]).size;
+            const newSize = new Blob([newContent || ""]).size;
             return newSize - oldSize;
         }
 
@@ -2323,6 +2395,18 @@
             if (bytes === 0) return '±0 B';
             const sign = bytes > 0 ? '+' : '';
             return `${sign}${bytes} B`;
+        }
+
+        function getRevisionTag(oldContent, newContent) {
+            if (!oldContent && newContent) return "";
+            if (oldContent && !newContent) return " (removed)";
+            if (oldContent && newContent && oldContent !== newContent && newContent.length > 0 && oldContent.length > 0) {
+                // If it's a complete replacement (heuristic: very different content)
+                if (newContent.length > 0 && oldContent.length > 0 && !newContent.includes(oldContent.substring(0, 20))) {
+                    return " (replaced)";
+                }
+            }
+            return "";
         }
 
         function renderRevisionLogsHistoryList(articleObj) {
@@ -2351,13 +2435,14 @@
                 const byteChangeClass = byteChange > 0 ? 'positive' : byteChange < 0 ? 'negative' : '';
                 const isBold = Math.abs(byteChange) > 500;
                 const byteChangeMarkup = `<span class="byte-change ${byteChangeClass} ${isBold ? 'large' : ''}">${formatByteChange(byteChange)}</span>`;
+                const tag = getRevisionTag(index > 0 ? articleObj.history[index-1].content : "", revision.content);
 
                 logHistoryListHtml += `
                     <div class="history-log-item">
                         • <span class="history-timestamp">${timeString}</span> ${byteChangeMarkup} — 
                         <strong>${revision.editor}</strong> 
                         <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
-                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>
+                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
                         ${undoOptionButtonMarkup}
                     </div>
                 `;
@@ -2445,21 +2530,92 @@
             const container = document.getElementById('wikiTabContentBody');
             let createdDateString = new Date(articleObj.createdTime).toLocaleString();
 
+            // Calculate What Links Here
+            let linksHere = [];
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                if (title === articleObj.title) continue;
+                if (art.content.includes(`[[${articleObj.title}]]`) || art.content.includes(`[[${articleObj.title}|`)) {
+                    linksHere.push(title);
+                }
+            }
+
             container.innerHTML = `
-                <div style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; line-height:2;">
-                    <h3>System Database Page Information</h3>
-                    <hr style="border:none; border-top:1px solid var(--border-wiki); margin:0.5rem 0;">
-                    <div><b>Entity Target Field Label:</b> ${articleObj.title}</div>
-                    <div><b>Administrative Core Index Category:</b> ${articleObj.category}</div>
-                    <div><b>Initialization Mapping Date:</b> ${createdDateString}</div>
-                    <div><b>Original Base System Author:</b> <span class="user-tag">${articleObj.author || 'System Core'}</span></div>
-                    <div><b>Total Processing Modifications Committed:</b> ${articleObj.history.length} operations</div>
-                    <div><b>Average Active User Page Quality Rating:</b> ${calculatePageRatingAverage(articleObj.ratings)} / 5 Stars</div>
-                    <div style="margin-top:1rem;">
-                        <button class="action-btn danger" onclick="executePermanentDeletion()">Delete This Article</button>
-                    </div>
+                <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
+                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; line-height:2;">
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Article Identity Matrix</h3>
+                        <p>Registered ID: <b>${articleObj.title}</b></p>
+                        <p>Creation Timestamp: ${createdDateString}</p>
+                        <p>Original Author: ${articleObj.author}</p>
+                    </section>
+
+                    <section>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">What Links Here</h3>
+                        ${linksHere.length > 0 ? `
+                            <ul style="margin-left:1.5rem;">
+                                ${linksHere.map(t => `<li><span class="wiki-link" onclick="loadArticle('${t}')">${t}</span></li>`).join('')}
+                            </ul>
+                        ` : '<p style="color:grey;">No pages link to this article yet.</p>'}
+                    </section>
+                    
+                    <section>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Operations</h3>
+                        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                            <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
+                            <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
+                            <button class="action-btn" onclick="downloadArticle('pptx')">Download PPTX</button>
+                            <button class="action-btn danger" onclick="executePermanentDeletion()">⚠️ Permanently Delete Article</button>
+                        </div>
+                    </section>
                 </div>
             `;
+        }
+
+        function insertApaCitation() {
+            const author = document.getElementById('citeAuthor').value.trim();
+            const year = document.getElementById('citeYear').value.trim();
+            const title = document.getElementById('citeTitle').value.trim();
+            const source = document.getElementById('citeSource').value.trim();
+            
+            if (!author || !year || !title) return alert("Please fill required fields");
+            
+            const apa = `${author} (${year}). ${title}. ${source}.`;
+            const markup = `<ref>${apa}</ref>`;
+            
+            const editorTxtarea = document.getElementById('wikiRawInputTextarea');
+            const start = editorTxtarea.selectionStart;
+            const text = editorTxtarea.value;
+            editorTxtarea.value = text.substring(0, start) + markup + text.substring(editorTxtarea.selectionEnd);
+            
+            closeModal('citationModal');
+            triggerClientPreview();
+        }
+
+        async function downloadArticle(format) {
+            const title = currentActiveArticleKey;
+            const content = document.getElementById('wikiTabContentBody').cloneNode(true);
+            
+            // Clean up UI elements for export
+            content.querySelectorAll('.edit-pencil, button').forEach(el => el.remove());
+            
+            // High-end rendering: Convert complex templates to images if needed (simulated for browser environment)
+            // In a real browser-only app without a backend renderer, we use window.print() or specialized libs.
+            // For simplicity and reliability in this sandbox, we'll use a standard blob download for text-based formats
+            // and trigger the browser's print-to-PDF for PDF.
+            
+            const text = content.innerText;
+            const html = `<html><head><title>${title}</title><style>body{font-family:sans-serif;padding:2rem;} .wiki-infobox{border:1px solid #ccc;float:right;width:300px;margin-left:1rem;}</style></head><body><h1>${title}</h1>${content.innerHTML}</body></html>`;
+
+            if (format === 'pdf') {
+                window.print();
+            } else {
+                const mime = format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                const blob = new Blob([format === 'docx' ? html : text], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${title}.${format}`;
+                a.click();
+            }
         }
 
         function executePermanentDeletion() {
@@ -2514,20 +2670,37 @@
 
             let totalPages = Object.keys(orlePediaMemoryStore).length;
             let totalEdits = 0;
-            let pageRatings = [];
+            let totalWords = 0;
+            let pageStats = [];
+
+            const calculateLinksTo = (title) => {
+                let count = 0;
+                for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
+                    if (obj.content.includes(`[[${title}`)) count++;
+                }
+                return count;
+            };
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 const editCount = article.history ? article.history.length : 0;
                 totalEdits += editCount;
+                const wordCount = article.content.split(/\s+/).filter(w => w).length;
+                totalWords += wordCount;
+                const byteSize = new Blob([article.content]).size;
+                const linkedCount = calculateLinksTo(key);
                 const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
-                pageRatings.push({ title: key, edits: editCount, rating: avgRating });
+                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount });
             }
 
-            const validRatings = pageRatings.filter(p => !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
-            const topRated = [...validRatings].sort((a, b) => b.rating - a.rating).slice(0, 5);
-            const bottomRated = [...validRatings].sort((a, b) => a.rating - b.rating).slice(0, 5);
-            const topEdited = [...validRatings].sort((a, b) => b.edits - a.edits).slice(0, 5);
-            const bottomEdited = [...validRatings].sort((a, b) => a.edits - b.edits).slice(0, 5);
+            const validStats = pageStats.filter(p => !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
+            const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
+            const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
+            const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
+            const bottomEdited = [...validStats].sort((a, b) => a.edits - b.edits).slice(0, 5);
+            const topBytes = [...validStats].sort((a, b) => b.bytes - a.bytes).slice(0, 5);
+            const bottomBytes = [...validStats].sort((a, b) => a.bytes - b.bytes).slice(0, 5);
+            const topLinks = [...validStats].sort((a, b) => b.links - a.links).slice(0, 5);
+            const bottomLinks = [...validStats].sort((a, b) => a.links - b.links).slice(0, 5);
 
             let statsHtml = `
                 <div class="statistics-grid">
@@ -2540,8 +2713,8 @@
                         <div class="stat-card-value">${totalEdits}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-card-label">Average Edits/Page</div>
-                        <div class="stat-card-value">${(totalEdits / (totalPages || 1)).toFixed(1)}</div>
+                        <div class="stat-card-label">Total Words</div>
+                        <div class="stat-card-value">${totalWords}</div>
                     </div>
                 </div>
 
@@ -2574,6 +2747,38 @@
                     <thead><tr><th>Article</th><th>Edits</th></tr></thead>
                     <tbody>
                         ${bottomEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Largest Articles (Bytes)</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Size</th></tr></thead>
+                    <tbody>
+                        ${topBytes.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.bytes} B</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Smallest Articles (Bytes)</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Size</th></tr></thead>
+                    <tbody>
+                        ${bottomBytes.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.bytes} B</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Most Linked Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Links</th></tr></thead>
+                    <tbody>
+                        ${topLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Least Linked Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Links</th></tr></thead>
+                    <tbody>
+                        ${bottomLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
                     </tbody>
                 </table>
             `;
@@ -2681,7 +2886,7 @@
                 if (filter && !name.toLowerCase().includes(filter.toLowerCase())) continue;
                 found = true;
                 filesHtml += `
-                    <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa;">
+                    <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; cursor:pointer;" onclick="openFileEditModal('${name}')">
                         <img src="${url}" style="width:100px; height:100px; object-fit:cover; margin-bottom:0.5rem; border:1px solid #eee;" onerror="this.src='https://via.placeholder.com/100?text=Error'">
                         <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue);">${name}</div>
                     </div>
@@ -2947,16 +3152,39 @@
         }
 
         async function executePageMove() {
-            const newTitle = document.getElementById('movePageNewTitle').value.trim();
-            if (!newTitle) return;
             const oldTitle = currentActiveArticleKey;
+            const newTitle = document.getElementById('movePageNewTitle').value.trim();
+            const summary = document.getElementById('movePageSummaryInput')?.value || "";
+            if (!newTitle || newTitle === oldTitle) return;
+
             const art = orlePediaMemoryStore[oldTitle];
-            art.content = `#REDIRECT [[${newTitle}]]`;
-            await saveArticle(oldTitle, art.content, `Redirected to ${newTitle}`);
-            orlePediaMemoryStore[newTitle] = { ...art, title: newTitle, history: [] };
-            await saveArticle(newTitle, art.content, `Moved from ${oldTitle}`);
-            navigateTo(newTitle);
-            closeModal('movePageModal');
+            
+            try {
+                // 1. Create new article with same content
+                const moveSummary = `${currentUserSessionProfile.username} moved page ${oldTitle} to ${newTitle}${summary ? ': ' + summary : ''}`;
+                
+                // Locally update memory store first
+                orlePediaMemoryStore[newTitle] = { 
+                    ...art, 
+                    title: newTitle, 
+                    history: [{ timestamp: Date.now(), editor: currentUserSessionProfile.username, summary: moveSummary, content: art.content }] 
+                };
+                
+                // Save new article to cloud
+                await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: newTitle, databaseNode: orlePediaMemoryStore[newTitle] });
+                
+                // 2. Delete old article from cloud
+                await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: oldTitle });
+                
+                // 3. Update local store
+                delete orlePediaMemoryStore[oldTitle];
+
+                navigateTo(newTitle);
+                closeModal('movePageModal');
+                triggerToastBannerNotification(`🚚 Page moved successfully to ${newTitle}`);
+            } catch (err) {
+                alert("Move failed: " + err.message);
+            }
         }
 
         function getRelativeTime(timestamp) {
