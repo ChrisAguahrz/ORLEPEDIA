@@ -1800,7 +1800,7 @@
         // Network Helper Function - FIXED: shorter timeout, better error handling
         async function supabaseRequest(endpoint, method = 'GET', body = null) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
             
             const headers = {
                 'apikey': SUPABASE_KEY,
