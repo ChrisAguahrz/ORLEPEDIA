@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@0.383.0/dist/umd/lucide.min.js"></script>
     <style>
         /* Modern Wiki Design Tokens */
         :root {
@@ -1598,29 +1598,61 @@
             const config = { method, headers };
             if (body) config.body = JSON.stringify(body);
 
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Database Error: ${errorText}`);
+            // Timeout wrapper: abort if request takes longer than 15 seconds
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            config.signal = controller.signal;
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
+                clearTimeout(timeoutId);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Database Error: ${errorText}`);
+                }
+                return await response.json();
+            } catch (err) {
+                clearTimeout(timeoutId);
+                if (err.name === 'AbortError') throw new Error('Request timed out. Check your connection.');
+                throw err;
             }
-            return await response.json();
         }
 
-        // 1. FETCH ALL DATA FROM CLOUD
-        async function loadOrlePediaDataFromCloud() {
+        // Lazy-load a file's full URL (base64) only when it's actually needed for rendering
+        async function resolveFileUrl(fileName) {
+            if (orlePediaFileStore[fileName]) return orlePediaFileStore[fileName];
+            try {
+                const result = await supabaseRequest(`files?name=eq.${encodeURIComponent(fileName)}&select=name,url`);
+                if (result && result.length > 0) {
+                    orlePediaFileStore[fileName] = result[0].url;
+                    return result[0].url;
+                }
+            } catch (err) {
+                console.warn("Could not load file:", fileName, err);
+            }
+            return null;
+        }
+
+
+        async function loadOrlePediaDataFromCloud(urlArticle) {
+            const contentBox = document.getElementById('wikiTabContentBody');
+            contentBox.innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Connecting to encyclopedia database...</div>`;
             try {
                 console.log("🛰️ Fetching encyclopedia records...");
                 
-                // Fetch only essential metadata initially to speed up load
+                // FIX: Only fetch file names/ids on startup — NOT the full base64 url (which is huge).
+                // Files are lazy-loaded when actually rendered in an article.
                 const [articles, files, templates] = await Promise.all([
                     supabaseRequest('articles?select=id,title,summary,created_at'),
-                    supabaseRequest('files?select=*'),
+                    supabaseRequest('files?select=name,id'),
                     supabaseRequest('templates?select=*')
                 ]);
                 
                 if (Array.isArray(files)) {
                     files.forEach(f => {
-                        orlePediaFileStore[f.name] = f.url;
+                        // Store a placeholder; full data fetched on demand in resolveFileUrl()
+                        orlePediaFileStore[f.name] = null;
+                        orlePediaFileStore[f.name + '__id'] = f.id;
                     });
                 }
                 if (Array.isArray(templates)) {
@@ -1647,15 +1679,21 @@
                     });
                     console.log(`✅ Loaded metadata for ${articles.length} articles.`);
                     
-                    // Always load Main Page if it exists
-                    if (orlePediaMemoryStore["Main Page"]) {
+                    // Load the URL-requested article, or fall back to Main Page, or show empty state
+                    const target = urlArticle || "Main Page";
+                    if (orlePediaMemoryStore[target]) {
+                        loadArticle(target);
+                    } else if (urlArticle && orlePediaMemoryStore["Main Page"]) {
                         loadArticle("Main Page");
                     } else {
                         switchSubTab(activeSubTabState);
                     }
+                } else {
+                    contentBox.innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">No articles found. Create the first one!</div>`;
                 }
             } catch (err) {
                 console.error("❌ Fetch pipeline failure:", err);
+                contentBox.innerHTML = `<div style="padding:2rem; text-align:center; color:#c00;">⚠️ Failed to load: ${err.message}<br><br><button onclick="loadOrlePediaDataFromCloud()" style="padding:0.5rem 1rem; cursor:pointer;">Retry</button></div>`;
             }
         }
 
@@ -2263,8 +2301,11 @@
                 let fileName = p2 ? p2.trim() : "";
                 let sizeWidth = "220px";
                 let caption = "";
+                let isDbFile = false;
 
                 if (url === "DB") {
+                    isDbFile = true;
+                    // Check if already cached from a previous load
                     url = orlePediaFileStore[fileName] || "";
                     sizeWidth = p3 || "220px";
                     caption = p4 || p3 || "";
@@ -2274,20 +2315,38 @@
                     url = p1.trim();
                 } else {
                     // Fallback for just [[File|Filename]] assuming it's DB
+                    isDbFile = true;
+                    fileName = url;
                     url = orlePediaFileStore[url] || "";
                     caption = p2 || "";
                     sizeWidth = "220px";
                 }
 
+                // For DB files not yet cached, render a placeholder and lazy-load
+                const imgAttrs = (isDbFile && !url)
+                    ? `src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" data-lazy-file="${fileName.replace(/"/g,'&quot;')}" class="wiki-file-img lazy-db-img"`
+                    : `src="${url}" class="wiki-file-img"`;
+
                 return `
                     <div class="wiki-file-container">
                         <div class="wiki-file-box">
-                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <img ${imgAttrs} style="width:${sizeWidth}; min-height:${isDbFile && !url ? '60px' : 'auto'}; background:#f0f0f0;" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
                             <span class="wiki-file-caption">${caption}</span>
                         </div>
                     </div>
                 `;
             });
+            
+            // After rendering, lazy-load any DB images not yet cached
+            // We schedule this after the HTML is injected into the DOM
+            setTimeout(() => {
+                document.querySelectorAll('img.lazy-db-img[data-lazy-file]').forEach(async img => {
+                    const name = img.getAttribute('data-lazy-file');
+                    if (!name) return;
+                    const url = await resolveFileUrl(name);
+                    if (url) img.src = url;
+                });
+            }, 0);
 
             // Handle Table Template
             const tableRegex = /\{\{Table\|([\s\S]*?)\}\}/g;
@@ -3281,22 +3340,19 @@
         // ============ APP INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
             loadUserProfile();
-            await loadOrlePediaDataFromCloud();
             
-            // Routing Init
+            // Check URL routing BEFORE loading cloud data so we know which article to load
             const params = new URLSearchParams(window.location.search);
             const p = params.get('p');
-            if (p) {
-                const articleName = decodeURIComponent(p.replace(/^\//, ''));
-                navigateTo(articleName);
-            } else {
-                const path = window.location.pathname.split('/').pop();
-                if (path && path !== 'index.html' && !path.includes('.html')) {
-                    loadArticle(decodeURIComponent(path));
-                } else {
-                    loadArticle(currentActiveArticleKey);
-                }
-            }
+            const urlArticle = p 
+                ? decodeURIComponent(p.replace(/^\//, ''))
+                : (() => {
+                    const path = window.location.pathname.split('/').pop();
+                    return (path && path !== 'index.html' && !path.includes('.html')) ? decodeURIComponent(path) : null;
+                })();
+            
+            // Pass the URL-requested article so cloud loader opens it directly (avoids double load)
+            await loadOrlePediaDataFromCloud(urlArticle);
             lucide.createIcons();
         });
 
@@ -3304,3 +3360,4 @@
     </script>
 </body>
 </html>
+    
