@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1972,23 +1972,25 @@
             // Fetch full data on demand if not already loaded
             if (!article.isLoaded) {
                 document.getElementById('displayArticleTitle').innerText = "Loading " + articleTitle + "...";
-                document.getElementById('wikiTabContentBody').innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Fetching full article data from cloud...</div>`;
+                document.getElementById('wikiTabContentBody').innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Fetching article from cloud...</div>`;
                 
                 try {
+                    // OPTIMIZATION: Don't fetch 'new_content' for all revisions, only fetch metadata
                     const [artData, revisions, ratings] = await Promise.all([
                         supabaseRequest(`articles?id=eq.${article.id}`, 'GET'),
-                        supabaseRequest(`revisions?article_id=eq.${article.id}`, 'GET'),
+                        supabaseRequest(`revisions?select=id,created_at,editor_name,edit_summary,revision_number&article_id=eq.${article.id}`, 'GET'),
                         supabaseRequest(`ratings?article_id=eq.${article.id}`, 'GET')
                     ]);
 
                     if (artData && artData.length > 0) {
                         article.content = artData[0].content;
                         article.history = revisions.map(r => ({
+                            id: r.id, // Keep ID to fetch content later if needed
                             timestamp: Date.parse(r.created_at) || Date.now(),
                             editor: r.editor_name || "Cloud Contributor",
                             tag: "Synced",
                             summary: r.edit_summary || "Interface update modification",
-                            content: r.new_content
+                            content: null // Don't load full text for old revisions yet
                         }));
                         article.ratings = ratings.map(r => r.score);
                         article.isLoaded = true;
@@ -2446,22 +2448,16 @@
                     undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
                 }
 
-                let byteChange = 0;
-                if (index > 0) {
-                    byteChange = calculateByteChange(articleObj.history[index - 1].content, revision.content);
-                }
-
-                const byteChangeClass = byteChange > 0 ? 'positive' : byteChange < 0 ? 'negative' : '';
-                const isBold = Math.abs(byteChange) > 500;
-                const byteChangeMarkup = `<span class="byte-change ${byteChangeClass} ${isBold ? 'large' : ''}">${formatByteChange(byteChange)}</span>`;
-                const tag = getRevisionTag(index > 0 ? articleObj.history[index-1].content : "", revision.content);
+                // Since we don't have content for old revisions, byte change is shown as N/A or calculated if available
+                let byteChangeMarkup = `<span class="byte-change" style="color:grey;">(view diff for details)</span>`;
+                let tag = "";
 
                 logHistoryListHtml += `
                     <div class="history-log-item">
                         • <span class="history-timestamp">${timeString}</span> ${byteChangeMarkup} — 
                         <strong>${revision.editor}</strong> 
                         <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
-                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
+                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')" style="cursor:pointer; color:var(--wiki-blue); text-decoration:underline;">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
                         ${undoOptionButtonMarkup}
                     </div>
                 `;
@@ -2518,17 +2514,32 @@
             return htmlDiffStreamRows;
         }
 
-        function renderSingleSummaryDiff(historyIndex) {
+        async function renderSingleSummaryDiff(historyIndex) {
             let article = orlePediaMemoryStore[currentActiveArticleKey];
-            let currentSelectedContent = article.history[historyIndex].content;
+            let displayTargetBox = document.getElementById('wikiTabContentBody');
+            
+            displayTargetBox.innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Calculating diff comparison...</div>`;
 
-            let baseContentStr = "";
-            if (parseInt(historyIndex) > 0) {
-                baseContentStr = article.history[historyIndex - 1].content;
-            }
+            // Helper to ensure revision content is loaded
+            const ensureContent = async (idx) => {
+                if (idx < 0) return "";
+                const rev = article.history[idx];
+                if (rev.content === null) {
+                    try {
+                        const data = await supabaseRequest(`revisions?select=new_content&id=eq.${rev.id}`, 'GET');
+                        if (data && data.length > 0) rev.content = data[0].new_content;
+                    } catch (err) {
+                        console.error("Failed to fetch revision content:", err);
+                        return "";
+                    }
+                }
+                return rev.content || "";
+            };
+
+            const currentSelectedContent = await ensureContent(historyIndex);
+            const baseContentStr = await ensureContent(parseInt(historyIndex) - 1);
 
             let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
-            let displayTargetBox = document.getElementById('wikiTabContentBody');
             let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
 
             displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
