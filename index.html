@@ -1611,11 +1611,9 @@
             try {
                 console.log("🛰️ Fetching encyclopedia records...");
                 
-                // Fetch data from all three tables simultaneously
-                const [articles, revisions, ratings, files, templates] = await Promise.all([
-                    supabaseRequest('articles?select=*'),
-                    supabaseRequest('revisions?select=*'),
-                    supabaseRequest('ratings?select=*'),
+                // Fetch only essential metadata initially to speed up load
+                const [articles, files, templates] = await Promise.all([
+                    supabaseRequest('articles?select=id,title,summary,created_at'),
                     supabaseRequest('files?select=*'),
                     supabaseRequest('templates?select=*')
                 ]);
@@ -1632,48 +1630,29 @@
                 }
                 
                 if (Array.isArray(articles) && articles.length > 0) {
-                    // Index revisions and ratings for O(1) lookup
-                    const revisionsByArtId = {};
-                    if (Array.isArray(revisions)) {
-                        revisions.forEach(r => {
-                            if (!revisionsByArtId[r.article_id]) revisionsByArtId[r.article_id] = [];
-                            revisionsByArtId[r.article_id].push({
-                                timestamp: Date.parse(r.created_at) || Date.now(),
-                                editor: r.editor_name || "Cloud Contributor",
-                                tag: "Synced",
-                                summary: r.edit_summary || "Interface update modification",
-                                content: r.new_content
-                            });
-                        });
-                    }
-                    const ratingsByArtId = {};
-                    if (Array.isArray(ratings)) {
-                        ratings.forEach(r => {
-                            if (!ratingsByArtId[r.article_id]) ratingsByArtId[r.article_id] = [];
-                            ratingsByArtId[r.article_id].push(r.score);
-                        });
-                    }
-
                     articles.forEach(art => {
-                        let artRevs = revisionsByArtId[art.id] || [];
-                        let artRatings = ratingsByArtId[art.id] || [];
-
-                        // Inject the cloud data into the local memory matrix
+                        // Inject metadata only. Full content, history, ratings will be fetched on demand.
                         orlePediaMemoryStore[art.title] = {
+                            id: art.id,
                             title: art.title,
                             category: art.summary || "General Indexes",
-                            content: art.content,
+                            content: "", // Fetched on demand
                             talk: `== Talk Board for ${art.title} ==`,
-                            history: artRevs.length > 0 ? artRevs : [
-                                { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
-                            ],
-                            ratings: artRatings.length > 0 ? artRatings : [5],
+                            history: [], // Fetched on demand
+                            ratings: [], // Fetched on demand
                             createdTime: Date.parse(art.created_at) || Date.now(),
-                            author: "Cloud Contributor"
+                            author: "Cloud Contributor",
+                            isLoaded: false // Flag to track if full data is loaded
                         };
                     });
-                    console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
-                    switchSubTab(activeSubTabState);
+                    console.log(`✅ Loaded metadata for ${articles.length} articles.`);
+                    
+                    // Always load Main Page if it exists
+                    if (orlePediaMemoryStore["Main Page"]) {
+                        loadArticle("Main Page");
+                    } else {
+                        switchSubTab(activeSubTabState);
+                    }
                 }
             } catch (err) {
                 console.error("❌ Fetch pipeline failure:", err);
@@ -1973,19 +1952,7 @@
             loadArticle(articleTitle);
         }
 
-        function loadArticle(articleTitle, pushState = true) {
-            // Handle Redirects
-            if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
-                const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
-                return loadArticle(target, pushState);
-            }
-
-            currentActiveArticleKey = articleTitle;
-            if (pushState) {
-                window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
-            }
-            exitEditorDashboard();
-
+        async function loadArticle(articleTitle, pushState = true) {
             if (!orlePediaMemoryStore[articleTitle]) {
                 orlePediaMemoryStore[articleTitle] = {
                     title: articleTitle,
@@ -1995,14 +1962,57 @@
                     history: [],
                     ratings: [],
                     createdTime: Date.now(),
-                    author: currentUserSessionProfile.username || "System Core"
+                    author: currentUserSessionProfile.username || "System Core",
+                    isLoaded: true
                 };
             }
+
+            const article = orlePediaMemoryStore[articleTitle];
+
+            // Fetch full data on demand if not already loaded
+            if (!article.isLoaded) {
+                document.getElementById('displayArticleTitle').innerText = "Loading " + articleTitle + "...";
+                document.getElementById('wikiTabContentBody').innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Fetching full article data from cloud...</div>`;
+                
+                try {
+                    const [artData, revisions, ratings] = await Promise.all([
+                        supabaseRequest(`articles?id=eq.${article.id}`, 'GET'),
+                        supabaseRequest(`revisions?article_id=eq.${article.id}`, 'GET'),
+                        supabaseRequest(`ratings?article_id=eq.${article.id}`, 'GET')
+                    ]);
+
+                    if (artData && artData.length > 0) {
+                        article.content = artData[0].content;
+                        article.history = revisions.map(r => ({
+                            timestamp: Date.parse(r.created_at) || Date.now(),
+                            editor: r.editor_name || "Cloud Contributor",
+                            tag: "Synced",
+                            summary: r.edit_summary || "Interface update modification",
+                            content: r.new_content
+                        }));
+                        article.ratings = ratings.map(r => r.score);
+                        article.isLoaded = true;
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch article data:", err);
+                }
+            }
+
+            // Handle Redirects
+            if (article.content.startsWith('#REDIRECT')) {
+                const match = article.content.match(/\[\[(.*?)\]\]/);
+                if (match) return loadArticle(match[1], pushState);
+            }
+
+            currentActiveArticleKey = articleTitle;
+            if (pushState) {
+                window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
+            }
+            exitEditorDashboard();
 
             document.getElementById('displayArticleTitle').innerText = articleTitle;
             
             // Update meta info
-            const article = orlePediaMemoryStore[articleTitle];
             const revisionCount = article.history.length;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}`;
             
@@ -2690,12 +2700,44 @@
                 return count;
             };
 
+            // Show loading message for statistics as it may require fetching all data
+            document.getElementById('wikiTabContentBody').innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Generating global statistics... This may take a moment.</div>`;
+
+            // Note: For large datasets, statistics should ideally be calculated server-side.
+            // For now, we fetch all data if we haven't already to calculate accurate stats.
+            const fetchAllDataForStats = async () => {
+                const [revisions, ratings, fullArticles] = await Promise.all([
+                    supabaseRequest('revisions?select=article_id,created_at,editor_name,edit_summary,new_content'),
+                    supabaseRequest('ratings?select=article_id,score'),
+                    supabaseRequest('articles?select=id,title,content')
+                ]);
+
+                // Map data back to memory store
+                fullArticles.forEach(art => {
+                    const mem = orlePediaMemoryStore[art.title];
+                    if (mem) {
+                        mem.content = art.content;
+                        mem.history = revisions.filter(r => r.article_id === art.id).map(r => ({
+                            timestamp: Date.parse(r.created_at) || Date.now(),
+                            editor: r.editor_name || "Cloud Contributor",
+                            tag: "Synced",
+                            summary: r.edit_summary || "Interface update modification",
+                            content: r.new_content
+                        }));
+                        mem.ratings = ratings.filter(r => r.article_id === art.id).map(r => r.score);
+                        mem.isLoaded = true;
+                    }
+                });
+            };
+
+            await fetchAllDataForStats();
+
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 const editCount = article.history ? article.history.length : 0;
                 totalEdits += editCount;
-                const wordCount = article.content.split(/\s+/).filter(w => w).length;
+                const wordCount = (article.content || "").split(/\s+/).filter(w => w).length;
                 totalWords += wordCount;
-                const byteSize = new Blob([article.content]).size;
+                const byteSize = new Blob([article.content || ""]).size;
                 const linkedCount = calculateLinksTo(key);
                 const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount });
