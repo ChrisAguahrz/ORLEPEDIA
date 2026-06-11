@@ -31,78 +31,6 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
 
-        /* Modern Loading Overlay Module */
-        #appLoaderOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #f6f6f6;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 99999;
-            font-family: sans-serif;
-            transition: opacity 0.4s ease, visibility 0.4s;
-        }
-        .loader-card {
-            background: white;
-            padding: 2.5rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.08);
-            border: 1px solid #a2a9b1;
-            text-align: center;
-            width: 90%;
-            max-width: 400px;
-        }
-        .loader-logo {
-            font-family: Georgia, serif;
-            font-size: 1.8rem;
-            font-weight: bold;
-            margin-bottom: 1.5rem;
-            letter-spacing: -1px;
-        }
-        .loader-logo span { color: var(--wiki-blue); }
-        .progress-track {
-            width: 100%;
-            height: 6px;
-            background: #eaecf0;
-            border-radius: 20px;
-            overflow: hidden;
-            margin-bottom: 1rem;
-        }
-        .progress-bar-fill {
-            width: 0%;
-            height: 100%;
-            background: var(--wiki-blue);
-            border-radius: 20px;
-            transition: width 0.3s ease;
-        }
-        .loader-status-msg {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 0.25rem;
-        }
-        .loader-percentage-counter {
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: var(--text-dark);
-        }
-        .loader-error-badge {
-            display: none;
-            background: #ffebe9;
-            color: #65020c;
-            border: 1px solid #ffc1bd;
-            padding: 0.75rem;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            margin-top: 1rem;
-            text-align: left;
-            word-break: break-word;
-        }
-
         /* Left Vector Navigation Sidebar - Collapsible */
         aside { 
             width: 180px; 
@@ -1291,18 +1219,6 @@
 </head>
 <body>
 
-    <div id="appLoaderOverlay">
-        <div class="loader-card">
-            <div class="loader-logo">Orle<span>Pedia</span></div>
-            <div class="progress-track">
-                <div id="appLoaderProgressBarFill" class="progress-bar-fill"></div>
-            </div>
-            <div id="appLoaderStatusMessage" class="loader-status-msg">Booting dynamic wiki layout structures...</div>
-            <div id="appLoaderPercentageDisplay" class="loader-percentage-counter">0%</div>
-            <div id="appLoaderErrorBadge" class="loader-error-badge"></div>
-        </div>
-    </div>
-
     <aside id="mainSidebar">
         <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
         <div class="logo-area" style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding:1rem 0;">
@@ -1314,79 +1230,264 @@
         <a class="nav-link" onclick="openNewArticleModal()" title="Create Article"><i data-lucide="plus-circle"></i></a>
         <a class="nav-link" onclick="openFileUploadModal()" title="Upload File"><i data-lucide="upload"></i></a>
         <a class="nav-link" onclick="loadFilesView()" title="Files"><i data-lucide="image"></i></a>
-        <a class="nav-link" onclick="loadCategoryView('Article')" title="Articles"><i data-lucide="layers"></i></a>
-        <a class="nav-link" onclick="loadCategoryView('All')" title="Categories"><i data-lucide="tags"></i></a>
+        <a class="nav-link" onclick="loadCategoryView('Article')" title="Articles"><i data-lucide="file-text"></i></a>
+        <a class="nav-link" onclick="openTemplateManager()" title="Templates"><i data-lucide="layout"></i></a>
+        <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         <a class="nav-link" onclick="loadStatisticsView()" title="Statistics"><i data-lucide="bar-chart-2"></i></a>
-        <a class="nav-link" onclick="openTemplateManager()" title="Templates"><i data-lucide="layout-template"></i></a>
-        <div style="flex:1;"></div>
-        <a class="nav-link" onclick="openProfileWindow()" title="User Profile"><i data-lucide="user"></i></a>
+        <a class="nav-link" onclick="loadCategoryView('All')" title="Categories"><i data-lucide="folder"></i></a>
+        <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
+        <a class="nav-link" onclick="openProfileWindow()" title="My Profile"><i data-lucide="user"></i></a>
     </aside>
 
     <main>
         <div id="userHeaderBanner">
-            <div id="profileIdentityCluster"><span style="color:var(--text-muted)">Not logged in</span></div>
+            <div id="identityGreeting">Welcome to OrlePedia. Please register a profile to contribute adjustments.</div>
             <div class="modern-search-container">
                 <div class="search-input-wrapper">
-                    <input type="text" placeholder="Search OrlePedia..." oninput="performGlobalSearch(event)">
-                    <div id="searchResultsDropdown" class="search-results-dropdown"></div>
+                    <input type="text" id="globalSearchInput" placeholder="Search articles, files..." onkeyup="performGlobalSearch(event)">
+                    <div class="search-results-dropdown" id="searchResultsDropdown"></div>
                 </div>
             </div>
+            <div id="headerUserBadge"></div>
         </div>
 
         <div id="articleContainerWrapper">
-            <h1 class="firstHeading">
-                <div style="display:flex; flex-direction:column;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span id="displayArticleTitle">Main Page</span>
-                        <div id="articleStarsContainer" class="star-rating-cluster"></div>
-                    </div>
-                    <div id="articleMetaInfo" class="article-meta-info"></div>
+            <div class="firstHeading">
+                <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
+                    <span id="displayArticleTitle">Main Page</span>
+                    <div class="star-rating-cluster" id="articleStarsContainer"></div>
                 </div>
-                <div class="wiki-tabs">
-                    <div id="tabArticle" class="wiki-tab active" onclick="switchSubTab('article')">Article</div>
-                    <div id="tabTalk" class="wiki-tab" onclick="switchSubTab('talk')">Discussion</div>
-                    <div id="tabEdit" class="wiki-tab" onclick="toggleEditMode()">Edit Source</div>
-                    <div id="tabHistory" class="wiki-tab" onclick="switchSubTab('history')">History</div>
-                    <div class="more-tabs-dropdown">
-                        <div class="wiki-tab">More ▼</div>
-                        <div class="more-tabs-content">
-                            <div onclick="openMovePageModal()">Move Page</div>
-                            <div onclick="switchSubTab('info')">Page Info</div>
-                        </div>
+                <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="edit-3"></i> Edit</button>
+                <button class="tool-btn" onclick="openMovePageModal()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="move"></i> Move</button>
+            </div>
+            
+            <div class="article-meta-info" id="articleMetaInfo"></div>
+
+            <div class="wiki-tabs">
+                <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
+                <div style="flex:1"></div>
+                <div class="more-tabs-dropdown">
+                    <button class="tool-btn" style="border:none; background:none; font-size:1.2rem;">⋮</button>
+                    <div class="more-tabs-content">
+                        <div id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
+                        <div id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
+                        <div id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
                     </div>
                 </div>
-            </h1>
-            <div id="wikiTabContentBody" class="wiki-body"></div>
+            </div>
+
+            <div id="wikiTabContentBody" class="wiki-body">
+                </div>
         </div>
 
         <div id="masterEditorContainer" class="editor-dashboard">
             <div class="toolbar">
-                <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')">Bold</button>
-                <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')">Italic</button>
-                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">Wiki Link</button>
-                <button class="tool-btn" onclick="openModal('infoboxWizardModal')">Infobox Wizard</button>
-                <button class="tool-btn" onclick="openModal('citationModal')">Add Reference</button>
-                <button class="tool-btn" onclick="openModal('tableWizardModal')">Add Table</button>
+                <button class="tool-btn" onclick="wrapEditorText('\'\'\'', '\'\'\'')"><b>B</b></button>
+                <button class="tool-btn" onclick="wrapEditorText('\'\'', '\'\'')"><i>I</i></button>
+                <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 Link</button>
+                <button class="tool-btn" onclick="document.getElementById('citationModal').style.display='flex'">📚 APA</button>
+                <button class="tool-btn" onclick="wrapEditorText('[[File|DB|', '|200px|Caption]]')">🖼️ DB File</button>
+                <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Table|title=Title|titlecolumn1=Col1|row1c1=Data}}', '')">📅 Table</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
+                <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
             </div>
-            <textarea id="wikiRawInputTextarea" class="wiki-editor" oninput="triggerClientPreview()"></textarea>
-            <input type="text" id="wikiEditSummaryInput" class="summary-input" placeholder="Edit summary (Briefly describe your changes)">
+            <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
+            
+            <input type="text" id="wikiEditSummaryInput" class="summary-input" placeholder="(Optional) Describe what adjustments you made...">
+            
             <div class="btn-set">
-                <button class="action-btn primary" onclick="commitEditorChangesToCloud()">Publish changes</button>
+                <button class="action-btn success" onclick="saveActiveArticleState()">Commit Adjustments</button>
+                <button class="action-btn" onclick="triggerClientPreview()">Live Live Preview</button>
+                <button class="action-btn" onclick="triggerGitDiffCalculation()">Show Code Changes</button>
                 <button class="action-btn" onclick="exitEditorDashboard()" style="background:#64748b; color:white;">Cancel</button>
             </div>
-            <div id="wikiLivePreviewPane" class="preview-pane-container">
-                <div class="preview-title">Live Preview</div>
-                <div id="wikiLivePreviewBody"></div>
+
+            <div class="preview-pane-container" id="editorLivePreviewCard">
+                <div class="preview-title">Live Client Render Preview</div>
+                <div id="editorLivePreviewContent" class="wiki-body"></div>
             </div>
-            <div id="wikiGithubDiffBoard" class="github-diff-board"></div>
+
+            <div class="github-diff-board" id="editorGitDiffContainer">
+                </div>
         </div>
     </main>
 
+    <!-- Article Right Sidebar -->
     <div class="article-sidebar" id="articleSidebar">
-        <button class="sidebar-close-btn" onclick="closeArticleSidebar()">×</button>
-        <div id="sidebarDynamicMetricsContainer"></div>
+        <button class="sidebar-close-btn" onclick="closeArticleSidebar()">✕</button>
+        
+        <div id="sidebarPageInfo"></div>
+        <div id="sidebarHistoryInfo"></div>
     </div>
 
+    <!-- Profile Modal -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">User Profile Configuration</div>
+            <div class="modal-row">
+                <label>Username</label>
+                <input type="text" id="profileUsernameInput" placeholder="Enter your username">
+            </div>
+            <div class="modal-row">
+                <label>Profile Image URL</label>
+                <input type="text" id="profileImageInput" placeholder="Enter image URL">
+            </div>
+            <div class="modal-row">
+                <label>Description</label>
+                <textarea id="profileDescriptionInput" style="width:100%; height:80px; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;" placeholder="Tell us about yourself..."></textarea>
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="saveUserProfile()">Save Profile</button>
+                <button class="action-btn" onclick="closeProfileWindow()" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Edit Modal -->
+    <div class="modal-overlay" id="fileEditModal">
+        <div class="modal-card" style="max-width: 400px;">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Edit File Information</div>
+            <div class="modal-row">
+                <label>File Name</label>
+                <input type="text" id="editFileNameInput" readonly style="background:#f0f0f0;">
+            </div>
+            <div class="modal-row">
+                <label>Description</label>
+                <textarea id="editFileDescriptionInput" style="width:100%; height:80px; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;"></textarea>
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="saveFileEdit()">Save Changes</button>
+                <button class="action-btn" onclick="closeModal('fileEditModal')" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Manager Modal -->
+    <div class="modal-overlay" id="templateManagerModal">
+        <div class="modal-card" style="max-width: 600px;">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Template Manager</div>
+            <div class="modal-row">
+                <label>Template Name (e.g. Notes)</label>
+                <input type="text" id="templateNameInput" placeholder="Enter template name">
+            </div>
+            <div class="modal-row">
+                <label>HTML/JS Content</label>
+                <textarea id="templateContentInput" class="wiki-editor" style="height:150px;" placeholder="<div>{{text}}</div>"></textarea>
+            </div>
+            <div class="btn-set">
+                <button class="action-btn" onclick="previewTemplate()">Preview</button>
+                <button class="action-btn success" onclick="saveTemplate()">Save Template</button>
+            </div>
+            <div id="templatePreviewArea" style="margin-top:10px; border:1px dashed #ccc; padding:10px; display:none;"></div>
+            <div style="font-weight:bold; margin-top:1rem; border-bottom:1px solid var(--border-wiki);">Existing Templates</div>
+            <div id="existingTemplatesList" style="max-height:150px; overflow-y:auto; font-size:0.85rem;"></div>
+            <div class="btn-set">
+                <button class="action-btn" onclick="closeModal('templateManagerModal')" style="background:#64748b; color:white;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Article Modal -->
+    <div class="modal-overlay" id="newArticleConstructorModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Create New Article</div>
+            <div class="modal-row">
+                <label>Article Title</label>
+                <input type="text" id="newArticleTitleInput" placeholder="Enter article title">
+            </div>
+            <div class="modal-row">
+                <label>Namespace</label>
+                <select id="newArticleNamespaceSelect">
+                    <option value="Article">Article</option>
+                    <option value="OrlePedia">OrlePedia</option>
+                    <option value="File">File</option>
+                    <option value="Category">Category</option>
+                    <option value="SpecialPages">Special Pages</option>
+                </select>
+            </div>
+            <div class="modal-row">
+                <label>Category (for Articles)</label>
+                <input type="text" id="newArticleCategoryInput" placeholder="Enter category name">
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="executeArticleCreationInit()">Create Article</button>
+                <button class="action-btn" onclick="closeNewArticleModal()" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Infobox Wizard Modal -->
+    <div class="modal-overlay" id="infoboxWizardModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Infobox Structural Data Builder</div>
+            <div class="modal-row">
+                <label>Entity / Name Heading</label>
+                <input type="text" id="ib_name" placeholder="Commonwealth Territory">
+            </div>
+            <div class="modal-horizontal">
+                <div class="modal-row">
+                    <label>State Seal Image URL</label>
+                    <input type="text" id="ib_seal" placeholder="https://example.com/seal.jpg">
+                </div>
+                <div class="modal-row">
+                    <label>Flag Image URL</label>
+                    <input type="text" id="ib_flag" placeholder="https://example.com/flag.jpg">
+                </div>
+            </div>
+            <div class="modal-row">
+                <label>Map Image URL</label>
+                <input type="text" id="ib_map" placeholder="https://example.com/map.jpg">
+            </div>
+            <div id="infoboxCustomParamsContainer"></div>
+            <button class="tool-btn" onclick="addCustomParamRowField()">+ Add Custom Field</button>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="compileAndInjectInfoboxMarkup()">Insert Infobox</button>
+                <button class="action-btn" onclick="closeInfoboxWizard()" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div class="modal-overlay" id="fileUploadModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Upload File to Supabase</div>
+            <div class="modal-row">
+                <label>File Name (to use in articles)</label>
+                <input type="text" id="fileNameInput" placeholder="e.g. MyImage.png">
+            </div>
+            <div class="modal-row">
+                <label>Select File</label>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="handleFileUpload()">Upload</button>
+                <button class="action-btn" onclick="closeModal('fileUploadModal')" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Move Page Modal -->
+    <div class="modal-overlay" id="movePageModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Move Article</div>
+            <div class="modal-row">
+                <label>New Title</label>
+                <input type="text" id="movePageNewTitle" placeholder="Enter new article title">
+            </div>
+            <div class="modal-row">
+                <label>Reason / Summary</label>
+                <input type="text" id="movePageSummaryInput" placeholder="Optional move reason">
+            </div>
+            <div class="btn-set">
+                <button class="action-btn success" onclick="executePageMove()">Move Page</button>
+                <button class="action-btn" onclick="closeModal('movePageModal')" style="background:#64748b; color:white;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Citation Modal -->
     <div class="modal-overlay" id="citationModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Add APA Reference</div>
@@ -1404,32 +1505,89 @@
     <script>
         // ============ GLOBAL STATE MANAGEMENT ============
         let orlePediaMemoryStore = {};
-        let orlePediaFileStore = {}; 
+        let orlePediaFileStore = {}; // For DB-backed files
         let currentActiveArticleKey = "Main Page";
         let activeSubTabState = "article";
-        let currentUserSessionProfile = { username: "", tag: "" };
-
+        let currentUserSessionProfile = {
+            username: "",
+            tag: ""
+        };
+        
         function openFileUploadModal() { document.getElementById('fileUploadModal').style.display = 'flex'; }
         function openMovePageModal() { document.getElementById('movePageModal').style.display = 'flex'; }
-
         let orlePediaTemplateStore = {};
-        function openTemplateManager() { renderTemplatesList(); document.getElementById('templateManagerModal').style.display = 'flex'; }
-        
+        function openTemplateManager() { 
+            renderTemplatesList();
+            document.getElementById('templateManagerModal').style.display = 'flex'; 
+        }
+
         function renderTemplatesList() {
             const list = document.getElementById('existingTemplatesList');
             list.style.display = 'grid';
             list.style.gridTemplateColumns = 'repeat(auto-fill, minmax(100px, 1fr))';
             list.style.gap = '0.5rem';
             list.style.marginTop = '1rem';
+            
             list.innerHTML = Object.keys(orlePediaTemplateStore).map(name => `
-                <div style="border:1px solid var(--border-wiki); padding:0.5rem; text-align:center; position:relative; background:#fafafa; border-radius:4px;">
-                    <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${name}</div>
-                    <button onclick="deleteTemplate('${name}')" style="background:var(--wiki-red); color:white; border:none; padding:2px 6px; font-size:0.7rem; border-radius:3px; margin-top:5px; cursor:pointer;">Delete</button>
+                <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; position:relative;">
+                    <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue); cursor:pointer; height:40px; display:flex; align-items:center; justify-content:center;" onclick="editTemplate('${name}')">{{${name}}}</div>
+                    <button class="tool-btn" onclick="deleteTemplate('${name}')" style="position:absolute; top:2px; right:2px; font-size:0.6rem; padding:2px;">🗑️</button>
                 </div>
-            `).join('') || '<p style="color:var(--text-muted); font-size:0.85rem;">No custom templates saved yet.</p>';
+            `).join('') || '<div style="color:grey; padding:5px; grid-column: 1 / -1;">No templates created yet.</div>';
         }
 
-        // SUPABASE BACKEND REQUEST CLIENT MODULE
+        function editTemplate(name) {
+            document.getElementById('templateNameInput').value = name;
+            document.getElementById('templateContentInput').value = orlePediaTemplateStore[name];
+            document.getElementById('templatePreviewArea').style.display = 'none';
+        }
+
+        function previewTemplate() {
+            const content = document.getElementById('templateContentInput').value;
+            const preview = document.getElementById('templatePreviewArea');
+            // Mock preview by replacing a generic {{text}} placeholder
+            preview.innerHTML = content.replace(/\{\{text\}\}/g, "Sample Text Content");
+            preview.style.display = 'block';
+        }
+
+        async function saveTemplate() {
+            const name = document.getElementById('templateNameInput').value.trim();
+            const content = document.getElementById('templateContentInput').value;
+            if (!name || !content) return alert("Name and Content required");
+            
+            try {
+                if (orlePediaTemplateStore[name]) {
+                    // Update existing
+                    await supabaseRequest(`templates?name=eq.${name}`, 'PATCH', { content });
+                } else {
+                    // Create new
+                    await supabaseRequest('templates', 'POST', { name, content });
+                }
+                orlePediaTemplateStore[name] = content;
+                renderTemplatesList();
+                alert("Template saved!");
+            } catch (err) {
+                alert("Save failed: " + err.message);
+            }
+        }
+
+        async function deleteTemplate(name) {
+            if (!confirm(`Delete template {{${name}}}?`)) return;
+            try {
+                await supabaseRequest(`templates?name=eq.${name}`, 'DELETE');
+                delete orlePediaTemplateStore[name];
+                renderTemplatesList();
+            } catch (err) {
+                alert("Delete failed: " + err.message);
+            }
+        }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // Global Supabase Configuration Credentials
+        const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
+
+        // Network Helper Function
         async function supabaseRequest(endpoint, method = 'GET', body = null) {
             const headers = {
                 'apikey': SUPABASE_KEY,
@@ -1439,7 +1597,7 @@
             };
             const config = { method, headers };
             if (body) config.body = JSON.stringify(body);
-            
+
             const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
             if (!response.ok) {
                 const errorText = await response.text();
@@ -1448,42 +1606,32 @@
             return await response.json();
         }
 
-        // Update progress bar visual function
-        function updateLoaderProgressMetric(percentValue, statusTextStr) {
-            document.getElementById('appLoaderProgressBarFill').style.width = percentValue + '%';
-            document.getElementById('appLoaderPercentageDisplay').innerText = percentValue + '%';
-            document.getElementById('appLoaderStatusMessage').innerText = statusTextStr;
-        }
-
-        // 1. FETCH ALL DATA FROM CLOUD WITH PROGRESS AND ERROR HANDLING
+        // 1. FETCH ALL DATA FROM CLOUD
         async function loadOrlePediaDataFromCloud() {
             try {
                 console.log("🛰️ Fetching encyclopedia records...");
                 
-                updateLoaderProgressMetric(10, "Fetching layout articles...");
+                // Fetch data from all three tables simultaneously
                 const articles = await supabaseRequest('articles?select=*');
-                
-                updateLoaderProgressMetric(30, "Synchronizing revision historical snapshots...");
                 const revisions = await supabaseRequest('revisions?select=*');
-                
-                updateLoaderProgressMetric(50, "Downloading global page rating matrix indices...");
                 const ratings = await supabaseRequest('ratings?select=*');
-                
-                updateLoaderProgressMetric(70, "Mapping linked configuration database binaries...");
                 const files = await supabaseRequest('files?select=*');
-                
-                updateLoaderProgressMetric(90, "Compiling system shorthand code template nodes...");
                 const templates = await supabaseRequest('templates?select=*');
-
+                
                 if (Array.isArray(files)) {
-                    files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
+                    files.forEach(f => {
+                        orlePediaFileStore[f.name] = f.url;
+                    });
                 }
                 if (Array.isArray(templates)) {
-                    templates.forEach(t => { orlePediaTemplateStore[t.name] = t.content; });
+                    templates.forEach(t => {
+                        orlePediaTemplateStore[t.name] = t.content;
+                    });
                 }
-
+                
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
+                        // Group the downloaded revisions to their matching article
                         let artRevs = [];
                         if (Array.isArray(revisions)) {
                             artRevs = revisions
@@ -1497,6 +1645,7 @@
                                 }));
                         }
 
+                        // Group the downloaded ratings to their matching article
                         let artRatings = [];
                         if (Array.isArray(ratings)) {
                             artRatings = ratings
@@ -1504,35 +1653,107 @@
                                 .map(r => r.score);
                         }
 
+                        // Inject the cloud data into the local memory matrix
                         orlePediaMemoryStore[art.title] = {
                             title: art.title,
                             category: art.summary || "General Indexes",
-                            content: art.content || "",
-                            talk: `== Talk Board Channel for ${art.title} ==\nInitialized remote storage connection parameters.`,
-                            history: artRevs.sort((a,b) => a.timestamp - b.timestamp),
-                            ratings: artRatings,
-                            createdTime: art.created_at ? Date.parse(art.created_at) : Date.now(),
-                            author: artRevs.length > 0 ? artRevs[0].editor : "Cloud System"
+                            content: art.content,
+                            talk: `== Talk Board for ${art.title} ==`,
+                            history: artRevs.length > 0 ? artRevs : [
+                                { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
+                            ],
+                            ratings: artRatings.length > 0 ? artRatings : [5],
+                            createdTime: Date.parse(art.created_at) || Date.now(),
+                            author: "Cloud Contributor"
                         };
                     });
+                    console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
+                    switchSubTab(activeSubTabState);
+                }
+            } catch (err) {
+                console.error("❌ Fetch pipeline failure:", err);
+            }
+        }
+
+        // 2. SAVE NEW DATA TO CLOUD
+        async function dispatchDataPayloadToRemoteDataNetworks(actionType, payloadData) {
+            console.log(`🛰️ Cloud dispatch triggered for action: [${actionType}]`);
+            try {
+                if (actionType === "ARTICLE_COMMIT_SAVE" || actionType === "CREATE_ARTICLE" || actionType === "EDIT_ARTICLE") {
+                    
+                    const title = payloadData.title;
+                    const content = payloadData.databaseNode?.content || payloadData.content || "";
+                    const category = payloadData.databaseNode?.category || "General Indexes";
+                    
+                    const totalRevs = payloadData.databaseNode?.history?.length || 1;
+                    const summaryTxt = payloadData.databaseNode?.history?.slice(-1)[0]?.summary || 'Interface update modification';
+
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
+                    let targetArticleId;
+                    
+                    const articlePayload = {
+                        title: title,
+                        content: content,
+                        summary: category,
+                        total_revisions: totalRevs
+                    };
+
+                    if (existing.length === 0) {
+                        const newArt = await supabaseRequest('articles', 'POST', articlePayload);
+                        targetArticleId = newArt[0].id; 
+                    } else {
+                        targetArticleId = existing[0].id;
+                        await supabaseRequest(`articles?id=eq.${targetArticleId}`, 'PATCH', articlePayload);
+                    }
+                    
+                    await supabaseRequest('revisions', 'POST', {
+                        article_id: targetArticleId,
+                        new_content: content,
+                        edit_summary: summaryTxt,
+                        revision_number: totalRevs,
+                        editor_name: currentUserSessionProfile.username
+                    });
+                    console.log("✅ Article & Revision transaction completely finished.");
+                } 
+                
+                // NEW: Route for saving User Profiles
+                else if (actionType === "USER_REGISTER_OR_MOD") {
+                    await supabaseRequest('profiles', 'POST', {
+                        username: payloadData.username,
+                        tag_identifier: payloadData.tag
+                    });
+                    console.log("✅ User profile synced to database!");
                 }
                 
-                updateLoaderProgressMetric(100, "Initialization complete!");
-                setTimeout(() => {
-                    const overlay = document.getElementById('appLoaderOverlay');
-                    overlay.style.opacity = '0';
-                    setTimeout(() => { overlay.style.display = 'none'; }, 400);
-                }, 400);
+                // NEW: Route for saving Ratings
+                else if (actionType === "RATING_SUBMIT") {
+                    // Find the article's real Database ID first
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(payloadData.title)}`, 'GET');
+                    if (existing.length > 0) {
+                        await supabaseRequest('ratings', 'POST', {
+                            article_id: existing[0].id,
+                            score: payloadData.score
+                        });
+                        console.log("✅ Page rating synced to database!");
+                    }
+                }
+
+                // NEW: Route for Deleting Article
+                else if (actionType === "ARTICLE_DELETE") {
+                    const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(payloadData.title)}`, 'GET');
+                    if (existing.length > 0) {
+                        const id = existing[0].id;
+                        // Delete related ratings, revisions first if needed (Supabase usually handles cascade if set)
+                        await supabaseRequest(`ratings?article_id=eq.${id}`, 'DELETE');
+                        await supabaseRequest(`revisions?article_id=eq.${id}`, 'DELETE');
+                        await supabaseRequest(`articles?id=eq.${id}`, 'DELETE');
+                        console.log("✅ Article permanently deleted from cloud.");
+                    }
+                }
 
             } catch (err) {
-                console.error("❌ Failed to load cloud engine repository arrays:", err);
-                document.getElementById('appLoaderStatusMessage').innerText = "Initialization Aborted";
-                document.getElementById('appLoaderStatusMessage').style.color = "var(--wiki-red)";
-                
-                const badge = document.getElementById('appLoaderErrorBadge');
-                badge.innerText = `Network/Database Error: ${err.message || err}\nPlease check configuration keys or network accessibility layers.`;
-                badge.style.display = "block";
-                throw err; // Stop executing script app loads
+                console.error("❌ Failed to save to database transaction pipelines:", err);
+                alert("Database Error: " + err.message); 
             }
         }
 
@@ -1547,102 +1768,89 @@
             document.getElementById('articleSidebar').classList.add('visible');
             updateArticleSidebar();
         }
+
         function closeArticleSidebar() {
             document.getElementById('articleSidebar').classList.remove('visible');
         }
 
         function updateArticleSidebar() {
-            const container = document.getElementById('sidebarDynamicMetricsContainer');
-            const targetArticle = orlePediaMemoryStore[currentActiveArticleKey];
-            if (!targetArticle) return;
+            const article = orlePediaMemoryStore[currentActiveArticleKey];
+            if (!article) return;
 
-            const linkedFrom = [];
-            for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
-                if (obj.content.includes(`[[${currentActiveArticleKey}]]`)) linkedFrom.push(k);
-            }
+            const pageInfoDiv = document.getElementById('sidebarPageInfo');
+            const historyInfoDiv = document.getElementById('sidebarHistoryInfo');
 
-            container.innerHTML = `
-                <div style="display:flex; flex-direction:column; gap:1rem;">
-                    <section>
-                        <h3 class="sidebar-section-title">Page Diagnostics</h3>
-                        <div class="sidebar-stat"><span class="sidebar-stat-label">Total Word Length:</span> <span class="sidebar-stat-value">${targetArticle.content.split(/\s+/).filter(w => w).length} words</span></div>
-                        <div class="sidebar-stat"><span class="sidebar-stat-label">Allocation Footprint:</span> <span class="sidebar-stat-value">${new Blob([targetArticle.content]).size} Bytes</span></div>
-                        <div class="sidebar-stat"><span class="sidebar-stat-label">Administrative Sector:</span> <span class="sidebar-stat-value">${targetArticle.category}</span></div>
-                    </section>
-                    <section>
-                        <h3 class="sidebar-section-title">Backlinks Node Network</h3>
-                        ${linkedFrom.length > 0 ? `
-                            <ul style="padding-left:1.2rem; font-size:0.8rem; margin-top:0.3rem;">
-                                ${linkedFrom.map(title => `<li><span class="wiki-link" onclick="loadArticle('${title}')">${title}</span></li>`).join('')}
-                            </ul>
-                        ` : '<p style="color:grey; font-size:0.8rem;">No pages link to this article yet.</p>'}
-                    </section>
-                    <section>
-                        <h3 class="sidebar-section-title">Operations</h3>
-                        <div style="display:flex; gap:10px; flex-wrap: wrap; margin-top:0.5rem;">
-                            <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
-                            <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
-                            <button class="action-btn" onclick="downloadArticle('pptx')">Download PPTX</button>
-                            <button class="action-btn danger" onclick="executePermanentDeletion()">⚠️ Permanently Delete Article</button>
+            const createdDate = new Date(article.createdTime).toLocaleString();
+
+            pageInfoDiv.innerHTML = `
+                <div class="collapsible-panel">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        📄 Page Information
+                        <span class="collapsible-toggle">▼</span>
+                    </div>
+                    <div class="collapsible-content open">
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Author:</span>
+                            <span class="sidebar-stat-value">${article.author}</span>
                         </div>
-                    </section>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Created:</span>
+                            <span class="sidebar-stat-value">${createdDate}</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Total Revisions:</span>
+                            <span class="sidebar-stat-value">${article.history.length}</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Category:</span>
+                            <span class="sidebar-stat-value"><span class="wiki-link" onclick="loadCategoryView('${article.category}')">${article.category}</span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            historyInfoDiv.innerHTML = `
+                <div class="collapsible-panel">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        📜 Recent Changes
+                        <span class="collapsible-toggle">▼</span>
+                    </div>
+                    <div class="collapsible-content open">
+                        ${article.history && article.history.length > 0 ? `
+                            <div style="font-size:0.85rem; line-height:1.6;">
+                                ${article.history.slice(-5).reverse().map((rev, idx) => {
+                                    const date = new Date(rev.timestamp).toLocaleString();
+                                    return `<div style="margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid #ddd;">
+                                        <div><strong>${rev.editor}</strong></div>
+                                        <div style="color:var(--text-muted); font-size:0.8rem;">${date}</div>
+                                        <div style="font-style:italic; color:#666;">"${rev.summary || 'No summary'}"</div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        ` : `<div style="color:var(--text-muted); font-size:0.85rem;">No revisions yet.</div>`}
+                    </div>
                 </div>
             `;
         }
 
-        // ============ ARTICLE EXPORT UTILITY FIXED ============
-        async function downloadArticle(format) {
-            const title = currentActiveArticleKey;
-            const targetArticle = orlePediaMemoryStore[title];
+        function toggleCollapsible(headerElement) {
+            const content = headerElement.nextElementSibling;
+            const toggle = headerElement.querySelector('.collapsible-toggle');
             
-            if (!targetArticle) {
-                return alert("No article data found to initiate compilation export.");
-            }
-
-            // Create container derived directly from text storage rather than UI body clone
-            const targetMockShell = document.createElement('div');
-            targetMockShell.innerHTML = compileRawMarkupToHtml(targetArticle.content);
-            
-            // Strip structural action elements safely
-            targetMockShell.querySelectorAll('.edit-pencil, button').forEach(el => el.remove());
-
-            const text = targetMockShell.innerText;
-            const html = `<html><head><title>${title}</title><style>body{font-family:sans-serif;padding:2rem;} .portable-infobox{border:1px solid #ccc;float:right;width:300px;background:#f9f9f9;padding:5px;margin-left:10px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #ccc;padding:6px;}</style></head><body><h1>${title}</h1>${targetMockShell.innerHTML}</body></html>`;
-
-            let elementBlobNode;
-            let targetFileExtensionStr = format;
-
-            if (format === 'pdf') {
-                // Trigger localized print systems smoothly
-                const openedWindowPrintIframe = window.open('', '_blank');
-                openedWindowPrintIframe.document.write(html);
-                openedWindowPrintIframe.document.close();
-                openedWindowPrintIframe.print();
-                return;
-            } else if (format === 'docx') {
-                elementBlobNode = new Blob([html], { type: 'application/msword' });
-            } else if (format === 'pptx') {
-                // Structural fallback text file generation mappings
-                const structuralPresentationContent = `OrlePedia Presentation System Node Export\nTitle: ${title}\n\n${text}`;
-                elementBlobNode = new Blob([structuralPresentationContent], { type: 'text/plain' });
-                targetFileExtensionStr = 'txt';
-            }
-
-            const downloadAnchorLink = document.createElement('a');
-            downloadAnchorLink.href = URL.createObjectURL(elementBlobNode);
-            downloadAnchorLink.download = `${title.replace(/\s+/g, '_')}_export.${targetFileExtensionStr}`;
-            document.body.appendChild(downloadAnchorLink);
-            downloadAnchorLink.click();
-            document.body.removeChild(downloadAnchorLink);
+            content.classList.toggle('open');
+            toggle.classList.toggle('open');
         }
 
+        // ============ GLOBAL SEARCH FUNCTIONALITY ============
         function performGlobalSearch(event) {
             const query = event.target.value.toLowerCase().trim();
             const dropdown = document.getElementById('searchResultsDropdown');
+
             if (!query) {
                 dropdown.classList.remove('active');
                 return;
             }
+
             const titleResults = [];
             const contentResults = [];
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
@@ -1652,16 +1860,21 @@
                     contentResults.push(article);
                 }
             }
+
             const results = [...titleResults, ...contentResults];
+
             if (results.length === 0) {
                 dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">No results found</div>';
                 dropdown.classList.add('active');
                 return;
             }
+
             dropdown.innerHTML = results.slice(0, 8).map(article => `
                 <div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
-                        <div style="width:100%; height:100%; background:linear-gradient(135deg, var(--wiki-blue), var(--wiki-blue-hover)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:0.7rem;">📄</div>
+                        <div style="width:100%; height:100%; background:linear-gradient(135deg, var(--wiki-blue), var(--wiki-blue-hover)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:0.7rem;">
+                            📄
+                        </div>
                     </div>
                     <div class="search-result-info">
                         <div class="search-result-title">${article.title}</div>
@@ -1674,22 +1887,100 @@
 
         // Close dropdown when clicking elsewhere
         document.addEventListener('click', function(event) {
-            if (!event.target.closest('.modern-search-container')) {
-                const dropdown = document.getElementById('searchResultsDropdown');
-                if(dropdown) dropdown.classList.remove('active');
+            if (!event.target.closest('.search-input-wrapper')) {
+                document.getElementById('searchResultsDropdown').classList.remove('active');
             }
         });
 
+        // ============ USER PROFILE MANAGEMENT ============
+        function loadUserProfile() {
+            const saved = localStorage.getItem('orlepedia_profile');
+            if (saved) {
+                currentUserSessionProfile = JSON.parse(saved);
+                updateUIProfileDisplays();
+            }
+        }
+
+        function openProfileWindow() {
+            document.getElementById('profileUsernameInput').value = currentUserSessionProfile.username || "";
+            document.getElementById('profileImageInput').value = currentUserSessionProfile.image || "";
+            document.getElementById('profileDescriptionInput').value = currentUserSessionProfile.description || "";
+            document.getElementById('profileModal').style.display = "flex";
+        }
+
+        function closeProfileWindow() {
+            document.getElementById('profileModal').style.display = "none";
+        }
+
+        function saveUserProfile() {
+            const userVal = document.getElementById('profileUsernameInput').value.trim();
+            const imageVal = document.getElementById('profileImageInput').value.trim();
+            const descVal = document.getElementById('profileDescriptionInput').value.trim();
+
+            if (!userVal) {
+                alert("⛔ Username is required.");
+                return;
+            }
+
+            currentUserSessionProfile.username = userVal;
+            currentUserSessionProfile.image = imageVal;
+            currentUserSessionProfile.description = descVal;
+
+            localStorage.setItem('orlepedia_profile', JSON.stringify(currentUserSessionProfile));
+            updateUIProfileDisplays();
+            closeProfileWindow();
+
+            dispatchDataPayloadToRemoteDataNetworks("USER_REGISTER_OR_MOD", currentUserSessionProfile);
+        }
+
+        let currentEditingFileName = "";
+        let orlePediaFileMetadataStore = {}; // Store descriptions
+
+        function openFileEditModal(name) {
+            currentEditingFileName = name;
+            document.getElementById('editFileNameInput').value = name;
+            document.getElementById('editFileDescriptionInput').value = orlePediaFileMetadataStore[name] || "";
+            document.getElementById('fileEditModal').style.display = 'flex';
+        }
+
+        async function saveFileEdit() {
+            const desc = document.getElementById('editFileDescriptionInput').value;
+            orlePediaFileMetadataStore[currentEditingFileName] = desc;
+            await supabaseRequest(`files?name=eq.${currentEditingFileName}`, 'PATCH', { description: desc });
+            closeModal('fileEditModal');
+            alert("File information updated!");
+        }
+
+        function updateUIProfileDisplays() {
+            document.getElementById('identityGreeting').innerHTML = `Hi <span style="font-weight:bold; color:var(--wiki-blue);">${currentUserSessionProfile.username}</span>, welcome to your operations sector workspace!`;
+            document.getElementById('headerUserBadge').innerHTML = `<span class="user-tag">${currentUserSessionProfile.tag || 'User'}</span>`;
+        }
+
+        // ============ ARTICLE CONTROLLER PIPELINES ============
+        function loadArticleWithCheck(articleTitle) {
+            if (!orlePediaMemoryStore[articleTitle]) {
+                if (confirm(`The page "${articleTitle}" does not exist. Do you want to create it?`)) {
+                    openNewArticleModal();
+                    document.getElementById('newArticleTitleInput').value = articleTitle;
+                }
+                return;
+            }
+            loadArticle(articleTitle);
+        }
+
         function loadArticle(articleTitle, pushState = true) {
+            // Handle Redirects
             if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
                 const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
                 return loadArticle(target, pushState);
             }
+
             currentActiveArticleKey = articleTitle;
             if (pushState) {
                 window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
             }
             exitEditorDashboard();
+
             if (!orlePediaMemoryStore[articleTitle]) {
                 orlePediaMemoryStore[articleTitle] = {
                     title: articleTitle,
@@ -1702,10 +1993,14 @@
                     author: currentUserSessionProfile.username || "System Core"
                 };
             }
+
             document.getElementById('displayArticleTitle').innerText = articleTitle;
+            
+            // Update meta info
             const article = orlePediaMemoryStore[articleTitle];
             const revisionCount = article.history.length;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}`;
+            
             renderRatingStarsCluster();
             switchSubTab(activeSubTabState);
             openArticleSidebar();
@@ -1714,12 +2009,15 @@
         function switchSubTab(targetTab) {
             activeSubTabState = targetTab;
             document.querySelectorAll('.wiki-tab').forEach(t => t.classList.remove('active'));
+
             const contentBox = document.getElementById('wikiTabContentBody');
             const targetArticle = orlePediaMemoryStore[currentActiveArticleKey];
-            
+
             if (targetTab === 'article') {
                 document.getElementById('tabArticle').classList.add('active');
                 let finalHtml = compileRawMarkupToHtml(targetArticle.content);
+                
+                // Add Category Footer
                 const cats = targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g);
                 if (cats) {
                     finalHtml += `<div class="category-footer">Categories: ${cats.map(c => {
@@ -1727,44 +2025,1190 @@
                         return `<span class="category-item" onclick="loadCategoryView('${name}')">${name}</span>`;
                     }).join(' | ')}</div>`;
                 }
+                
+                // Add Relative Time Footer
+                const lastRev = targetArticle.history[targetArticle.history.length-1];
+                finalHtml += `<div class="article-footer-info">Last edited ${getRelativeTime(lastRev ? lastRev.timestamp : targetArticle.createdTime)}</div>`;
+
                 contentBox.innerHTML = finalHtml;
-            } else if (targetTab === 'talk') {
+                updateArticleSidebar();
+                lucide.createIcons();
+            } 
+            else if (targetTab === 'talk') {
                 document.getElementById('tabTalk').classList.add('active');
-                contentBox.innerHTML = `<div>${targetArticle.talk || 'No discussions registered.'}</div>`;
-            } else if (targetTab === 'history') {
+                contentBox.innerHTML = compileRawMarkupToHtml(targetArticle.talk || "== Discussion Room ==\nNo records logged here yet.");
+            } 
+            else if (targetTab === 'history') {
                 document.getElementById('tabHistory').classList.add('active');
-                contentBox.innerHTML = `<div>Revision Logs History structural list context goes here...</div>`;
-            } else if (targetTab === 'info') {
-                contentBox.innerHTML = `
-                    <div style="padding:1rem; background:#f8f9fa; border:1px solid var(--border-wiki); border-radius:4px;">
-                        <h3>Administrative Metadata Panel</h3>
-                        <p style="margin-top:0.5rem;">Managing structural operations layer for page instance nodes.</p>
+                renderRevisionLogsHistoryList(targetArticle);
+            } 
+            else if (targetTab === 'meta') {
+                document.getElementById('tabMeta').classList.add('active');
+                renderMetaInformationDashboard(targetArticle);
+            }
+        }
+
+        // ============ ADVANCED MEDIAWIKI PARSING REGEX PARSER MOTOR ENGINE ============
+        function compileRawMarkupToHtml(wikiMarkupText) {
+            if (!wikiMarkupText) return "";
+
+            let workingTextStr = wikiMarkupText;
+            let citationsArrayStorage = [];
+
+            // Handle citations
+            const citationRegex = /<ref>(.*?)<\/ref>/g;
+            let referenceMatch;
+            let citationIndex = 1;
+            while ((referenceMatch = citationRegex.exec(workingTextStr)) !== null) {
+                citationsArrayStorage.push(referenceMatch[1]);
+                workingTextStr = workingTextStr.replace(referenceMatch[0], `<span class="reference-citation" onclick="jumpToFootnotesSection()">[${citationIndex}]</span>`);
+                citationIndex++;
+            }
+
+            // Handle List Template
+            const listRegex = /\{\{List([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(listRegex, function(m, content) {
+                let listHtml = `<ul class="wiki-list">`;
+                content.split('\n').forEach(line => {
+                    let trimmed = line.trim();
+                    if (trimmed.startsWith('*')) {
+                        listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
+                    }
+                });
+                return listHtml + `</ul>`;
+            });
+
+            // Handle Info Template
+            const infoRegex = /\{\{Info\|(.*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(infoRegex, `<div class="wiki-info-box">$1</div>`);
+
+            // Function to parse wiki-links and basic formatting
+            const parseGlobalWiki = (txt) => {
+                if (!txt) return "";
+                return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                          .replace(/''(.*?)''/g, '<i>$1</i>')
+                          .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
+                              if (p1.startsWith('File:')) return m; // Skip files
+                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
+                          })
+                          .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
+                              if (p1 === 'File') return m; // Skip files
+                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
+                          });
+            };
+
+            // Handle Dynamic Database Templates with Multi-Parameter Support
+            for (let [tName, tContent] of Object.entries(orlePediaTemplateStore)) {
+                const tRegex = new RegExp(`\\{\\{${tName}\\|(.*?)\\}\\}`, 'g');
+                workingTextStr = workingTextStr.replace(tRegex, function(m, paramsStr) {
+                    let processed = tContent;
+                    const params = paramsStr.split('|');
+                    params.forEach((p, i) => {
+                        processed = processed.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), p.trim());
+                    });
+                    processed = processed.replace(/\{\{text\}\}/g, params[0].trim());
+                    return parseGlobalWiki(processed);
+                });
+            }
+
+            // Global Wiki-Link Parsing
+            workingTextStr = parseGlobalWiki(workingTextStr);
+
+            // Handle infobox
+            const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
+            let infoboxMatch = infoboxRegex.exec(workingTextStr);
+            let compiledInfoboxHtmlString = "";
+
+            if (infoboxMatch) {
+                let infoboxInternalContent = infoboxMatch[1];
+                workingTextStr = workingTextStr.replace(infoboxMatch[0], "");
+
+                let lines = infoboxInternalContent.split('\n');
+                let infoboxDataRecords = {};
+                lines.forEach(ln => {
+                    if (ln.startsWith('|') && ln.includes('=')) {
+                        let eqIdx = ln.indexOf('=');
+                        let key = ln.substring(1, eqIdx).trim();
+                        let value = ln.substring(eqIdx + 1).trim();
+                        infoboxDataRecords[key] = value;
+                    }
+                });
+
+                const parseWiki = (txt) => {
+                    if (!txt) return "";
+                    return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                              .replace(/''(.*?)''/g, '<i>$1</i>')
+                              .replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>')
+                              .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
+                };
+
+                const row = (label, key) => {
+                    if (!infoboxDataRecords[key]) return "";
+                    return `<tr><th>${label}</th><td>${parseWiki(infoboxDataRecords[key])}</td></tr>`;
+                };
+
+                const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2">${label}</td></tr>`;
+
+                const histRows = () => {
+                    let h = "";
+                    for(let i=1; i<=6; i++) {
+                        let ev = infoboxDataRecords['event' + i];
+                        let yr = infoboxDataRecords['year' + i];
+                        if(ev) h += `<tr><th>${parseWiki(ev)}</th><td>${yr || ''}</td></tr>`;
+                    }
+                    return h;
+                };
+
+                compiledInfoboxHtmlString = `
+                    <div class="portable-infobox">
+                        <div class="infobox-title">${parseWiki(infoboxDataRecords['name'] || currentActiveArticleKey)}</div>
+                        ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
+                        ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
+                        <div class="infobox-media-row">
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
+                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
+                        </div>
+                        <div class="infobox-map">
+                            <img src="${infoboxDataRecords['map'] || ''}" onerror="this.style.display='none'">
+                            <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
+                            <div class="infobox-media-caption" style="font-style:italic;">${parseWiki(infoboxDataRecords['nickname'] || '')}</div>
+                        </div>
+                        <table class="infobox-data-table">
+                            ${row('Country', 'country')}
+                            ${row('State', 'state')}
+                            ${row('County', 'county')}
+                            <tr><th style="padding-left:1rem;">Capital</th><td>${parseWiki(infoboxDataRecords['capital'] || '')}</td></tr>
+                            ${row('Largest city', 'largest_city')}
+                            ${row('Ethnicity', 'ethnicity')}
+                            ${row('Language', 'language')}
+                            ${row('Religion', 'religion')}
+                            ${row('Leader', 'leader1')}
+                            ${row('Leader', 'leader2')}
+                            ${row('Leader', 'leader3')}
+                            ${row('Leader', 'leader4')}
+                            
+                            ${infoboxDataRecords['event1'] ? merged('History') + histRows() : ''}
+                            
+                            ${(infoboxDataRecords['area_total'] || infoboxDataRecords['area_density'] || infoboxDataRecords['area_water_percent']) ? merged('Area') + row('Total area', 'area_total') + row('Density', 'area_density') + row('Water %', 'area_water_percent') : ''}
+                            
+                            ${(infoboxDataRecords['pop_estimate'] || infoboxDataRecords['pop_census'] || infoboxDataRecords['pop_density']) ? merged('Population') + row('Estimate', 'pop_estimate') + row('Census', 'pop_census') + row('Density', 'pop_density') : ''}
+                            
+                            ${(infoboxDataRecords['gdp_ppp'] || infoboxDataRecords['gdp_ppp_capita'] || infoboxDataRecords['gdp_nominal'] || infoboxDataRecords['gdp_nominal_capita']) ? merged('Economy') + row('GDP (PPP)', 'gdp_ppp') + row('Per capita', 'gdp_ppp_capita') + row('GDP (nominal)', 'gdp_nominal') + row('Per capita', 'gdp_nominal_capita') : ''}
+                            
+                            ${(infoboxDataRecords['household_income'] || infoboxDataRecords['hdi'] || infoboxDataRecords['gini'] || infoboxDataRecords['poverty_rate']) ? merged('Household Income') + row('Income', 'household_income') + row('HDI', 'hdi') + row('Gini', 'gini') + row('Poverty Rate', 'poverty_rate') : ''}
+                            
+                            ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
+                `;
+
+                // Add any other custom fields not handled above
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'country', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
+                for (let [k, v] of Object.entries(infoboxDataRecords)) {
+                    if (handled.includes(k)) continue;
+                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${parseWiki(v)}</td></tr>`;
+                }
+                compiledInfoboxHtmlString += `</table></div>`;
+            }
+
+            // Handle text formatting
+            workingTextStr = workingTextStr.replace(/'''(.*?)'''/g, '<b>$1</b>');
+            workingTextStr = workingTextStr.replace(/''(.*?)''/g, '<i>$1</i>');
+            workingTextStr = workingTextStr.replace(/==== (.*?) ====/g, '<h4>$1</h4>');
+            workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
+            
+            // Handle Collapsible H2 Sections
+            let h2Counter = 0;
+            workingTextStr = workingTextStr.replace(/== (.*?) ==/g, function(m, title) {
+                h2Counter++;
+                const id = `h2-sec-${h2Counter}`;
+                return `
+                    </div><!-- Close previous section -->
+                    <div class="h2-section-header" onclick="toggleH2Section('${id}', 'pencil-${id}')">
+                        <div class="h2-section-title">
+                            ${title}
+                        </div>
+                        <i data-lucide="edit-2" class="edit-pencil" id="pencil-${id}" onclick="event.stopPropagation(); toggleEditMode()"></i>
+                    </div>
+                    <div class="h2-section-content collapsed" id="${id}">
+                `;
+            });
+
+            // Wrap initial content before first H2
+            workingTextStr = `<div class="h2-section-content wiki-body first-para" style="display:block;">` + workingTextStr + `</div>`;
+
+            // Handle files - Fixed to support DB files and full URLs
+            const fileBlockRegex = /\[\[File\|(.*?)(?:\|(.*?))?(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
+            workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
+                let url = p1.trim();
+                let fileName = p2 ? p2.trim() : "";
+                let sizeWidth = "220px";
+                let caption = "";
+
+                if (url === "DB") {
+                    url = orlePediaFileStore[fileName] || "";
+                    sizeWidth = p3 || "220px";
+                    caption = p4 || p3 || "";
+                } else if (url.startsWith('http')) {
+                    caption = p3 ? p3 : p2;
+                    sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
+                    url = p1.trim();
+                } else {
+                    // Fallback for just [[File|Filename]] assuming it's DB
+                    url = orlePediaFileStore[url] || "";
+                    caption = p2 || "";
+                    sizeWidth = "220px";
+                }
+
+                return `
+                    <div class="wiki-file-container">
+                        <div class="wiki-file-box">
+                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <span class="wiki-file-caption">${caption}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Handle Table Template
+            const tableRegex = /\{\{Table\|([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(tableRegex, function(m, content) {
+                let params = {};
+                content.split('|').forEach(p => {
+                    let [k, v] = p.split('=');
+                    if (k && v) params[k.trim()] = v.trim();
+                });
+                let html = `<table class="wiki-table">`;
+                if (params.title) html += `<caption>${params.title}</caption>`;
+                
+                // Header Row
+                html += `<thead><tr>`;
+                let colIdx = 1;
+                while (params['titlecolumn' + colIdx]) {
+                    html += `<th>${params['titlecolumn' + colIdx]}</th>`;
+                    colIdx++;
+                }
+                html += `</tr></thead><tbody>`;
+                
+                // Data Rows
+                let rowIdx = 1;
+                while (true) {
+                    let hasData = false;
+                    let rowHtml = `<tr>`;
+                    for (let i = 1; i < colIdx; i++) {
+                        let val = params[`row${rowIdx}c${i}`] || "";
+                        if (val) hasData = true;
+                        rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
+                    }
+                    rowHtml += `</tr>`;
+                    if (!hasData) break;
+                    html += rowHtml;
+                    rowIdx++;
+                }
+                return html + `</tbody></table>`;
+            });
+
+            // Handle Piechart Template
+            const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(pieRegex, function(m, content) {
+                let params = {};
+                content.split('|').forEach(p => {
+                    let [k, v] = p.split('=');
+                    if (k && v) params[k.trim()] = v.trim();
+                });
+                let data = params.data || "";
+                let slices = data.split(',').map(s => {
+                    let [label, val] = s.split(':');
+                    return { label: label.trim(), value: parseFloat(val.trim()) };
+                });
+                let total = slices.reduce((a, b) => a + b.value, 0);
+                let currentAngle = 0;
+                let gradientParts = slices.map((s, i) => {
+                    let start = (currentAngle / total) * 100;
+                    currentAngle += s.value;
+                    let end = (currentAngle / total) * 100;
+                    let color = `hsl(${i * (360 / slices.length)}, 70%, 60%)`;
+                    return `${color} ${start}% ${end}%`;
+                });
+                
+                return `
+                    <div class="pie-chart-container">
+                        <div class="pie-chart-title">${params.title || "Data Distribution"}</div>
+                        <div style="width:200px; height:200px; border-radius:50%; background:conic-gradient(${gradientParts.join(', ')}); margin: 0 auto;"></div>
+                        <div style="margin-top:1rem; display:flex; flex-wrap:wrap; justify-content:center; gap:10px;">
+                            ${slices.map((s, i) => `<div><span style="display:inline-block; width:12px; height:12px; background:hsl(${i * (360 / slices.length)}, 70%, 60%);"></span> ${s.label}: ${s.value}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Handle categories (display only)
+            workingTextStr = workingTextStr.replace(/\[\[Category:([^\]]+)\]\]/g, '');
+
+            // Handle wiki links
+            workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>');
+            workingTextStr = workingTextStr.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
+
+            let textParagraphBlocks = workingTextStr.split('\n\n');
+            let structuredOutputHtml = "";
+
+            textParagraphBlocks.forEach((block, idx) => {
+                let formattedBlock = block.trim();
+                if(!formattedBlock) return;
+
+                if (!formattedBlock.startsWith('<h') && !formattedBlock.startsWith('<div')) {
+                    formattedBlock = `<p>${formattedBlock.replace(/\n/g, '<br>')}</p>`;
+                }
+
+                structuredOutputHtml += formattedBlock;
+
+                if (idx === 0 && compiledInfoboxHtmlString !== "") {
+                    structuredOutputHtml += compiledInfoboxHtmlString;
+                }
+            });
+
+            if (citationsArrayStorage.length > 0) {
+                let referencesSubBlockHtml = `<div class="wiki-references-section" id="footnotesGroupContainer"><h2>References</h2><ol class="wiki-references-list">`;
+                citationsArrayStorage.forEach(citeText => {
+                    referencesSubBlockHtml += `<li>${citeText}</li>`;
+                });
+                referencesSubBlockHtml += `</ol></div>`;
+                structuredOutputHtml += referencesSubBlockHtml;
+            }
+
+            return structuredOutputHtml;
+        }
+
+        function injectCategoryFooterBox(categoryName) {
+            const footerBox = document.createElement('div');
+            footerBox.className = "category-box-footer";
+            footerBox.innerHTML = `Categories: <span class="wiki-link" onclick="loadCategoryView('${categoryName}')">${categoryName}</span>`;
+            document.getElementById('wikiTabContentBody').appendChild(footerBox);
+        }
+
+        // ============ REVISION LOGS & DIFF ENGINE ============
+        function calculateByteChange(oldContent, newContent) {
+            const oldSize = new Blob([oldContent || ""]).size;
+            const newSize = new Blob([newContent || ""]).size;
+            return newSize - oldSize;
+        }
+
+        function formatByteChange(bytes) {
+            if (bytes === 0) return '±0 B';
+            const sign = bytes > 0 ? '+' : '';
+            return `${sign}${bytes} B`;
+        }
+
+        function getRevisionTag(oldContent, newContent) {
+            if (!oldContent && newContent) return "";
+            if (oldContent && !newContent) return " (removed)";
+            if (oldContent && newContent && oldContent !== newContent && newContent.length > 0 && oldContent.length > 0) {
+                // If it's a complete replacement (heuristic: very different content)
+                if (newContent.length > 0 && oldContent.length > 0 && !newContent.includes(oldContent.substring(0, 20))) {
+                    return " (replaced)";
+                }
+            }
+            return "";
+        }
+
+        function renderRevisionLogsHistoryList(articleObj) {
+            const container = document.getElementById('wikiTabContentBody');
+            if(!articleObj.history || articleObj.history.length === 0) {
+                container.innerHTML = "<div>No operational modification logs found for this registry workspace.</div>";
+                return;
+            }
+
+            let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;">Revision History Tracking Stream:</div>`;
+
+            for (let index = articleObj.history.length - 1; index >= 0; index--) {
+                let revision = articleObj.history[index];
+                let timeString = new Date(revision.timestamp).toLocaleString();
+
+                let undoOptionButtonMarkup = "";
+                if (index === articleObj.history.length - 1 && articleObj.history.length > 1) {
+                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
+                }
+
+                let byteChange = 0;
+                if (index > 0) {
+                    byteChange = calculateByteChange(articleObj.history[index - 1].content, revision.content);
+                }
+
+                const byteChangeClass = byteChange > 0 ? 'positive' : byteChange < 0 ? 'negative' : '';
+                const isBold = Math.abs(byteChange) > 500;
+                const byteChangeMarkup = `<span class="byte-change ${byteChangeClass} ${isBold ? 'large' : ''}">${formatByteChange(byteChange)}</span>`;
+                const tag = getRevisionTag(index > 0 ? articleObj.history[index-1].content : "", revision.content);
+
+                logHistoryListHtml += `
+                    <div class="history-log-item">
+                        • <span class="history-timestamp">${timeString}</span> ${byteChangeMarkup} — 
+                        <strong>${revision.editor}</strong> 
+                        <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
+                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
+                        ${undoOptionButtonMarkup}
                     </div>
                 `;
             }
-            updateArticleSidebar();
+
+            container.innerHTML = logHistoryListHtml;
+        }
+
+        function executeRevisionRollbackUndo(currentIndex) {
+            if(!currentUserSessionProfile.username) {
+                alert("⛔ Action Blocked: You must create a profile signature identity prior to forcing database rollbacks.");
+                openProfileWindow();
+                return;
+            }
+
+            if(confirm("Are you sure you want to rollback the latest configuration update to its previous state?")) {
+                let article = orlePediaMemoryStore[currentActiveArticleKey];
+                article.history.pop();
+
+                let targetPrecedingState = article.history[article.history.length - 1];
+                article.content = targetPrecedingState.content;
+
+                switchSubTab('history');
+                triggerToastBannerNotification("🔄 Rollback operation committed to repository.");
+
+                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
+            }
+        }
+
+        function generateLineByLineGithubStyleDiff(oldTextRaw, newTextRaw) {
+            let oldTextLines = oldTextRaw.split('\n');
+            let newTextLines = newTextRaw.split('\n');
+            let longestIndexBound = Math.max(oldTextLines.length, newTextLines.length);
+
+            let htmlDiffStreamRows = "";
+
+            for (let i = 0; i < longestIndexBound; i++) {
+                let originalLine = oldTextLines[i];
+                let modifiedLine = newTextLines[i];
+
+                if (originalLine !== modifiedLine) {
+                    if (originalLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line removed"><span class="diff-marker">-</span>${escapeHtmlCode(originalLine)}</div>`;
+                    }
+                    if (modifiedLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(modifiedLine)}</div>`;
+                    }
+                } else {
+                    if (originalLine !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(originalLine)}</div>`;
+                    }
+                }
+            }
+            return htmlDiffStreamRows;
+        }
+
+        function renderSingleSummaryDiff(historyIndex) {
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            let currentSelectedContent = article.history[historyIndex].content;
+
+            let baseContentStr = "";
+            if (parseInt(historyIndex) > 0) {
+                baseContentStr = article.history[historyIndex - 1].content;
+            }
+
+            let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
+            let displayTargetBox = document.getElementById('wikiTabContentBody');
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
+
+            displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
+        }
+
+        function triggerGitDiffCalculation() {
+            let oldContentText = orlePediaMemoryStore[currentActiveArticleKey].content;
+            let currentEditorText = document.getElementById('wikiRawInputTextarea').value;
+
+            let compiledRows = generateLineByLineGithubStyleDiff(oldContentText, currentEditorText);
+            const panel = document.getElementById('editorGitDiffContainer');
+            panel.innerHTML = compiledRows;
+            panel.style.display = "block";
+        }
+
+        // ============ PAGE METADATA MATRIX SYSTEM CONTROL PANEL ============
+        function renderMetaInformationDashboard(articleObj) {
+            const container = document.getElementById('wikiTabContentBody');
+            let createdDateString = new Date(articleObj.createdTime).toLocaleString();
+
+            // Calculate What Links Here
+            let linksHere = [];
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                if (title === articleObj.title) continue;
+                if (art.content.includes(`[[${articleObj.title}]]`) || art.content.includes(`[[${articleObj.title}|`)) {
+                    linksHere.push(title);
+                }
+            }
+
+            container.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
+                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; line-height:2;">
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Article Identity Matrix</h3>
+                        <p>Registered ID: <b>${articleObj.title}</b></p>
+                        <p>Creation Timestamp: ${createdDateString}</p>
+                        <p>Original Author: ${articleObj.author}</p>
+                    </section>
+
+                    <section>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">What Links Here</h3>
+                        ${linksHere.length > 0 ? `
+                            <ul style="margin-left:1.5rem;">
+                                ${linksHere.map(t => `<li><span class="wiki-link" onclick="loadArticle('${t}')">${t}</span></li>`).join('')}
+                            </ul>
+                        ` : '<p style="color:grey;">No pages link to this article yet.</p>'}
+                    </section>
+                    
+                    <section>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Operations</h3>
+                        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                            <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
+                            <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
+                            <button class="action-btn" onclick="downloadArticle('pptx')">Download PPTX</button>
+                            <button class="action-btn danger" onclick="executePermanentDeletion()">⚠️ Permanently Delete Article</button>
+                        </div>
+                    </section>
+                </div>
+            `;
+        }
+
+        function insertApaCitation() {
+            const author = document.getElementById('citeAuthor').value.trim();
+            const year = document.getElementById('citeYear').value.trim();
+            const title = document.getElementById('citeTitle').value.trim();
+            const source = document.getElementById('citeSource').value.trim();
+            
+            if (!author || !year || !title) return alert("Please fill required fields");
+            
+            const apa = `${author} (${year}). ${title}. ${source}.`;
+            const markup = `<ref>${apa}</ref>`;
+            
+            const editorTxtarea = document.getElementById('wikiRawInputTextarea');
+            const start = editorTxtarea.selectionStart;
+            const text = editorTxtarea.value;
+            editorTxtarea.value = text.substring(0, start) + markup + text.substring(editorTxtarea.selectionEnd);
+            
+            closeModal('citationModal');
+            triggerClientPreview();
+        }
+
+        async function downloadArticle(format) {
+            const title = currentActiveArticleKey;
+            const content = document.getElementById('wikiTabContentBody').cloneNode(true);
+            
+            // Clean up UI elements for export
+            content.querySelectorAll('.edit-pencil, button').forEach(el => el.remove());
+            
+            // High-end rendering: Convert complex templates to images if needed (simulated for browser environment)
+            // In a real browser-only app without a backend renderer, we use window.print() or specialized libs.
+            // For simplicity and reliability in this sandbox, we'll use a standard blob download for text-based formats
+            // and trigger the browser's print-to-PDF for PDF.
+            
+            const text = content.innerText;
+            const html = `<html><head><title>${title}</title><style>body{font-family:sans-serif;padding:2rem;} .wiki-infobox{border:1px solid #ccc;float:right;width:300px;margin-left:1rem;}</style></head><body><h1>${title}</h1>${content.innerHTML}</body></html>`;
+
+            if (format === 'pdf') {
+                window.print();
+            } else {
+                const mime = format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                const blob = new Blob([format === 'docx' ? html : text], { type: mime });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${title}.${format}`;
+                a.click();
+            }
+        }
+
+        function executePermanentDeletion() {
+            if (confirm("⚠️ WARNING: This will permanently delete the article and all its history from the database. This cannot be undone. Proceed?")) {
+                const title = currentActiveArticleKey;
+                dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: title });
+                delete orlePediaMemoryStore[title];
+                loadArticle("Main Page");
+                triggerToastBannerNotification("🗑️ Article permanently purged from system records.");
+            }
+        }
+
+        // ============ RATING SYSTEM LOGIC ENGINE CALCULATOR ============
+        function renderRatingStarsCluster() {
+            const container = document.getElementById('articleStarsContainer');
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            let averageNum = parseFloat(calculatePageRatingAverage(article.ratings));
+
+            let starClusterMarkup = "";
+            for (let idx = 1; idx <= 5; idx++) {
+                let filledClass = (idx <= Math.round(averageNum)) ? "filled" : "";
+                starClusterMarkup += `<span class="star-element ${filledClass}" onclick="submitPageUserRatingMetric(${idx})">★</span>`;
+            }
+            starClusterMarkup += `<span style="font-size:0.7rem; color:var(--text-muted); margin-left:4px;">(${averageNum.toFixed(1)} avg)</span>`;
+            container.innerHTML = starClusterMarkup;
+        }
+
+        function calculatePageRatingAverage(ratingsArray) {
+            if(!ratingsArray || ratingsArray.length === 0) return "0.0";
+            let aggregateSum = ratingsArray.reduce((acc, currentVal) => acc + currentVal, 0);
+            return (aggregateSum / ratingsArray.length).toFixed(1);
+        }
+
+        function submitPageUserRatingMetric(selectedScoreValue) {
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            if(!article.ratings) article.ratings = [];
+
+            article.ratings.push(selectedScoreValue);
+            renderRatingStarsCluster();
+            triggerToastBannerNotification(`⭐️ Verified: Logged rating score entry [${selectedScoreValue}/5].`);
+
+            dispatchDataPayloadToRemoteDataNetworks("RATING_SUBMIT", { title: currentActiveArticleKey, score: selectedScoreValue });
+        }
+
+        // ============ STATISTICS VIEW ============
+        function loadStatisticsView() {
+            exitEditorDashboard();
+            closeArticleSidebar();
+            document.getElementById('displayArticleTitle').innerText = "Special: Statistics";
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+
+            let totalPages = Object.keys(orlePediaMemoryStore).length;
+            let totalEdits = 0;
+            let totalWords = 0;
+            let pageStats = [];
+
+            const calculateLinksTo = (title) => {
+                let count = 0;
+                for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
+                    if (obj.content.includes(`[[${title}`)) count++;
+                }
+                return count;
+            };
+
+            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                const editCount = article.history ? article.history.length : 0;
+                totalEdits += editCount;
+                const wordCount = article.content.split(/\s+/).filter(w => w).length;
+                totalWords += wordCount;
+                const byteSize = new Blob([article.content]).size;
+                const linkedCount = calculateLinksTo(key);
+                const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount });
+            }
+
+            const validStats = pageStats.filter(p => !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
+            const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
+            const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
+            const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
+            const bottomEdited = [...validStats].sort((a, b) => a.edits - b.edits).slice(0, 5);
+            const topBytes = [...validStats].sort((a, b) => b.bytes - a.bytes).slice(0, 5);
+            const bottomBytes = [...validStats].sort((a, b) => a.bytes - b.bytes).slice(0, 5);
+            const topLinks = [...validStats].sort((a, b) => b.links - a.links).slice(0, 5);
+            const bottomLinks = [...validStats].sort((a, b) => a.links - b.links).slice(0, 5);
+
+            let statsHtml = `
+                <div class="statistics-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-label">Total Pages</div>
+                        <div class="stat-card-value">${totalPages}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Total Edits</div>
+                        <div class="stat-card-value">${totalEdits}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Total Words</div>
+                        <div class="stat-card-value">${totalWords}</div>
+                    </div>
+                </div>
+
+                <h3>Top 5 Highest Rated Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Rating</th></tr></thead>
+                    <tbody>
+                        ${topRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Lowest Rated Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Rating</th></tr></thead>
+                    <tbody>
+                        ${bottomRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Most Edited Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Edits</th></tr></thead>
+                    <tbody>
+                        ${topEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Least Edited Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Edits</th></tr></thead>
+                    <tbody>
+                        ${bottomEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Largest Articles (Bytes)</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Size</th></tr></thead>
+                    <tbody>
+                        ${topBytes.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.bytes} B</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Smallest Articles (Bytes)</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Size</th></tr></thead>
+                    <tbody>
+                        ${bottomBytes.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.bytes} B</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Most Linked Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Links</th></tr></thead>
+                    <tbody>
+                        ${topLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Least Linked Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Links</th></tr></thead>
+                    <tbody>
+                        ${bottomLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('wikiTabContentBody').innerHTML = statsHtml;
+        }
+
+        // ============ DYNAMIC WIKIPEDIA TEXT WRAPPING UTILITY TOOL ============
+        function wrapEditorText(openingSyntaxTag, closingSyntaxTag) {
+            const txtarea = document.getElementById('wikiRawInputTextarea');
+            let selectionStartPos = txtarea.selectionStart;
+            let selectionEndPos = txtarea.selectionEnd;
+            let targetActiveText = txtarea.value;
+
+            let highlightedSubstring = targetActiveText.substring(selectionStartPos, selectionEndPos);
+            let updatedReplacementBlock = openingSyntaxTag + highlightedSubstring + closingSyntaxTag;
+
+            txtarea.value = targetActiveText.substring(0, selectionStartPos) + updatedReplacementBlock + targetActiveText.substring(selectionEndPos);
+
+            txtarea.focus();
+            txtarea.selectionStart = selectionStartPos + openingSyntaxTag.length;
+            txtarea.selectionEnd = selectionStartPos + openingSyntaxTag.length + highlightedSubstring.length;
+        }
+
+        // ============ MASTER CONTROL BOARD SYSTEM TRIGGERS ============
+        function toggleEditMode() {
+            if(!currentUserSessionProfile.username) {
+                alert("⛔ Security Restriction: Modifying records requires registration. Please add your Profile Handle first.");
+                openProfileWindow();
+                return;
+            }
+
+            document.getElementById('articleContainerWrapper').style.display = "none";
+            document.getElementById('masterEditorContainer').style.display = "flex";
+
+            document.getElementById('wikiRawInputTextarea').value = orlePediaMemoryStore[currentActiveArticleKey].content;
+            document.getElementById('wikiEditSummaryInput').value = "";
+
+            document.getElementById('editorLivePreviewCard').style.display = "none";
+            document.getElementById('editorGitDiffContainer').style.display = "none";
         }
 
         function exitEditorDashboard() {
-            document.getElementById('masterEditorContainer').style.display = "none";
             document.getElementById('articleContainerWrapper').style.display = "block";
+            document.getElementById('masterEditorContainer').style.display = "none";
         }
-        function toggleEditMode() {
-            document.getElementById('articleContainerWrapper').style.display = "none";
-            document.getElementById('masterEditorContainer').style.display = "flex";
-            document.getElementById('wikiRawInputTextarea').value = orlePediaMemoryStore[currentActiveArticleKey].content;
-        }
-        function triggerClientPreview() {}
-        function renderRatingStarsCluster() {}
-        function wrapEditorText(openTag, closeTag) {}
-        function openModal(id) {}
-        function closeModal(id) {}
 
-        function compileRawMarkupToHtml(txt) {
-            if (!txt) return "";
-            return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
-                      .replace(/''(.*?)''/g, '<i>$1</i>')
-                      .replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>');
+        function triggerClientPreview() {
+            let rawInputText = document.getElementById('wikiRawInputTextarea').value;
+            document.getElementById('editorLivePreviewContent').innerHTML = compileRawMarkupToHtml(rawInputText);
+            document.getElementById('editorLivePreviewCard').style.display = "block";
+        }
+
+        function saveActiveArticleState() {
+            let editorTextContent = document.getElementById('wikiRawInputTextarea').value;
+            let changeSummaryText = document.getElementById('wikiEditSummaryInput').value.trim();
+
+            // Check for Delete template
+            if (editorTextContent.includes("{{Delete}}")) {
+                if (confirm("⚠️ DETECTED: {{Delete}} template found. Do you want to permanently delete this article instead of saving?")) {
+                    executePermanentDeletion();
+                    return;
+                } else {
+                    // Remove the delete template if they choose not to delete
+                    editorTextContent = editorTextContent.replace("{{Delete}}", "").trim();
+                }
+            }
+
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            article.content = editorTextContent;
+
+            article.history.push({
+                timestamp: Date.now(),
+                editor: currentUserSessionProfile.username,
+                tag: currentUserSessionProfile.tag,
+                summary: changeSummaryText || "(No summary provided)",
+                content: editorTextContent
+            });
+
+            exitEditorDashboard();
+            switchSubTab('article');
+            triggerToastBannerNotification("💾 Data securely locked down and dispatched to cloud vectors.");
+
+            dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
+        }
+
+        // ============ FILES LIBRARY MODULE ============
+        function loadFilesView(filter = "") {
+            exitEditorDashboard();
+            closeArticleSidebar();
+            document.getElementById('displayArticleTitle').innerText = 'Files Library';
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+
+            let filesHtml = `
+                <div style="margin-bottom:1rem; display:flex; gap:0.5rem;">
+                    <input type="text" id="fileSearchInput" placeholder="Search files..." value="${filter}" style="flex:1; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;">
+                    <button class="action-btn" onclick="loadFilesView(document.getElementById('fileSearchInput').value)">Search</button>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:1rem;">
+            `;
+
+            let found = false;
+            for (let [name, url] of Object.entries(orlePediaFileStore)) {
+                if (filter && !name.toLowerCase().includes(filter.toLowerCase())) continue;
+                found = true;
+                filesHtml += `
+                    <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; cursor:pointer;" onclick="openFileEditModal('${name}')">
+                        <img src="${url}" style="width:100px; height:100px; object-fit:cover; margin-bottom:0.5rem; border:1px solid #eee;" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                        <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue);">${name}</div>
+                    </div>
+                `;
+            }
+
+            if (!found) filesHtml += `<p style="color:var(--text-muted)">No files found.</p>`;
+            filesHtml += `</div>`;
+            document.getElementById('wikiTabContentBody').innerHTML = filesHtml;
+
+            // Bind enter key
+            document.getElementById('fileSearchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') loadFilesView(this.value);
+            });
+        }
+
+        // ============ CATEGORY EXPLORER VIEW MODULE ============
+        function loadCategoryView(categoryName) {
+            exitEditorDashboard();
+            closeArticleSidebar();
+            document.getElementById('displayArticleTitle').innerText = categoryName === 'Article' ? 'All Articles' : `Category: ${categoryName}`;
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+
+            let matchedArticlesListHtml = "";
+            if (categoryName === 'Article') {
+                matchedArticlesListHtml = `<p>Listing all articles in ascending order:</p>`;
+            } else if (categoryName === 'All') {
+                matchedArticlesListHtml = `<p>Listing all categories in the encyclopedia:</p>`;
+            } else {
+                matchedArticlesListHtml = `<p>Listing records indexed inside administrative sector category: <b>${categoryName}</b></p>`;
+            }
+            
+            matchedArticlesListHtml += `<ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
+
+            let matchesFoundCount = 0;
+            const categories = new Set();
+            const allArticles = [];
+
+            for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
+                if (categoryName === 'Article') {
+                    allArticles.push(obj);
+                } else if (categoryName === 'All') {
+                    categories.add(obj.category);
+                } else if (obj.category === categoryName) {
+                    matchesFoundCount++;
+                    allArticles.push(obj);
+                }
+            }
+
+            if (categoryName === 'Article' || (categoryName !== 'All' && matchesFoundCount > 0)) {
+                allArticles.sort((a, b) => a.title.localeCompare(b.title));
+                allArticles.forEach(art => {
+                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></li>`;
+                });
+            } else if (categoryName === 'All') {
+                Array.from(categories).sort().forEach(cat => {
+                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span></li>`;
+                });
+            } else {
+                matchedArticlesListHtml += `<li style="color:var(--text-muted)">No articles registered inside this jurisdiction yet.</li>`;
+            }
+
+            matchedArticlesListHtml += `</ul>`;
+            document.getElementById('wikiTabContentBody').innerHTML = matchedArticlesListHtml;
+        }
+
+        async function executePermanentDeletion() {
+            if (!confirm("Are you absolutely sure you want to PURGE this article? This cannot be undone.")) return;
+            const title = currentActiveArticleKey;
+            delete orlePediaMemoryStore[title];
+            await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: title });
+            loadArticle('Main Page');
+            triggerToastBannerNotification("🗑️ Article purged from neural network.");
+        }
+
+        // ============ SYSTEM CREATION ROUTERS ============
+        function openNewArticleModal() {
+            document.getElementById('newArticleTitleInput').value = "";
+            document.getElementById('newArticleNamespaceSelect').value = "Article";
+            document.getElementById('newArticleCategoryInput').value = "";
+            document.getElementById('newArticleConstructorModal').style.display = "flex";
+        }
+
+        function closeNewArticleModal() {
+            document.getElementById('newArticleConstructorModal').style.display = "none";
+        }
+
+        function executeArticleCreationInit() {
+            let targetTitleStr = document.getElementById('newArticleTitleInput').value.trim();
+            let selectedNamespaceStr = document.getElementById('newArticleNamespaceSelect').value;
+            let selectedCategoryStr = document.getElementById('newArticleCategoryInput').value.trim() || "General Indexes";
+
+            if(!targetTitleStr) {
+                alert("⛔ Field Verification Failure: Article asset name identifier required.");
+                return;
+            }
+
+            if (orlePediaMemoryStore[targetTitleStr]) {
+                alert("⛔ An article with this name already exists. Please choose a different title.");
+                return;
+            }
+
+            orlePediaMemoryStore[targetTitleStr] = {
+                title: targetTitleStr,
+                category: selectedCategoryStr,
+                content: ``,
+                talk: `== Talk Board for ${targetTitleStr} ==`,
+                history: [{
+                    timestamp: Date.now(),
+                    editor: currentUserSessionProfile.username || "System Core",
+                    tag: currentUserSessionProfile.tag || "Core System",
+                    summary: "Initialized configuration schema mapping boundaries.",
+                    content: ``
+                }],
+                ratings: [],
+                createdTime: Date.now(),
+                author: currentUserSessionProfile.username || "System Core"
+            };
+
+            closeNewArticleModal();
+            loadArticle(targetTitleStr);
+            triggerToastBannerNotification("✨ Dynamic layout canvas successfully created.");
+
+            dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: targetTitleStr, databaseNode: orlePediaMemoryStore[targetTitleStr] });
+        }
+
+        // ============ RECENT CHANGES LOG FEED GENERATOR ============
+        function loadRecentChangesView() {
+            exitEditorDashboard();
+            closeArticleSidebar();
+            document.getElementById('displayArticleTitle').innerText = "Special: Recent Changes";
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+
+            let aggregateLogsArray = [];
+            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                if(article.history) {
+                    article.history.forEach(historyLogNode => {
+                        aggregateLogsArray.push({
+                            articleTitle: article.title,
+                            timestamp: historyLogNode.timestamp,
+                            editor: historyLogNode.editor,
+                            summary: historyLogNode.summary
+                        });
+                    });
+                }
+            }
+
+            aggregateLogsArray.sort((a,b) => b.timestamp - a.timestamp);
+
+            let recentChangesMarkupHtml = `<p>Tracking operational data modification history across the encyclopedia system network:</p><div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.5rem;">`;
+
+            aggregateLogsArray.forEach(item => {
+                let formattedTime = new Date(item.timestamp).toLocaleString();
+                recentChangesMarkupHtml += `
+                    <div style="font-size:0.85rem; padding:0.4rem; border-bottom:1px dashed #ddd;">
+                        ⏱️ <span>${formattedTime}</span> — 
+                        (<span class="wiki-link" onclick="loadArticle('${item.articleTitle}')">${item.articleTitle}</span>) 
+                        <strong>${item.editor}</strong>: 
+                        <span style="color:#666; font-style:italic;">"${item.summary}"</span>
+                    </div>
+                `;
+            });
+
+            recentChangesMarkupHtml += `</div>`;
+            document.getElementById('wikiTabContentBody').innerHTML = recentChangesMarkupHtml;
+        }
+
+        // ============ MODAL INFOBOX GENERATION WIZARD FUNCTIONS ============
+        function openInfoboxWizard() { 
+            document.getElementById('ib_name').value = "";
+            document.getElementById('ib_seal').value = "";
+            document.getElementById('ib_flag').value = "";
+            document.getElementById('ib_map').value = "";
+            document.getElementById('infoboxCustomParamsContainer').innerHTML = "";
+            document.getElementById('infoboxWizardModal').style.display = "flex"; 
+        }
+
+        function closeInfoboxWizard() { 
+            document.getElementById('infoboxWizardModal').style.display = "none"; 
+        }
+
+        function addCustomParamRowField() {
+            const container = document.getElementById('infoboxCustomParamsContainer');
+            const row = document.createElement('div');
+            row.className = "modal-horizontal row-param";
+            row.innerHTML = `<input type="text" placeholder="Key (e.g. Governor)" class="p-key" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;"><input type="text" placeholder="Value" class="p-val" style="padding:0.4rem; border:1px solid var(--border-wiki); border-radius:4px;">`;
+            container.appendChild(row);
+        }
+
+        function compileAndInjectInfoboxMarkup() {
+            let nameVal = document.getElementById('ib_name').value;
+            let sealVal = document.getElementById('ib_seal').value;
+            let flagVal = document.getElementById('ib_flag').value;
+            let mapVal = document.getElementById('ib_map').value;
+
+            let markupBuffer = `{{Infobox\n|name=${nameVal}\n|seal=${sealVal}\n|flag=${flagVal}\n|map=${mapVal}\n`;
+
+            const rows = document.querySelectorAll('.row-param');
+            rows.forEach(r => {
+                let k = r.querySelector('.p-key').value.trim();
+                let v = r.querySelector('.p-val').value.trim();
+                if(k && v) { markupBuffer += `|${k}=${v}\n`; }
+            });
+
+            markupBuffer += `}}\n`;
+
+            const editorTxtarea = document.getElementById('wikiRawInputTextarea');
+            let currentCursorIndex = editorTxtarea.selectionStart;
+            let baseText = editorTxtarea.value;
+
+            editorTxtarea.value = baseText.substring(0, currentCursorIndex) + markupBuffer + baseText.substring(currentCursorIndex);
+
+            closeInfoboxWizard();
+            triggerClientPreview();
+        }
+
+        // ============ HELPER UTILITIES ============
+        function escapeHtmlCode(textString) {
+            if(!textString) return "";
+            return textString.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function triggerToastBannerNotification(messageText) {
+            console.log(`[ALERT BROADCAST]: ${messageText}`);
+            alert(messageText);
+        }
+
+        function jumpToFootnotesSection() {
+            const targetEl = document.getElementById('footnotesGroupContainer');
+            if(targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ============ APP INITIALIZATION ============
+        // ============ NEW FEATURES LOGIC ============
+        async function handleFileUpload() {
+            const file = document.getElementById('fileInput').files[0];
+            const name = document.getElementById('fileNameInput').value.trim();
+            const btn = event.target;
+            if (!file || !name) return alert("File and Name required");
+            
+            const originalText = btn.innerText;
+            btn.innerText = "⌛ Uploading...";
+            btn.disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const base64 = e.target.result;
+                    await supabaseRequest('files', 'POST', { name, url: base64, uploader: currentUserSessionProfile.username });
+                    orlePediaFileStore[name] = base64;
+                    alert("File uploaded!");
+                    closeModal('fileUploadModal');
+                } catch (err) {
+                    alert("Upload failed: " + err.message);
+                } finally {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function executePageMove() {
+            const oldTitle = currentActiveArticleKey;
+            const newTitle = document.getElementById('movePageNewTitle').value.trim();
+            const summary = document.getElementById('movePageSummaryInput')?.value || "";
+            if (!newTitle || newTitle === oldTitle) return;
+
+            const art = orlePediaMemoryStore[oldTitle];
+            
+            try {
+                // 1. Create new article with same content
+                const moveSummary = `${currentUserSessionProfile.username} moved page ${oldTitle} to ${newTitle}${summary ? ': ' + summary : ''}`;
+                
+                // Locally update memory store first
+                orlePediaMemoryStore[newTitle] = { 
+                    ...art, 
+                    title: newTitle, 
+                    history: [{ timestamp: Date.now(), editor: currentUserSessionProfile.username, summary: moveSummary, content: art.content }] 
+                };
+                
+                // Save new article to cloud
+                await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: newTitle, databaseNode: orlePediaMemoryStore[newTitle] });
+                
+                // 2. Delete old article from cloud
+                await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: oldTitle });
+                
+                // 3. Update local store
+                delete orlePediaMemoryStore[oldTitle];
+
+                navigateTo(newTitle);
+                closeModal('movePageModal');
+                triggerToastBannerNotification(`🚚 Page moved successfully to ${newTitle}`);
+            } catch (err) {
+                alert("Move failed: " + err.message);
+            }
+        }
+
+        function getRelativeTime(timestamp) {
+            const diff = Date.now() - timestamp;
+            const seconds = Math.floor(diff / 1000);
+            if (seconds < 60) return "just now";
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return minutes + "m ago";
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return hours + "h ago";
+            const days = Math.floor(hours / 24);
+            return days + "d ago";
+        }
+
+        function toggleH2Section(id, pencilId) {
+            const content = document.getElementById(id);
+            const pencil = document.getElementById(pencilId);
+            if (content) {
+                const isCollapsed = content.classList.toggle('collapsed');
+                if (pencil) {
+                    if (isCollapsed) pencil.classList.remove('visible');
+                    else pencil.classList.add('visible');
+                }
+            }
         }
 
         function navigateTo(title) {
@@ -1774,10 +3218,10 @@
 
         // ============ APP INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
-            // Initiate cloud boot procedures directly
+            loadUserProfile();
             await loadOrlePediaDataFromCloud();
             
-            // Routing configuration setup routines
+            // Routing Init
             const params = new URLSearchParams(window.location.search);
             const p = params.get('p');
             if (p) {
@@ -1797,4 +3241,4 @@
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
-</html>
+    </html>
