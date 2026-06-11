@@ -362,7 +362,7 @@
         .edit-pencil:hover { opacity: 1; }
 
         /* Built-In MediaWiki Styles */
-        .wiki-body p, .first-para { 
+        .wiki-body p, .first-para, .h2-section-content p { 
             margin-bottom: 0.8rem; 
             line-height: 1.6; 
             font-size: 0.95rem; 
@@ -1612,11 +1612,13 @@
                 console.log("🛰️ Fetching encyclopedia records...");
                 
                 // Fetch data from all three tables simultaneously
-                const articles = await supabaseRequest('articles?select=*');
-                const revisions = await supabaseRequest('revisions?select=*');
-                const ratings = await supabaseRequest('ratings?select=*');
-                const files = await supabaseRequest('files?select=*');
-                const templates = await supabaseRequest('templates?select=*');
+                const [articles, revisions, ratings, files, templates] = await Promise.all([
+                    supabaseRequest('articles?select=*'),
+                    supabaseRequest('revisions?select=*'),
+                    supabaseRequest('ratings?select=*'),
+                    supabaseRequest('files?select=*'),
+                    supabaseRequest('templates?select=*')
+                ]);
                 
                 if (Array.isArray(files)) {
                     files.forEach(f => {
@@ -1630,28 +1632,31 @@
                 }
                 
                 if (Array.isArray(articles) && articles.length > 0) {
-                    articles.forEach(art => {
-                        // Group the downloaded revisions to their matching article
-                        let artRevs = [];
-                        if (Array.isArray(revisions)) {
-                            artRevs = revisions
-                                .filter(r => r.article_id === art.id)
-                                .map(r => ({
-                                    timestamp: Date.parse(r.created_at) || Date.now(),
-                                    editor: r.editor_name || "Cloud Contributor",
-                                    tag: "Synced",
-                                    summary: r.edit_summary || "Interface update modification",
-                                    content: r.new_content
-                                }));
-                        }
+                    // Index revisions and ratings for O(1) lookup
+                    const revisionsByArtId = {};
+                    if (Array.isArray(revisions)) {
+                        revisions.forEach(r => {
+                            if (!revisionsByArtId[r.article_id]) revisionsByArtId[r.article_id] = [];
+                            revisionsByArtId[r.article_id].push({
+                                timestamp: Date.parse(r.created_at) || Date.now(),
+                                editor: r.editor_name || "Cloud Contributor",
+                                tag: "Synced",
+                                summary: r.edit_summary || "Interface update modification",
+                                content: r.new_content
+                            });
+                        });
+                    }
+                    const ratingsByArtId = {};
+                    if (Array.isArray(ratings)) {
+                        ratings.forEach(r => {
+                            if (!ratingsByArtId[r.article_id]) ratingsByArtId[r.article_id] = [];
+                            ratingsByArtId[r.article_id].push(r.score);
+                        });
+                    }
 
-                        // Group the downloaded ratings to their matching article
-                        let artRatings = [];
-                        if (Array.isArray(ratings)) {
-                            artRatings = ratings
-                                .filter(r => r.article_id === art.id)
-                                .map(r => r.score);
-                        }
+                    articles.forEach(art => {
+                        let artRevs = revisionsByArtId[art.id] || [];
+                        let artRatings = ratingsByArtId[art.id] || [];
 
                         // Inject the cloud data into the local memory matrix
                         orlePediaMemoryStore[art.title] = {
@@ -2072,7 +2077,7 @@
                 content.split('\n').forEach(line => {
                     let trimmed = line.trim();
                     if (trimmed.startsWith('*')) {
-                        listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
+                        listHtml += `<li>${parseGlobalWiki(trimmed.substring(1).trim())}</li>`;
                     }
                 });
                 return listHtml + `</ul>`;
@@ -2080,21 +2085,25 @@
 
             // Handle Info Template
             const infoRegex = /\{\{Info\|(.*?)\}\}/g;
-            workingTextStr = workingTextStr.replace(infoRegex, `<div class="wiki-info-box">$1</div>`);
+            workingTextStr = workingTextStr.replace(infoRegex, function(m, content) {
+                return `<div class="wiki-info-box">${parseGlobalWiki(content)}</div>`;
+            });
 
             // Function to parse wiki-links and basic formatting
             const parseGlobalWiki = (txt) => {
                 if (!txt) return "";
-                return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
-                          .replace(/''(.*?)''/g, '<i>$1</i>')
-                          .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
-                              if (p1.startsWith('File:')) return m; // Skip files
-                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
-                          })
-                          .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
-                              if (p1 === 'File') return m; // Skip files
-                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
-                          });
+                let t = txt.toString();
+                t = t.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                     .replace(/''(.*?)''/g, '<i>$1</i>')
+                     .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
+                         if (p1.startsWith('File:')) return m;
+                         return `<span class="wiki-link" onclick="loadArticle('${p1.replace(/'/g, "\\'")}')">${p1}</span>`;
+                     })
+                     .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
+                         if (p1 === 'File') return m;
+                         return `<span class="wiki-link" onclick="loadArticle('${p1.replace(/'/g, "\\'")}')">${p2}</span>`;
+                     });
+                return t;
             };
 
             // Handle Dynamic Database Templates with Multi-Parameter Support
