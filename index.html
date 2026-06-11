@@ -2193,7 +2193,7 @@
                             
                             ${(infoboxDataRecords['pop_estimate'] || infoboxDataRecords['pop_census'] || infoboxDataRecords['pop_density']) ? merged('Population') + row('Estimate', 'pop_estimate') + row('Census', 'pop_census') + row('Density', 'pop_density') : ''}
                             
-                            ${(infoboxDataRecords['gdp_ppp'] || infoboxDataRecords['gdp_ppp_capita'] || infoboxDataRecords['gdp_nominal'] || infoboxDataRecords['gdp_nominal_capita']) ? merged('Economy') + row('GDP (PPP)', 'gdp_ppp') + row('GDP (PPP) per capita', 'gdp_ppp_capita') + row('GDP (nominal)', 'gdp_nominal') + row('GDP (nominal) per capita', 'gdp_nominal_capita') : ''}
+                            ${(infoboxDataRecords['gdp_ppp'] || infoboxDataRecords['gdp_ppp_capita'] || infoboxDataRecords['gdp_nominal'] || infoboxDataRecords['gdp_nominal_capita']) ? merged('Economy') + row('GDP (PPP)', 'gdp_ppp') + row('Per capita', 'gdp_ppp_capita') + row('GDP (nominal)', 'gdp_nominal') + row('Per capita', 'gdp_nominal_capita') : ''}
                             
                             ${(infoboxDataRecords['household_income'] || infoboxDataRecords['hdi'] || infoboxDataRecords['gini'] || infoboxDataRecords['poverty_rate']) ? merged('Household Income') + row('Income', 'household_income') + row('HDI', 'hdi') + row('Gini', 'gini') + row('Poverty Rate', 'poverty_rate') : ''}
                             
