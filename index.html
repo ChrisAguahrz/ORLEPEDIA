@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
-    <script src="https://unpkg.com/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         /* Modern Wiki Design Tokens */
         :root {
@@ -362,7 +362,7 @@
         .edit-pencil:hover { opacity: 1; }
 
         /* Built-In MediaWiki Styles */
-        .wiki-body p, .first-para, .h2-section-content p { 
+        .wiki-body p, .first-para { 
             margin-bottom: 0.8rem; 
             line-height: 1.6; 
             font-size: 0.95rem; 
@@ -1598,61 +1598,29 @@
             const config = { method, headers };
             if (body) config.body = JSON.stringify(body);
 
-            // Timeout wrapper: abort if request takes longer than 15 seconds
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-            config.signal = controller.signal;
-
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
-                clearTimeout(timeoutId);
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Database Error: ${errorText}`);
-                }
-                return await response.json();
-            } catch (err) {
-                clearTimeout(timeoutId);
-                if (err.name === 'AbortError') throw new Error('Request timed out. Check your connection.');
-                throw err;
+            const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Database Error: ${errorText}`);
             }
+            return await response.json();
         }
 
-        // Lazy-load a file's full URL (base64) only when it's actually needed for rendering
-        async function resolveFileUrl(fileName) {
-            if (orlePediaFileStore[fileName]) return orlePediaFileStore[fileName];
-            try {
-                const result = await supabaseRequest(`files?name=eq.${encodeURIComponent(fileName)}&select=name,url`);
-                if (result && result.length > 0) {
-                    orlePediaFileStore[fileName] = result[0].url;
-                    return result[0].url;
-                }
-            } catch (err) {
-                console.warn("Could not load file:", fileName, err);
-            }
-            return null;
-        }
-
-
-        async function loadOrlePediaDataFromCloud(urlArticle) {
-            const contentBox = document.getElementById('wikiTabContentBody');
-            contentBox.innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Connecting to encyclopedia database...</div>`;
+        // 1. FETCH ALL DATA FROM CLOUD
+        async function loadOrlePediaDataFromCloud() {
             try {
                 console.log("🛰️ Fetching encyclopedia records...");
                 
-                // FIX: Only fetch file names/ids on startup — NOT the full base64 url (which is huge).
-                // Files are lazy-loaded when actually rendered in an article.
-                const [articles, files, templates] = await Promise.all([
-                    supabaseRequest('articles?select=id,title,summary,created_at'),
-                    supabaseRequest('files?select=name,id'),
-                    supabaseRequest('templates?select=*')
-                ]);
+                // Fetch data from all three tables simultaneously
+                const articles = await supabaseRequest('articles?select=*');
+                const revisions = await supabaseRequest('revisions?select=*');
+                const ratings = await supabaseRequest('ratings?select=*');
+                const files = await supabaseRequest('files?select=*');
+                const templates = await supabaseRequest('templates?select=*');
                 
                 if (Array.isArray(files)) {
                     files.forEach(f => {
-                        // Store a placeholder; full data fetched on demand in resolveFileUrl()
-                        orlePediaFileStore[f.name] = null;
-                        orlePediaFileStore[f.name + '__id'] = f.id;
+                        orlePediaFileStore[f.name] = f.url;
                     });
                 }
                 if (Array.isArray(templates)) {
@@ -1663,37 +1631,47 @@
                 
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
-                        // Inject metadata only. Full content, history, ratings will be fetched on demand.
+                        // Group the downloaded revisions to their matching article
+                        let artRevs = [];
+                        if (Array.isArray(revisions)) {
+                            artRevs = revisions
+                                .filter(r => r.article_id === art.id)
+                                .map(r => ({
+                                    timestamp: Date.parse(r.created_at) || Date.now(),
+                                    editor: r.editor_name || "Cloud Contributor",
+                                    tag: "Synced",
+                                    summary: r.edit_summary || "Interface update modification",
+                                    content: r.new_content
+                                }));
+                        }
+
+                        // Group the downloaded ratings to their matching article
+                        let artRatings = [];
+                        if (Array.isArray(ratings)) {
+                            artRatings = ratings
+                                .filter(r => r.article_id === art.id)
+                                .map(r => r.score);
+                        }
+
+                        // Inject the cloud data into the local memory matrix
                         orlePediaMemoryStore[art.title] = {
-                            id: art.id,
                             title: art.title,
                             category: art.summary || "General Indexes",
-                            content: "", // Fetched on demand
+                            content: art.content,
                             talk: `== Talk Board for ${art.title} ==`,
-                            history: [], // Fetched on demand
-                            ratings: [], // Fetched on demand
+                            history: artRevs.length > 0 ? artRevs : [
+                                { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
+                            ],
+                            ratings: artRatings.length > 0 ? artRatings : [5],
                             createdTime: Date.parse(art.created_at) || Date.now(),
-                            author: "Cloud Contributor",
-                            isLoaded: false // Flag to track if full data is loaded
+                            author: "Cloud Contributor"
                         };
                     });
-                    console.log(`✅ Loaded metadata for ${articles.length} articles.`);
-                    
-                    // Load the URL-requested article, or fall back to Main Page, or show empty state
-                    const target = urlArticle || "Main Page";
-                    if (orlePediaMemoryStore[target]) {
-                        loadArticle(target);
-                    } else if (urlArticle && orlePediaMemoryStore["Main Page"]) {
-                        loadArticle("Main Page");
-                    } else {
-                        switchSubTab(activeSubTabState);
-                    }
-                } else {
-                    contentBox.innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">No articles found. Create the first one!</div>`;
+                    console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
+                    switchSubTab(activeSubTabState);
                 }
             } catch (err) {
                 console.error("❌ Fetch pipeline failure:", err);
-                contentBox.innerHTML = `<div style="padding:2rem; text-align:center; color:#c00;">⚠️ Failed to load: ${err.message}<br><br><button onclick="loadOrlePediaDataFromCloud()" style="padding:0.5rem 1rem; cursor:pointer;">Retry</button></div>`;
             }
         }
 
@@ -1990,7 +1968,19 @@
             loadArticle(articleTitle);
         }
 
-        async function loadArticle(articleTitle, pushState = true) {
+        function loadArticle(articleTitle, pushState = true) {
+            // Handle Redirects
+            if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
+                const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
+                return loadArticle(target, pushState);
+            }
+
+            currentActiveArticleKey = articleTitle;
+            if (pushState) {
+                window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
+            }
+            exitEditorDashboard();
+
             if (!orlePediaMemoryStore[articleTitle]) {
                 orlePediaMemoryStore[articleTitle] = {
                     title: articleTitle,
@@ -2000,59 +1990,14 @@
                     history: [],
                     ratings: [],
                     createdTime: Date.now(),
-                    author: currentUserSessionProfile.username || "System Core",
-                    isLoaded: true
+                    author: currentUserSessionProfile.username || "System Core"
                 };
             }
-
-            const article = orlePediaMemoryStore[articleTitle];
-
-            // Fetch full data on demand if not already loaded
-            if (!article.isLoaded) {
-                document.getElementById('displayArticleTitle').innerText = "Loading " + articleTitle + "...";
-                document.getElementById('wikiTabContentBody').innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Fetching article from cloud...</div>`;
-                
-                try {
-                    // OPTIMIZATION: Don't fetch 'new_content' for all revisions, only fetch metadata
-                    const [artData, revisions, ratings] = await Promise.all([
-                        supabaseRequest(`articles?id=eq.${article.id}`, 'GET'),
-                        supabaseRequest(`revisions?select=id,created_at,editor_name,edit_summary,revision_number&article_id=eq.${article.id}`, 'GET'),
-                        supabaseRequest(`ratings?article_id=eq.${article.id}`, 'GET')
-                    ]);
-
-                    if (artData && artData.length > 0) {
-                        article.content = artData[0].content;
-                        article.history = revisions.map(r => ({
-                            id: r.id, // Keep ID to fetch content later if needed
-                            timestamp: Date.parse(r.created_at) || Date.now(),
-                            editor: r.editor_name || "Cloud Contributor",
-                            tag: "Synced",
-                            summary: r.edit_summary || "Interface update modification",
-                            content: null // Don't load full text for old revisions yet
-                        }));
-                        article.ratings = ratings.map(r => r.score);
-                        article.isLoaded = true;
-                    }
-                } catch (err) {
-                    console.error("Failed to fetch article data:", err);
-                }
-            }
-
-            // Handle Redirects
-            if (article.content.startsWith('#REDIRECT')) {
-                const match = article.content.match(/\[\[(.*?)\]\]/);
-                if (match) return loadArticle(match[1], pushState);
-            }
-
-            currentActiveArticleKey = articleTitle;
-            if (pushState) {
-                window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
-            }
-            exitEditorDashboard();
 
             document.getElementById('displayArticleTitle').innerText = articleTitle;
             
             // Update meta info
+            const article = orlePediaMemoryStore[articleTitle];
             const revisionCount = article.history.length;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}`;
             
@@ -2127,7 +2072,7 @@
                 content.split('\n').forEach(line => {
                     let trimmed = line.trim();
                     if (trimmed.startsWith('*')) {
-                        listHtml += `<li>${parseGlobalWiki(trimmed.substring(1).trim())}</li>`;
+                        listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
                     }
                 });
                 return listHtml + `</ul>`;
@@ -2135,25 +2080,21 @@
 
             // Handle Info Template
             const infoRegex = /\{\{Info\|(.*?)\}\}/g;
-            workingTextStr = workingTextStr.replace(infoRegex, function(m, content) {
-                return `<div class="wiki-info-box">${parseGlobalWiki(content)}</div>`;
-            });
+            workingTextStr = workingTextStr.replace(infoRegex, `<div class="wiki-info-box">$1</div>`);
 
             // Function to parse wiki-links and basic formatting
             const parseGlobalWiki = (txt) => {
                 if (!txt) return "";
-                let t = txt.toString();
-                t = t.replace(/'''(.*?)'''/g, '<b>$1</b>')
-                     .replace(/''(.*?)''/g, '<i>$1</i>')
-                     .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
-                         if (p1.startsWith('File:')) return m;
-                         return `<span class="wiki-link" onclick="loadArticle('${p1.replace(/'/g, "\\'")}')">${p1}</span>`;
-                     })
-                     .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
-                         if (p1 === 'File') return m;
-                         return `<span class="wiki-link" onclick="loadArticle('${p1.replace(/'/g, "\\'")}')">${p2}</span>`;
-                     });
-                return t;
+                return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                          .replace(/''(.*?)''/g, '<i>$1</i>')
+                          .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
+                              if (p1.startsWith('File:')) return m; // Skip files
+                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
+                          })
+                          .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
+                              if (p1 === 'File') return m; // Skip files
+                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
+                          });
             };
 
             // Handle Dynamic Database Templates with Multi-Parameter Support
@@ -2301,11 +2242,8 @@
                 let fileName = p2 ? p2.trim() : "";
                 let sizeWidth = "220px";
                 let caption = "";
-                let isDbFile = false;
 
                 if (url === "DB") {
-                    isDbFile = true;
-                    // Check if already cached from a previous load
                     url = orlePediaFileStore[fileName] || "";
                     sizeWidth = p3 || "220px";
                     caption = p4 || p3 || "";
@@ -2315,38 +2253,20 @@
                     url = p1.trim();
                 } else {
                     // Fallback for just [[File|Filename]] assuming it's DB
-                    isDbFile = true;
-                    fileName = url;
                     url = orlePediaFileStore[url] || "";
                     caption = p2 || "";
                     sizeWidth = "220px";
                 }
 
-                // For DB files not yet cached, render a placeholder and lazy-load
-                const imgAttrs = (isDbFile && !url)
-                    ? `src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" data-lazy-file="${fileName.replace(/"/g,'&quot;')}" class="wiki-file-img lazy-db-img"`
-                    : `src="${url}" class="wiki-file-img"`;
-
                 return `
                     <div class="wiki-file-container">
                         <div class="wiki-file-box">
-                            <img ${imgAttrs} style="width:${sizeWidth}; min-height:${isDbFile && !url ? '60px' : 'auto'}; background:#f0f0f0;" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
                             <span class="wiki-file-caption">${caption}</span>
                         </div>
                     </div>
                 `;
             });
-            
-            // After rendering, lazy-load any DB images not yet cached
-            // We schedule this after the HTML is injected into the DOM
-            setTimeout(() => {
-                document.querySelectorAll('img.lazy-db-img[data-lazy-file]').forEach(async img => {
-                    const name = img.getAttribute('data-lazy-file');
-                    if (!name) return;
-                    const url = await resolveFileUrl(name);
-                    if (url) img.src = url;
-                });
-            }, 0);
 
             // Handle Table Template
             const tableRegex = /\{\{Table\|([\s\S]*?)\}\}/g;
@@ -2507,16 +2427,22 @@
                     undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
                 }
 
-                // Since we don't have content for old revisions, byte change is shown as N/A or calculated if available
-                let byteChangeMarkup = `<span class="byte-change" style="color:grey;">(view diff for details)</span>`;
-                let tag = "";
+                let byteChange = 0;
+                if (index > 0) {
+                    byteChange = calculateByteChange(articleObj.history[index - 1].content, revision.content);
+                }
+
+                const byteChangeClass = byteChange > 0 ? 'positive' : byteChange < 0 ? 'negative' : '';
+                const isBold = Math.abs(byteChange) > 500;
+                const byteChangeMarkup = `<span class="byte-change ${byteChangeClass} ${isBold ? 'large' : ''}">${formatByteChange(byteChange)}</span>`;
+                const tag = getRevisionTag(index > 0 ? articleObj.history[index-1].content : "", revision.content);
 
                 logHistoryListHtml += `
                     <div class="history-log-item">
                         • <span class="history-timestamp">${timeString}</span> ${byteChangeMarkup} — 
                         <strong>${revision.editor}</strong> 
                         <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
-                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')" style="cursor:pointer; color:var(--wiki-blue); text-decoration:underline;">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
+                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
                         ${undoOptionButtonMarkup}
                     </div>
                 `;
@@ -2573,32 +2499,17 @@
             return htmlDiffStreamRows;
         }
 
-        async function renderSingleSummaryDiff(historyIndex) {
+        function renderSingleSummaryDiff(historyIndex) {
             let article = orlePediaMemoryStore[currentActiveArticleKey];
-            let displayTargetBox = document.getElementById('wikiTabContentBody');
-            
-            displayTargetBox.innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Calculating diff comparison...</div>`;
+            let currentSelectedContent = article.history[historyIndex].content;
 
-            // Helper to ensure revision content is loaded
-            const ensureContent = async (idx) => {
-                if (idx < 0) return "";
-                const rev = article.history[idx];
-                if (rev.content === null) {
-                    try {
-                        const data = await supabaseRequest(`revisions?select=new_content&id=eq.${rev.id}`, 'GET');
-                        if (data && data.length > 0) rev.content = data[0].new_content;
-                    } catch (err) {
-                        console.error("Failed to fetch revision content:", err);
-                        return "";
-                    }
-                }
-                return rev.content || "";
-            };
-
-            const currentSelectedContent = await ensureContent(historyIndex);
-            const baseContentStr = await ensureContent(parseInt(historyIndex) - 1);
+            let baseContentStr = "";
+            if (parseInt(historyIndex) > 0) {
+                baseContentStr = article.history[historyIndex - 1].content;
+            }
 
             let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
+            let displayTargetBox = document.getElementById('wikiTabContentBody');
             let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
 
             displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
@@ -2770,44 +2681,12 @@
                 return count;
             };
 
-            // Show loading message for statistics as it may require fetching all data
-            document.getElementById('wikiTabContentBody').innerHTML = `<div style="padding:2rem; text-align:center; color:grey;">⌛ Generating global statistics... This may take a moment.</div>`;
-
-            // Note: For large datasets, statistics should ideally be calculated server-side.
-            // For now, we fetch all data if we haven't already to calculate accurate stats.
-            const fetchAllDataForStats = async () => {
-                const [revisions, ratings, fullArticles] = await Promise.all([
-                    supabaseRequest('revisions?select=article_id,created_at,editor_name,edit_summary,new_content'),
-                    supabaseRequest('ratings?select=article_id,score'),
-                    supabaseRequest('articles?select=id,title,content')
-                ]);
-
-                // Map data back to memory store
-                fullArticles.forEach(art => {
-                    const mem = orlePediaMemoryStore[art.title];
-                    if (mem) {
-                        mem.content = art.content;
-                        mem.history = revisions.filter(r => r.article_id === art.id).map(r => ({
-                            timestamp: Date.parse(r.created_at) || Date.now(),
-                            editor: r.editor_name || "Cloud Contributor",
-                            tag: "Synced",
-                            summary: r.edit_summary || "Interface update modification",
-                            content: r.new_content
-                        }));
-                        mem.ratings = ratings.filter(r => r.article_id === art.id).map(r => r.score);
-                        mem.isLoaded = true;
-                    }
-                });
-            };
-
-            await fetchAllDataForStats();
-
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 const editCount = article.history ? article.history.length : 0;
                 totalEdits += editCount;
-                const wordCount = (article.content || "").split(/\s+/).filter(w => w).length;
+                const wordCount = article.content.split(/\s+/).filter(w => w).length;
                 totalWords += wordCount;
-                const byteSize = new Blob([article.content || ""]).size;
+                const byteSize = new Blob([article.content]).size;
                 const linkedCount = calculateLinksTo(key);
                 const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount });
@@ -3340,24 +3219,26 @@
         // ============ APP INITIALIZATION ============
         document.addEventListener('DOMContentLoaded', async () => {
             loadUserProfile();
+            await loadOrlePediaDataFromCloud();
             
-            // Check URL routing BEFORE loading cloud data so we know which article to load
+            // Routing Init
             const params = new URLSearchParams(window.location.search);
             const p = params.get('p');
-            const urlArticle = p 
-                ? decodeURIComponent(p.replace(/^\//, ''))
-                : (() => {
-                    const path = window.location.pathname.split('/').pop();
-                    return (path && path !== 'index.html' && !path.includes('.html')) ? decodeURIComponent(path) : null;
-                })();
-            
-            // Pass the URL-requested article so cloud loader opens it directly (avoids double load)
-            await loadOrlePediaDataFromCloud(urlArticle);
+            if (p) {
+                const articleName = decodeURIComponent(p.replace(/^\//, ''));
+                navigateTo(articleName);
+            } else {
+                const path = window.location.pathname.split('/').pop();
+                if (path && path !== 'index.html' && !path.includes('.html')) {
+                    loadArticle(decodeURIComponent(path));
+                } else {
+                    loadArticle(currentActiveArticleKey);
+                }
+            }
             lucide.createIcons();
         });
 
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
-</html>
-    
+    </html>
