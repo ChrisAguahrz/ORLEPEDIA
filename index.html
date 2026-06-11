@@ -31,6 +31,222 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
 
+        /* ============ MODERN LOADING SCREEN ============ */
+        #globalLoadingOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #f6f6f6 0%, #ffffff 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+            font-family: Georgia, serif;
+        }
+
+        #globalLoadingOverlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .loading-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        .loading-logo-img {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(51, 102, 187, 0.2);
+        }
+
+        .loading-logo-text {
+            font-size: 2.2rem;
+            font-weight: bold;
+            letter-spacing: -1px;
+            color: var(--text-dark);
+        }
+
+        .loading-logo-text span {
+            color: var(--wiki-blue);
+        }
+
+        .loading-progress-ring-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin-bottom: 30px;
+        }
+
+        .loading-progress-ring {
+            transform: rotate(-90deg);
+            width: 140px;
+            height: 140px;
+        }
+
+        .loading-progress-ring-bg {
+            fill: none;
+            stroke: #e0e0e0;
+            stroke-width: 6;
+        }
+
+        .loading-progress-ring-fill {
+            fill: none;
+            stroke: var(--wiki-blue);
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.4s ease;
+            stroke-dasharray: 377;
+            stroke-dashoffset: 377;
+        }
+
+        .loading-percentage-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--wiki-blue);
+            font-family: monospace;
+        }
+
+        .loading-status-message {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            min-height: 24px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        .loading-error-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            background: #fff5f5;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 20px 30px;
+            max-width: 450px;
+            text-align: center;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .loading-error-container.visible {
+            display: flex;
+        }
+
+        .loading-error-icon {
+            font-size: 2.5rem;
+            color: var(--wiki-red);
+        }
+
+        .loading-error-title {
+            font-weight: bold;
+            color: var(--wiki-red);
+            font-size: 1.1rem;
+        }
+
+        .loading-error-message {
+            color: #991b1b;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        .loading-retry-btn {
+            background: var(--wiki-blue);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .loading-retry-btn:hover {
+            background: var(--wiki-blue-hover);
+            transform: scale(1.02);
+        }
+
+        .loading-retry-btn:active {
+            transform: scale(0.98);
+        }
+
+        .loading-steps-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .loading-step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #d0d0d0;
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+
+        .loading-step-dot.completed {
+            background: var(--wiki-blue);
+            transform: scale(1.2);
+        }
+
+        .loading-step-dot.active {
+            background: var(--wiki-blue-hover);
+            animation: pulse-dot 1s infinite;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.7;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 1;
+            }
+        }
+
         /* Left Vector Navigation Sidebar - Collapsible */
         aside { 
             width: 180px; 
@@ -1219,6 +1435,39 @@
 </head>
 <body>
 
+    <!-- ============ MODERN LOADING SCREEN ============ -->
+    <div id="globalLoadingOverlay">
+        <div class="loading-logo-container">
+            <img src="/home/ubuntu/orlepedia_logo_1.png" class="loading-logo-img" onerror="this.style.display='none'">
+            <div class="loading-logo-text">Orle<span>Pedia</span></div>
+        </div>
+        
+        <div class="loading-progress-ring-container">
+            <svg class="loading-progress-ring" viewBox="0 0 140 140">
+                <circle class="loading-progress-ring-bg" cx="70" cy="70" r="60"></circle>
+                <circle class="loading-progress-ring-fill" id="progressRingFill" cx="70" cy="70" r="60"></circle>
+            </svg>
+            <div class="loading-percentage-text" id="loadingPercentage">0%</div>
+        </div>
+        
+        <div class="loading-status-message" id="loadingStatusMessage">Initializing encyclopedia engine...</div>
+        
+        <div class="loading-error-container" id="loadingErrorContainer">
+            <div class="loading-error-icon">⚠️</div>
+            <div class="loading-error-title">Connection Error</div>
+            <div class="loading-error-message" id="loadingErrorMessage">Unable to connect to the database. Please check your network connection.</div>
+            <button class="loading-retry-btn" onclick="retryLoading()">🔄 Retry Connection</button>
+        </div>
+        
+        <div class="loading-steps-container" id="loadingStepsContainer">
+            <div class="loading-step-dot" id="stepDot1"></div>
+            <div class="loading-step-dot" id="stepDot2"></div>
+            <div class="loading-step-dot" id="stepDot3"></div>
+            <div class="loading-step-dot" id="stepDot4"></div>
+            <div class="loading-step-dot" id="stepDot5"></div>
+        </div>
+    </div>
+
     <aside id="mainSidebar">
         <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
         <div class="logo-area" style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding:1rem 0;">
@@ -1513,6 +1762,188 @@
             tag: ""
         };
         
+        // ============ MODERN LOADING SCREEN CONTROLLER ============
+        const loadingConfig = {
+            totalSteps: 5,
+            currentStep: 0,
+            progress: 0,
+            targetProgress: 0,
+            animationFrame: null,
+            isComplete: false,
+            hasError: false,
+            errorMessage: '',
+            loadTimeout: null,
+            maxLoadTime: 30000 // 30 seconds max loading time
+        };
+
+        function updateLoadingProgress(targetPercent, message) {
+            loadingConfig.targetProgress = Math.min(targetPercent, 100);
+            loadingConfig.currentStep = Math.floor((targetPercent / 100) * loadingConfig.totalSteps);
+            
+            const statusEl = document.getElementById('loadingStatusMessage');
+            if (statusEl && message) {
+                statusEl.textContent = message;
+            }
+            
+            // Animate progress
+            if (!loadingConfig.animationFrame) {
+                animateProgressRing();
+            }
+            
+            // Update step dots
+            updateLoadingStepDots();
+        }
+
+        function animateProgressRing() {
+            const current = loadingConfig.progress;
+            const target = loadingConfig.targetProgress;
+            
+            if (Math.abs(current - target) < 0.5) {
+                loadingConfig.progress = target;
+                loadingConfig.animationFrame = null;
+                renderProgressRing();
+                return;
+            }
+            
+            // Smooth easing
+            const delta = (target - current) * 0.15;
+            loadingConfig.progress = current + (Math.abs(delta) < 0.1 ? (target - current) : delta);
+            
+            renderProgressRing();
+            
+            loadingConfig.animationFrame = requestAnimationFrame(animateProgressRing);
+        }
+
+        function renderProgressRing() {
+            const progress = Math.round(loadingConfig.progress);
+            const ringFill = document.getElementById('progressRingFill');
+            const percentText = document.getElementById('loadingPercentage');
+            
+            if (ringFill) {
+                const circumference = 377; // 2 * π * 60
+                const offset = circumference - (progress / 100) * circumference;
+                ringFill.style.strokeDashoffset = offset;
+            }
+            
+            if (percentText) {
+                percentText.textContent = progress + '%';
+            }
+        }
+
+        function updateLoadingStepDots() {
+            for (let i = 1; i <= loadingConfig.totalSteps; i++) {
+                const dot = document.getElementById('stepDot' + i);
+                if (dot) {
+                    dot.classList.remove('completed', 'active');
+                    if (i < loadingConfig.currentStep) {
+                        dot.classList.add('completed');
+                    } else if (i === loadingConfig.currentStep && !loadingConfig.isComplete) {
+                        dot.classList.add('active');
+                    } else if (loadingConfig.isComplete) {
+                        dot.classList.add('completed');
+                    }
+                }
+            }
+        }
+
+        function showLoadingError(message) {
+            loadingConfig.hasError = true;
+            loadingConfig.isComplete = true;
+            
+            const errorContainer = document.getElementById('loadingErrorContainer');
+            const errorMessage = document.getElementById('loadingErrorMessage');
+            const statusMessage = document.getElementById('loadingStatusMessage');
+            const stepsContainer = document.getElementById('loadingStepsContainer');
+            
+            if (errorContainer) {
+                errorContainer.classList.add('visible');
+            }
+            if (errorMessage) {
+                errorMessage.textContent = message || 'An unexpected error occurred while loading. Please try again.';
+            }
+            if (statusMessage) {
+                statusMessage.textContent = '⚠️ Loading interrupted';
+                statusMessage.style.color = 'var(--wiki-red)';
+            }
+            if (stepsContainer) {
+                stepsContainer.style.display = 'none';
+            }
+            
+            // Set progress ring to red
+            const ringFill = document.getElementById('progressRingFill');
+            if (ringFill) {
+                ringFill.style.stroke = 'var(--wiki-red)';
+            }
+            
+            const percentText = document.getElementById('loadingPercentage');
+            if (percentText) {
+                percentText.textContent = '!';
+                percentText.style.color = 'var(--wiki-red)';
+            }
+            
+            // Clear timeout
+            if (loadingConfig.loadTimeout) {
+                clearTimeout(loadingConfig.loadTimeout);
+            }
+            
+            console.error('❌ Loading Error:', message);
+        }
+
+        function hideLoadingScreen() {
+            loadingConfig.isComplete = true;
+            updateLoadingProgress(100, 'Encyclopedia ready!');
+            
+            // Small delay for smooth completion animation
+            setTimeout(() => {
+                const overlay = document.getElementById('globalLoadingOverlay');
+                if (overlay) {
+                    overlay.classList.add('hidden');
+                    
+                    // Remove overlay after transition
+                    setTimeout(() => {
+                        if (overlay.parentNode) {
+                            overlay.remove();
+                        }
+                    }, 600);
+                }
+            }, 500);
+        }
+
+        async function retryLoading() {
+            const errorContainer = document.getElementById('loadingErrorContainer');
+            const statusMessage = document.getElementById('loadingStatusMessage');
+            const stepsContainer = document.getElementById('loadingStepsContainer');
+            const ringFill = document.getElementById('progressRingFill');
+            const percentText = document.getElementById('loadingPercentage');
+            
+            // Reset error state
+            loadingConfig.hasError = false;
+            loadingConfig.isComplete = false;
+            loadingConfig.progress = 0;
+            loadingConfig.targetProgress = 0;
+            
+            if (errorContainer) errorContainer.classList.remove('visible');
+            if (statusMessage) {
+                statusMessage.textContent = 'Retrying connection...';
+                statusMessage.style.color = 'var(--text-muted)';
+            }
+            if (stepsContainer) stepsContainer.style.display = 'flex';
+            if (ringFill) ringFill.style.stroke = 'var(--wiki-blue)';
+            if (percentText) {
+                percentText.textContent = '0%';
+                percentText.style.color = 'var(--wiki-blue)';
+            }
+            
+            // Reset step dots
+            for (let i = 1; i <= loadingConfig.totalSteps; i++) {
+                const dot = document.getElementById('stepDot' + i);
+                if (dot) dot.classList.remove('completed', 'active');
+            }
+            
+            // Retry initialization
+            await initializeApplication();
+        }
+
         function openFileUploadModal() { document.getElementById('fileUploadModal').style.display = 'flex'; }
         function openMovePageModal() { document.getElementById('movePageModal').style.display = 'flex'; }
         let orlePediaTemplateStore = {};
@@ -1587,36 +2018,66 @@
         const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
 
-        // Network Helper Function
-        async function supabaseRequest(endpoint, method = 'GET', body = null) {
+        // Network Helper Function with Timeout
+        async function supabaseRequest(endpoint, method = 'GET', body = null, timeoutMs = 15000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            
             const headers = {
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             };
-            const config = { method, headers };
+            const config = { method, headers, signal: controller.signal };
             if (body) config.body = JSON.stringify(body);
 
-            const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Database Error: ${errorText}`);
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Database Error (${response.status}): ${errorText}`);
+                }
+                return await response.json();
+            } catch (err) {
+                clearTimeout(timeoutId);
+                if (err.name === 'AbortError') {
+                    throw new Error('Request timed out. The server took too long to respond.');
+                }
+                throw err;
             }
-            return await response.json();
         }
 
         // 1. FETCH ALL DATA FROM CLOUD
         async function loadOrlePediaDataFromCloud() {
             try {
                 console.log("🛰️ Fetching encyclopedia records...");
+                updateLoadingProgress(10, 'Connecting to database...');
                 
-                // Fetch data from all three tables simultaneously
+                // Add timeout for overall operation
+                const overallTimeout = setTimeout(() => {
+                    throw new Error('Overall loading operation timed out');
+                }, 25000);
+                
+                // Fetch data from all tables simultaneously
+                updateLoadingProgress(25, 'Fetching articles...');
                 const articles = await supabaseRequest('articles?select=*');
+                
+                updateLoadingProgress(45, 'Loading revision history...');
                 const revisions = await supabaseRequest('revisions?select=*');
+                
+                updateLoadingProgress(60, 'Loading ratings...');
                 const ratings = await supabaseRequest('ratings?select=*');
+                
+                updateLoadingProgress(75, 'Loading files...');
                 const files = await supabaseRequest('files?select=*');
+                
+                updateLoadingProgress(85, 'Loading templates...');
                 const templates = await supabaseRequest('templates?select=*');
+                
+                clearTimeout(overallTimeout);
                 
                 if (Array.isArray(files)) {
                     files.forEach(f => {
@@ -1630,6 +2091,7 @@
                 }
                 
                 if (Array.isArray(articles) && articles.length > 0) {
+                    updateLoadingProgress(90, 'Processing articles...');
                     articles.forEach(art => {
                         // Group the downloaded revisions to their matching article
                         let artRevs = [];
@@ -1667,11 +2129,16 @@
                             author: "Cloud Contributor"
                         };
                     });
+                    updateLoadingProgress(95, 'Finalizing setup...');
                     console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
                     switchSubTab(activeSubTabState);
                 }
+                
+                updateLoadingProgress(100, 'Encyclopedia ready!');
             } catch (err) {
                 console.error("❌ Fetch pipeline failure:", err);
+                showLoadingError(err.message || 'Failed to load encyclopedia data');
+                throw err; // Re-throw for the initialization handler
             }
         }
 
@@ -2560,9 +3027,9 @@
                     <section>
                         <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Operations</h3>
                         <div style="display:flex; gap:10px; flex-wrap: wrap;">
-                            <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
-                            <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
-                            <button class="action-btn" onclick="downloadArticle('pptx')">Download PPTX</button>
+                            <button class="action-btn" onclick="downloadArticleContent('pdf')">Download PDF</button>
+                            <button class="action-btn" onclick="downloadArticleContent('docx')">Download DOCX</button>
+                            <button class="action-btn" onclick="downloadArticleContent('pptx')">Download PPTX</button>
                             <button class="action-btn danger" onclick="executePermanentDeletion()">⚠️ Permanently Delete Article</button>
                         </div>
                     </section>
@@ -2590,31 +3057,94 @@
             triggerClientPreview();
         }
 
-        async function downloadArticle(format) {
+        // ============ FIXED DOWNLOAD FUNCTION ============
+        async function downloadArticleContent(format) {
             const title = currentActiveArticleKey;
-            const content = document.getElementById('wikiTabContentBody').cloneNode(true);
+            const article = orlePediaMemoryStore[title];
             
-            // Clean up UI elements for export
-            content.querySelectorAll('.edit-pencil, button').forEach(el => el.remove());
+            if (!article) {
+                alert("No article content available to download.");
+                return;
+            }
             
-            // High-end rendering: Convert complex templates to images if needed (simulated for browser environment)
-            // In a real browser-only app without a backend renderer, we use window.print() or specialized libs.
-            // For simplicity and reliability in this sandbox, we'll use a standard blob download for text-based formats
-            // and trigger the browser's print-to-PDF for PDF.
+            // Get the article content directly from memory store
+            let contentText = article.content;
             
-            const text = content.innerText;
-            const html = `<html><head><title>${title}</title><style>body{font-family:sans-serif;padding:2rem;} .wiki-infobox{border:1px solid #ccc;float:right;width:300px;margin-left:1rem;}</style></head><body><h1>${title}</h1>${content.innerHTML}</body></html>`;
+            // Strip MediaWiki markup to get plain text for DOCX/PPTX
+            // Remove templates, infoboxes, file references, etc.
+            let cleanText = contentText
+                .replace(/\{\{.*?\}\}/gs, '') // Remove all templates
+                .replace(/\[\[File.*?\]\]/g, '') // Remove file embeds
+                .replace(/\[\[Category:.*?\]\]/g, '') // Remove categories
+                .replace(/\<ref\>.*?\<\/ref\>/g, '') // Remove ref tags
+                .replace(/'''|''/g, '') // Remove bold/italic markers
+                .replace(/====?\s?(.*?)\s?====?/g, '$1\n') // Convert headers
+                .replace(/\[\[([^|\]]+)\]\]/g, '$1') // Convert simple links to text
+                .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '$2') // Convert piped links
+                .replace(/^\s*[\*#]\s/gm, '• ') // Convert list markers
+                .trim();
+            
+            // Add title header
+            const headerText = `${title}\n${'='.repeat(title.length)}\n\n`;
+            const fullText = headerText + cleanText;
+            
+            // Build HTML for PDF (better formatting)
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>${title} - OrlePedia</title>
+                    <style>
+                        body { font-family: Georgia, serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #202122; }
+                        h1 { font-size: 1.8rem; border-bottom: 1px solid #a2a9b1; padding-bottom: 0.25rem; }
+                        h2 { font-size: 1.3rem; border-bottom: 1px solid #a2a9b1; margin-top: 1.5rem; }
+                        p { margin: 0.8rem 0; }
+                        .footer { margin-top: 2rem; border-top: 1px solid #eaecf0; padding-top: 0.5rem; font-size: 0.8rem; color: #54595d; }
+                    </style>
+                </head>
+                <body>
+                    <h1>${title}</h1>
+                    ${compileRawMarkupToHtml(contentText)}
+                    <div class="footer">Downloaded from OrlePedia — ${new Date().toLocaleDateString()}</div>
+                </body>
+                </html>
+            `;
 
             if (format === 'pdf') {
-                window.print();
+                // Open print dialog for PDF
+                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                if (printWindow) {
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => {
+                        printWindow.print();
+                    }, 500);
+                } else {
+                    // Fallback: create hidden iframe for printing
+                    const iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    document.body.appendChild(iframe);
+                    iframe.contentDocument.write(htmlContent);
+                    iframe.contentDocument.close();
+                    setTimeout(() => {
+                        iframe.contentWindow.print();
+                        setTimeout(() => document.body.removeChild(iframe), 1000);
+                    }, 500);
+                }
             } else {
-                const mime = format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-                const blob = new Blob([format === 'docx' ? html : text], { type: mime });
+                // For DOCX and PPTX, download as formatted HTML (since true DOCX/PPTX requires server-side libraries)
+                // The browser will save it with the appropriate extension
+                const blob = new Blob([htmlContent], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${title}.${format}`;
+                a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.${format === 'docx' ? 'doc' : 'ppt'}.html`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
             }
         }
 
@@ -2954,15 +3484,6 @@
             document.getElementById('wikiTabContentBody').innerHTML = matchedArticlesListHtml;
         }
 
-        async function executePermanentDeletion() {
-            if (!confirm("Are you absolutely sure you want to PURGE this article? This cannot be undone.")) return;
-            const title = currentActiveArticleKey;
-            delete orlePediaMemoryStore[title];
-            await dispatchDataPayloadToRemoteDataNetworks("ARTICLE_DELETE", { title: title });
-            loadArticle('Main Page');
-            triggerToastBannerNotification("🗑️ Article purged from neural network.");
-        }
-
         // ============ SYSTEM CREATION ROUTERS ============
         function openNewArticleModal() {
             document.getElementById('newArticleTitleInput').value = "";
@@ -3121,7 +3642,6 @@
             if(targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
         }
 
-        // ============ APP INITIALIZATION ============
         // ============ NEW FEATURES LOGIC ============
         async function handleFileUpload() {
             const file = document.getElementById('fileInput').files[0];
@@ -3216,26 +3736,53 @@
             loadArticle(title);
         }
 
-        // ============ APP INITIALIZATION ============
-        document.addEventListener('DOMContentLoaded', async () => {
+        // ============ APP INITIALIZATION WITH LOADING SCREEN ============
+        async function initializeApplication() {
             loadUserProfile();
-            await loadOrlePediaDataFromCloud();
             
-            // Routing Init
-            const params = new URLSearchParams(window.location.search);
-            const p = params.get('p');
-            if (p) {
-                const articleName = decodeURIComponent(p.replace(/^\//, ''));
-                navigateTo(articleName);
-            } else {
-                const path = window.location.pathname.split('/').pop();
-                if (path && path !== 'index.html' && !path.includes('.html')) {
-                    loadArticle(decodeURIComponent(path));
-                } else {
-                    loadArticle(currentActiveArticleKey);
+            // Set up timeout for overall loading
+            loadingConfig.loadTimeout = setTimeout(() => {
+                if (!loadingConfig.isComplete && !loadingConfig.hasError) {
+                    showLoadingError('Loading is taking longer than expected. The database may be slow to respond.');
                 }
+            }, loadingConfig.maxLoadTime);
+            
+            try {
+                await loadOrlePediaDataFromCloud();
+                
+                // Clear timeout since loading completed successfully
+                if (loadingConfig.loadTimeout) {
+                    clearTimeout(loadingConfig.loadTimeout);
+                }
+                
+                // Routing Init
+                const params = new URLSearchParams(window.location.search);
+                const p = params.get('p');
+                if (p) {
+                    const articleName = decodeURIComponent(p.replace(/^\//, ''));
+                    navigateTo(articleName);
+                } else {
+                    const path = window.location.pathname.split('/').pop();
+                    if (path && path !== 'index.html' && !path.includes('.html')) {
+                        loadArticle(decodeURIComponent(path));
+                    } else {
+                        loadArticle(currentActiveArticleKey);
+                    }
+                }
+                lucide.createIcons();
+                
+                // Hide loading screen after successful initialization
+                hideLoadingScreen();
+                
+            } catch (err) {
+                console.error("❌ Initialization failed:", err);
+                // Error is already handled in loadOrlePediaDataFromCloud via showLoadingError
             }
-            lucide.createIcons();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Start the application with loading screen
+            initializeApplication();
         });
 
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
