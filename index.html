@@ -31,7 +31,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
 
-        /* ============ MODERN LOADING SCREEN - KEPT MINIMAL ============ */
+        /* ============ MODERN LOADING SCREEN ============ */
         #globalLoadingOverlay {
             position: fixed;
             top: 0;
@@ -138,7 +138,7 @@
             border: 1px solid #fecaca;
             border-radius: 8px;
             padding: 20px 30px;
-            max-width: 450px;
+            max-width: 500px;
             text-align: center;
             animation: fadeInUp 0.5s ease;
         }
@@ -162,6 +162,15 @@
             color: #991b1b;
             font-size: 0.85rem;
             line-height: 1.5;
+            max-height: 100px;
+            overflow-y: auto;
+            text-align: left;
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            width: 100%;
+            font-family: monospace;
+            font-size: 0.75rem;
         }
 
         .loading-retry-btn {
@@ -185,20 +194,21 @@
             transform: scale(0.98);
         }
 
-        .loading-skip-btn {
-            background: transparent;
-            color: var(--wiki-blue);
-            border: 1px solid var(--wiki-blue);
-            padding: 8px 20px;
+        .loading-partial-warning {
+            display: none;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
             border-radius: 6px;
-            font-size: 0.85rem;
-            cursor: pointer;
+            padding: 10px 15px;
+            font-size: 0.8rem;
+            color: #92400e;
             margin-top: 10px;
-            transition: background 0.2s;
+            max-width: 400px;
+            text-align: center;
         }
 
-        .loading-skip-btn:hover {
-            background: rgba(51, 102, 187, 0.1);
+        .loading-partial-warning.visible {
+            display: block;
         }
 
         @keyframes fadeInDown {
@@ -530,8 +540,6 @@
         .h2-section-content {
             display: block;
             margin-bottom: 0.5rem;
-            font-size: 0.95rem;
-            line-height: 1.6;
         }
 
         .h2-section-content.collapsed { display: none; }
@@ -1406,7 +1414,7 @@
 </head>
 <body>
 
-    <!-- ============ MODERN LOADING SCREEN ============ -->
+    <!-- ============ MODERN LOADING SCREEN WITH DIAGNOSTICS ============ -->
     <div id="globalLoadingOverlay">
         <div class="loading-logo-container">
             <img src="/home/ubuntu/orlepedia_logo_1.png" class="loading-logo-img" onerror="this.style.display='none'">
@@ -1421,14 +1429,14 @@
             <div class="loading-percentage-text" id="loadingPercentage">0%</div>
         </div>
         
-        <div class="loading-status-message" id="loadingStatusMessage">Initializing encyclopedia engine...</div>
+        <div class="loading-status-message" id="loadingStatusMessage">Connecting to database...</div>
+        <div class="loading-partial-warning" id="loadingPartialWarning">⚠️ Some data could not be loaded. Articles are available but files, ratings, or history may be incomplete.</div>
         
         <div class="loading-error-container" id="loadingErrorContainer">
             <div class="loading-error-icon">⚠️</div>
-            <div class="loading-error-title">Connection Error</div>
-            <div class="loading-error-message" id="loadingErrorMessage">Unable to connect to the database. Please check your network connection.</div>
+            <div class="loading-error-title" id="loadingErrorTitle">Connection Error</div>
+            <div class="loading-error-message" id="loadingErrorMessage">Unable to connect to the database.</div>
             <button class="loading-retry-btn" onclick="retryLoading()">🔄 Retry Connection</button>
-            <button class="loading-skip-btn" onclick="skipLoadingAndContinue()">⚡ Skip & Continue Offline</button>
         </div>
     </div>
 
@@ -1797,10 +1805,10 @@
         const SUPABASE_URL = "https://aqmmfchqtrmubftxmgug.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
 
-        // Network Helper Function - FIXED: shorter timeout, better error handling
+        // Network Helper Function with detailed diagnostics
         async function supabaseRequest(endpoint, method = 'GET', body = null) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
             const headers = {
                 'apikey': SUPABASE_KEY,
@@ -1812,143 +1820,233 @@
             if (body) config.body = JSON.stringify(body);
 
             try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, config);
+                const fullUrl = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+                console.log(`📡 Fetching: ${fullUrl}`);
+                const response = await fetch(fullUrl, config);
                 clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    throw new Error(`Database Error: ${errorText}`);
+                    let diagnosticMsg = '';
+                    if (response.status === 401 || response.status === 403) {
+                        diagnosticMsg = 'AUTH ERROR: Your Supabase API key may be invalid or RLS policies are blocking access. Check your anon key and table permissions.';
+                    } else if (response.status === 404) {
+                        diagnosticMsg = 'NOT FOUND: The table or endpoint does not exist. Check your Supabase table names.';
+                    } else if (response.status === 406) {
+                        diagnosticMsg = 'SCHEMA ERROR: The requested columns may not exist. Try using select=* or check column names.';
+                    } else {
+                        diagnosticMsg = `Server returned ${response.status}`;
+                    }
+                    throw new Error(`${diagnosticMsg}\nDetails: ${errorText}`);
                 }
-                return await response.json();
+                const data = await response.json();
+                return data;
             } catch (err) {
                 clearTimeout(timeoutId);
                 if (err.name === 'AbortError') {
-                    throw new Error('Request timed out. The server took too long to respond.');
+                    throw new Error('TIMEOUT: The request took too long. The Supabase server may be down or unreachable. Check your network connection and Supabase project status.');
+                }
+                if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                    throw new Error('NETWORK ERROR: Cannot reach Supabase. Check your internet connection and make sure the Supabase project is active.');
                 }
                 throw err;
             }
         }
 
-        // 1. FETCH ALL DATA FROM CLOUD - FIXED: loads in stages, handles failures gracefully
+        // 1. FETCH ALL DATA FROM CLOUD - WITH INDEPENDENT ERROR HANDLING
         async function loadOrlePediaDataFromCloud() {
+            let diagnosticsLog = [];
+            let hadErrors = false;
+            
+            // Step 1: Test basic connectivity first
+            updateLoadingProgress(5, 'Testing database connection...');
             try {
-                console.log("🛰️ Fetching encyclopedia records...");
-                
-                // Step 1: Fetch articles with ALL data in one query
-                updateLoadingProgress(20, 'Connecting to database...');
-                const articles = await supabaseRequest('articles?select=*');
-                
-                updateLoadingProgress(50, 'Processing articles...');
-                const revisions = await supabaseRequest('revisions?select=*');
-                
-                updateLoadingProgress(70, 'Loading ratings...');
-                const ratings = await supabaseRequest('ratings?select=*');
-                
-                updateLoadingProgress(80, 'Loading files...');
-                const files = await supabaseRequest('files?select=*');
-                
-                updateLoadingProgress(85, 'Loading templates...');
-                const templates = await supabaseRequest('templates?select=*');
-                
-                if (Array.isArray(files)) {
-                    files.forEach(f => {
-                        orlePediaFileStore[f.name] = f.url;
-                    });
+                const testResult = await supabaseRequest('articles?select=title&limit=1');
+                if (Array.isArray(testResult)) {
+                    diagnosticsLog.push('✅ Connection test passed');
+                    updateLoadingProgress(10, 'Connection successful!');
                 }
-                if (Array.isArray(templates)) {
-                    templates.forEach(t => {
-                        orlePediaTemplateStore[t.name] = t.content;
-                    });
-                }
-                
-                if (Array.isArray(articles) && articles.length > 0) {
-                    updateLoadingProgress(90, 'Building encyclopedia...');
-                    articles.forEach(art => {
-                        let artRevs = [];
-                        if (Array.isArray(revisions)) {
-                            artRevs = revisions
-                                .filter(r => r.article_id === art.id)
-                                .map(r => ({
-                                    timestamp: Date.parse(r.created_at) || Date.now(),
-                                    editor: r.editor_name || "Cloud Contributor",
-                                    tag: "Synced",
-                                    summary: r.edit_summary || "Interface update modification",
-                                    content: r.new_content
-                                }));
-                        }
-
-                        let artRatings = [];
-                        if (Array.isArray(ratings)) {
-                            artRatings = ratings
-                                .filter(r => r.article_id === art.id)
-                                .map(r => r.score);
-                        }
-
-                        orlePediaMemoryStore[art.title] = {
-                            title: art.title,
-                            category: art.summary || "General Indexes",
-                            content: art.content,
-                            talk: `== Talk Board for ${art.title} ==`,
-                            history: artRevs.length > 0 ? artRevs : [
-                                { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content }
-                            ],
-                            ratings: artRatings.length > 0 ? artRatings : [5],
-                            createdTime: Date.parse(art.created_at) || Date.now(),
-                            author: "Cloud Contributor"
-                        };
-                    });
-                    updateLoadingProgress(95, 'Finalizing setup...');
-                    console.log(`✅ Loaded ${articles.length} articles from Supabase.`);
-                    switchSubTab(activeSubTabState);
-                }
-                
-                updateLoadingProgress(100, 'Encyclopedia ready!');
             } catch (err) {
-                console.error("❌ Fetch pipeline failure:", err);
-                showLoadingError(err.message || 'Failed to load encyclopedia data');
-                // FIXED: Create default Main Page so app doesn't break
-                ensureMainPageExists();
-                throw err;
+                diagnosticsLog.push('❌ Connection test failed: ' + err.message);
+                showDetailedError('Connection Test Failed', err.message, diagnosticsLog);
+                return false;
             }
+            
+            // Step 2: Load articles independently
+            updateLoadingProgress(15, 'Loading articles...');
+            let articles = [];
+            try {
+                articles = await supabaseRequest('articles?select=*');
+                diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
+                updateLoadingProgress(40, `Loaded ${articles.length} articles`);
+            } catch (err) {
+                diagnosticsLog.push('❌ Articles failed: ' + err.message);
+                hadErrors = true;
+                
+                // Try fallback: just load titles
+                try {
+                    diagnosticsLog.push('🔄 Trying fallback: loading only titles...');
+                    articles = await supabaseRequest('articles?select=title');
+                    diagnosticsLog.push(`✅ Fallback succeeded: ${articles.length} article titles loaded`);
+                    updateLoadingProgress(40, `Loaded ${articles.length} article titles (partial)`);
+                } catch (err2) {
+                    diagnosticsLog.push('❌ Fallback also failed: ' + err2.message);
+                    showDetailedError('Failed to Load Articles', 'Could not load any articles from the database. ' + err2.message, diagnosticsLog);
+                    return false;
+                }
+            }
+            
+            // Step 3: Load revisions independently
+            updateLoadingProgress(50, 'Loading revision history...');
+            let revisions = [];
+            try {
+                revisions = await supabaseRequest('revisions?select=*');
+                diagnosticsLog.push(`✅ Revisions loaded: ${revisions.length} found`);
+                updateLoadingProgress(65, 'Revisions loaded');
+            } catch (err) {
+                diagnosticsLog.push('⚠️ Revisions failed: ' + err.message + ' (continuing without history)');
+                hadErrors = true;
+                revisions = [];
+            }
+            
+            // Step 4: Load ratings independently
+            updateLoadingProgress(70, 'Loading ratings...');
+            let ratings = [];
+            try {
+                ratings = await supabaseRequest('ratings?select=*');
+                diagnosticsLog.push(`✅ Ratings loaded: ${ratings.length} found`);
+                updateLoadingProgress(75, 'Ratings loaded');
+            } catch (err) {
+                diagnosticsLog.push('⚠️ Ratings failed: ' + err.message + ' (continuing without ratings)');
+                hadErrors = true;
+                ratings = [];
+            }
+            
+            // Step 5: Load files independently
+            updateLoadingProgress(78, 'Loading files...');
+            let files = [];
+            try {
+                files = await supabaseRequest('files?select=*');
+                if (Array.isArray(files)) {
+                    files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
+                }
+                diagnosticsLog.push(`✅ Files loaded: ${files.length} found`);
+                updateLoadingProgress(85, 'Files loaded');
+            } catch (err) {
+                diagnosticsLog.push('⚠️ Files failed: ' + err.message + ' (continuing without files)');
+                hadErrors = true;
+            }
+            
+            // Step 6: Load templates independently
+            updateLoadingProgress(88, 'Loading templates...');
+            let templates = [];
+            try {
+                templates = await supabaseRequest('templates?select=*');
+                if (Array.isArray(templates)) {
+                    templates.forEach(t => { orlePediaTemplateStore[t.name] = t.content; });
+                }
+                diagnosticsLog.push(`✅ Templates loaded: ${templates.length} found`);
+                updateLoadingProgress(92, 'Templates loaded');
+            } catch (err) {
+                diagnosticsLog.push('⚠️ Templates failed: ' + err.message + ' (continuing without templates)');
+                hadErrors = true;
+            }
+            
+            // Step 7: Build the memory store from whatever we got
+            updateLoadingProgress(95, 'Building encyclopedia...');
+            if (Array.isArray(articles) && articles.length > 0) {
+                articles.forEach(art => {
+                    let artRevs = [];
+                    if (Array.isArray(revisions)) {
+                        artRevs = revisions
+                            .filter(r => r.article_id === art.id)
+                            .map(r => ({
+                                timestamp: Date.parse(r.created_at) || Date.now(),
+                                editor: r.editor_name || "Cloud Contributor",
+                                tag: "Synced",
+                                summary: r.edit_summary || "Interface update modification",
+                                content: r.new_content
+                            }));
+                    }
+
+                    let artRatings = [];
+                    if (Array.isArray(ratings)) {
+                        artRatings = ratings
+                            .filter(r => r.article_id === art.id)
+                            .map(r => r.score);
+                    }
+
+                    orlePediaMemoryStore[art.title] = {
+                        title: art.title,
+                        category: art.summary || "General Indexes",
+                        content: art.content || '',
+                        talk: `== Talk Board for ${art.title} ==`,
+                        history: artRevs.length > 0 ? artRevs : [
+                            { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content || '' }
+                        ],
+                        ratings: artRatings.length > 0 ? artRatings : [5],
+                        createdTime: Date.parse(art.created_at) || Date.now(),
+                        author: "Cloud Contributor"
+                    };
+                });
+                
+                updateLoadingProgress(98, `Built encyclopedia with ${articles.length} articles`);
+            } else {
+                diagnosticsLog.push('❌ No articles to build encyclopedia');
+                showDetailedError('No Articles Found', 'The database query returned no articles. Check your Supabase table.', diagnosticsLog);
+                return false;
+            }
+            
+            updateLoadingProgress(100, 'Ready!');
+            
+            // Show partial warning if some things failed but articles worked
+            if (hadErrors) {
+                document.getElementById('loadingPartialWarning').classList.add('visible');
+                console.log('📋 Diagnostics:\n' + diagnosticsLog.join('\n'));
+            }
+            
+            switchSubTab(activeSubTabState);
+            return true;
         }
 
-        // FIXED: Always ensure Main Page exists
-        function ensureMainPageExists() {
-            if (!orlePediaMemoryStore["Main Page"]) {
-                orlePediaMemoryStore["Main Page"] = {
-                    title: "Main Page",
-                    category: "OrlePedia",
-                    content: "Welcome to '''OrlePedia''' — The Free Encyclopedia!\n\n== Getting Started ==\nThis is your knowledge base. Create articles, upload files, and build your encyclopedia.\n\n== Features ==\n* Create and edit articles\n* Upload images and files\n* Track revision history\n* Rate articles\n* Download content",
-                    talk: "== Talk Board for Main Page ==\nInitialized structural discussion line.",
-                    history: [{
-                        timestamp: Date.now(),
-                        editor: "System Core",
-                        tag: "System",
-                        summary: "Initial setup",
-                        content: "Welcome to OrlePedia!"
-                    }],
-                    ratings: [5],
-                    createdTime: Date.now(),
-                    author: "System Core"
-                };
+        function showDetailedError(title, message, diagnosticsLog) {
+            const errorContainer = document.getElementById('loadingErrorContainer');
+            const errorTitle = document.getElementById('loadingErrorTitle');
+            const errorMessage = document.getElementById('loadingErrorMessage');
+            
+            errorContainer.classList.add('visible');
+            errorTitle.textContent = title;
+            
+            // Show the main error plus diagnostics
+            let fullMessage = message;
+            if (diagnosticsLog && diagnosticsLog.length > 0) {
+                fullMessage += '\n\n--- Diagnostics ---\n' + diagnosticsLog.join('\n');
             }
+            fullMessage += '\n\n--- Troubleshooting ---\n1. Check your Supabase project is active\n2. Verify table names: articles, revisions, ratings, files, templates\n3. Check RLS policies allow anon access\n4. Ensure tables have data';
+            
+            errorMessage.textContent = fullMessage;
+            document.getElementById('loadingStatusMessage').textContent = '⚠️ Error loading data';
+            document.getElementById('loadingStatusMessage').style.color = 'var(--wiki-red)';
+            document.getElementById('progressRingFill').style.stroke = 'var(--wiki-red)';
+            document.getElementById('loadingPercentage').textContent = '!';
+            document.getElementById('loadingPercentage').style.color = 'var(--wiki-red)';
         }
 
-        // FIXED: Loading screen controller
+        // Loading screen controller
         const loadingConfig = {
             progress: 0,
             targetProgress: 0,
             animationFrame: null,
-            isComplete: false,
-            hasError: false,
-            loadTimeout: null,
-            maxLoadTime: 12000
+            isComplete: false
         };
 
         function updateLoadingProgress(targetPercent, message) {
             loadingConfig.targetProgress = Math.min(targetPercent, 100);
             const statusEl = document.getElementById('loadingStatusMessage');
-            if (statusEl && message) statusEl.textContent = message;
+            if (statusEl && message) {
+                statusEl.textContent = message;
+                statusEl.style.color = 'var(--text-muted)';
+            }
             if (!loadingConfig.animationFrame) animateProgressRing();
         }
 
@@ -1961,7 +2059,7 @@
                 renderProgressRing();
                 return;
             }
-            loadingConfig.progress = current + (target - current) * 0.15;
+            loadingConfig.progress = current + (target - current) * 0.12;
             renderProgressRing();
             loadingConfig.animationFrame = requestAnimationFrame(animateProgressRing);
         }
@@ -1974,50 +2072,35 @@
             if (percentText) percentText.textContent = progress + '%';
         }
 
-        function showLoadingError(message) {
-            loadingConfig.hasError = true;
-            loadingConfig.isComplete = true;
-            document.getElementById('loadingErrorContainer').classList.add('visible');
-            document.getElementById('loadingErrorMessage').textContent = message || 'An unexpected error occurred.';
-            document.getElementById('loadingStatusMessage').textContent = '⚠️ Loading interrupted';
-            document.getElementById('loadingStatusMessage').style.color = 'var(--wiki-red)';
-            document.getElementById('progressRingFill').style.stroke = 'var(--wiki-red)';
-            document.getElementById('loadingPercentage').textContent = '!';
-            document.getElementById('loadingPercentage').style.color = 'var(--wiki-red)';
-            if (loadingConfig.loadTimeout) clearTimeout(loadingConfig.loadTimeout);
-        }
-
         function hideLoadingScreen() {
             loadingConfig.isComplete = true;
             updateLoadingProgress(100, 'Encyclopedia ready!');
             setTimeout(() => {
                 const overlay = document.getElementById('globalLoadingOverlay');
-                if (overlay) { overlay.classList.add('hidden'); setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 600); }
-            }, 400);
-        }
-
-        // FIXED: Skip button - allows using app without database
-        function skipLoadingAndContinue() {
-            if (loadingConfig.loadTimeout) clearTimeout(loadingConfig.loadTimeout);
-            loadingConfig.isComplete = true;
-            loadingConfig.hasError = false;
-            ensureMainPageExists();
-            hideLoadingScreen();
-            loadArticle(currentActiveArticleKey);
-            lucide.createIcons();
+                if (overlay) { 
+                    overlay.classList.add('hidden'); 
+                    setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 600); 
+                }
+            }, 300);
         }
 
         async function retryLoading() {
-            loadingConfig.hasError = false;
-            loadingConfig.isComplete = false;
-            loadingConfig.progress = 0;
-            loadingConfig.targetProgress = 0;
+            // Reset error display
             document.getElementById('loadingErrorContainer').classList.remove('visible');
-            document.getElementById('loadingStatusMessage').textContent = 'Retrying connection...';
+            document.getElementById('loadingPartialWarning').classList.remove('visible');
+            document.getElementById('loadingStatusMessage').textContent = 'Retrying...';
             document.getElementById('loadingStatusMessage').style.color = 'var(--text-muted)';
             document.getElementById('progressRingFill').style.stroke = 'var(--wiki-blue)';
             document.getElementById('loadingPercentage').textContent = '0%';
             document.getElementById('loadingPercentage').style.color = 'var(--wiki-blue)';
+            loadingConfig.progress = 0;
+            loadingConfig.targetProgress = 0;
+            
+            // Clear existing data
+            orlePediaMemoryStore = {};
+            orlePediaFileStore = {};
+            orlePediaTemplateStore = {};
+            
             await initializeApplication();
         }
 
@@ -2194,7 +2277,7 @@
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 if (article.title.toLowerCase().includes(query)) {
                     titleResults.push(article);
-                } else if (article.content.toLowerCase().includes(query)) {
+                } else if (article.content && article.content.toLowerCase().includes(query)) {
                     contentResults.push(article);
                 }
             }
@@ -2307,7 +2390,7 @@
 
         function loadArticle(articleTitle, pushState = true) {
             // Handle Redirects
-            if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
+            if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
                 const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
                 return loadArticle(target, pushState);
             }
@@ -2556,7 +2639,7 @@
                 `;
             });
 
-            workingTextStr = `<div class="h2-section-content wiki-body first-para" style="display:block; font-size:0.95rem; line-height:1.6;">` + workingTextStr + `</div>`;
+            workingTextStr = `<div class="h2-section-content wiki-body first-para" style="display:block;">` + workingTextStr + `</div>`;
 
             const fileBlockRegex = /\[\[File\|(.*?)(?:\|(.*?))?(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
@@ -2669,7 +2752,7 @@
                 if(!formattedBlock) return;
 
                 if (!formattedBlock.startsWith('<h') && !formattedBlock.startsWith('<div')) {
-                    formattedBlock = `<p style="font-size:0.95rem; line-height:1.6;">${formattedBlock.replace(/\n/g, '<br>')}</p>`;
+                    formattedBlock = `<p>${formattedBlock.replace(/\n/g, '<br>')}</p>`;
                 }
 
                 structuredOutputHtml += formattedBlock;
@@ -2846,7 +2929,7 @@
             let linksHere = [];
             for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
                 if (title === articleObj.title) continue;
-                if (art.content.includes(`[[${articleObj.title}]]`) || art.content.includes(`[[${articleObj.title}|`)) {
+                if (art.content && art.content.includes(`[[${articleObj.title}]]`) || (art.content && art.content.includes(`[[${articleObj.title}|`))) {
                     linksHere.push(title);
                 }
             }
@@ -2902,7 +2985,6 @@
             triggerClientPreview();
         }
 
-        // FIXED: Download function - downloads ARTICLE CONTENT not page
         async function downloadArticle(format) {
             const title = currentActiveArticleKey;
             const article = orlePediaMemoryStore[title];
@@ -2912,7 +2994,6 @@
                 return;
             }
             
-            // Build clean article HTML (not the page wrapper)
             const renderedContent = compileRawMarkupToHtml(article.content);
             const htmlContent = `
                 <!DOCTYPE html>
@@ -2924,7 +3005,7 @@
                         body { font-family: Georgia, serif; padding: 2rem; max-width: 800px; margin: 0 auto; line-height: 1.6; color: #202122; }
                         h1 { font-size: 1.8rem; border-bottom: 1px solid #a2a9b1; padding-bottom: 0.25rem; }
                         h2 { font-size: 1.3rem; border-bottom: 1px solid #a2a9b1; margin-top: 1.5rem; }
-                        p { margin: 0.8rem 0; font-size: 0.95rem; line-height: 1.6; }
+                        p { margin: 0.8rem 0; }
                         .portable-infobox { float: right; width: 300px; background: #f8f9fa; border: 1px solid #a2a9b1; padding: 0.5rem; margin: 0 0 1rem 1rem; font-size: 0.8rem; }
                         .infobox-title { font-size: 1.25rem; font-weight: bold; text-align: center; padding: 0.5rem; background: #eaecf0; }
                         .infobox-data-table { width: 100%; border-collapse: collapse; }
@@ -3028,7 +3109,7 @@
             const calculateLinksTo = (title) => {
                 let count = 0;
                 for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
-                    if (obj.content.includes(`[[${title}`)) count++;
+                    if (obj.content && obj.content.includes(`[[${title}`)) count++;
                 }
                 return count;
             };
@@ -3036,15 +3117,15 @@
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 const editCount = article.history ? article.history.length : 0;
                 totalEdits += editCount;
-                const wordCount = article.content.split(/\s+/).filter(w => w).length;
+                const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
                 totalWords += wordCount;
-                const byteSize = new Blob([article.content]).size;
+                const byteSize = article.content ? new Blob([article.content]).size : 0;
                 const linkedCount = calculateLinksTo(key);
                 const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount });
             }
 
-            const validStats = pageStats.filter(p => !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
+            const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
             const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
             const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
             const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
@@ -3552,40 +3633,29 @@
         // ============ APP INITIALIZATION ============
         async function initializeApplication() {
             loadUserProfile();
-            ensureMainPageExists(); // FIXED: Always have Main Page ready
             
-            loadingConfig.loadTimeout = setTimeout(() => {
-                if (!loadingConfig.isComplete && !loadingConfig.hasError) {
-                    showLoadingError('Loading is taking longer than expected. You can skip and continue offline.');
-                }
-            }, loadingConfig.maxLoadTime);
+            const success = await loadOrlePediaDataFromCloud();
             
-            try {
-                await loadOrlePediaDataFromCloud();
-                
-                if (loadingConfig.loadTimeout) clearTimeout(loadingConfig.loadTimeout);
-                
-                const params = new URLSearchParams(window.location.search);
-                const p = params.get('p');
-                if (p) {
-                    const articleName = decodeURIComponent(p.replace(/^\//, ''));
-                    navigateTo(articleName);
-                } else {
-                    const path = window.location.pathname.split('/').pop();
-                    if (path && path !== 'index.html' && !path.includes('.html')) {
-                        loadArticle(decodeURIComponent(path));
-                    } else {
-                        loadArticle(currentActiveArticleKey);
-                    }
-                }
-                lucide.createIcons();
-                
+            if (success) {
                 hideLoadingScreen();
-                
-            } catch (err) {
-                console.error("❌ Initialization failed:", err);
-                // FIXED: Don't leave user stuck - show skip option
             }
+            // If failed, error is already shown by loadOrlePediaDataFromCloud
+            
+            // Route to correct article
+            const params = new URLSearchParams(window.location.search);
+            const p = params.get('p');
+            if (p) {
+                const articleName = decodeURIComponent(p.replace(/^\//, ''));
+                navigateTo(articleName);
+            } else {
+                const path = window.location.pathname.split('/').pop();
+                if (path && path !== 'index.html' && !path.includes('.html')) {
+                    loadArticle(decodeURIComponent(path));
+                } else {
+                    loadArticle(currentActiveArticleKey);
+                }
+            }
+            lucide.createIcons();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
