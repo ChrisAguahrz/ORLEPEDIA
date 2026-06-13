@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -629,6 +629,9 @@
             margin-top: 4px; 
             padding: 2px 8px; 
         }
+
+        /* Paragraph Spacing Fix */
+        #wikiTabContentBody p { margin-bottom: 1.2rem; line-height: 1.6; }
 
         /* Exact Wikipedia Right-Hand Infobox Matrix Architecture */
         .portable-infobox { 
@@ -1876,7 +1879,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=*');
+                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id&limit=100');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -1896,52 +1899,26 @@
                 }
             }
             
-            // Step 3: Load revisions independently
-            updateLoadingProgress(50, 'Loading revision history...');
-            let revisions = [];
-            try {
-                revisions = await supabaseRequest('revisions?select=*');
-                diagnosticsLog.push(`✅ Revisions loaded: ${revisions.length} found`);
-                updateLoadingProgress(65, 'Revisions loaded');
-            } catch (err) {
-                diagnosticsLog.push('⚠️ Revisions failed: ' + err.message + ' (continuing without history)');
-                hadErrors = true;
-                revisions = [];
-            }
-            
-            // Step 4: Load ratings independently
-            updateLoadingProgress(70, 'Loading ratings...');
-            let ratings = [];
-            try {
-                ratings = await supabaseRequest('ratings?select=*');
-                diagnosticsLog.push(`✅ Ratings loaded: ${ratings.length} found`);
-                updateLoadingProgress(75, 'Ratings loaded');
-            } catch (err) {
-                diagnosticsLog.push('⚠️ Ratings failed: ' + err.message + ' (continuing without ratings)');
-                hadErrors = true;
-                ratings = [];
-            }
-            
-            // Step 5: Load files independently
-            updateLoadingProgress(78, 'Loading files...');
-            let files = [];
-            try {
-                files = await supabaseRequest('files?select=*');
-                if (Array.isArray(files)) {
-                    files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
-                }
-                diagnosticsLog.push(`✅ Files loaded: ${files.length} found`);
-                updateLoadingProgress(85, 'Files loaded');
-            } catch (err) {
-                diagnosticsLog.push('⚠️ Files failed: ' + err.message + ' (continuing without files)');
-                hadErrors = true;
-            }
+            // Step 3: Revisions — FIX 5: Deferred, loaded on-demand when History tab is opened
+            let revisions = []; // Will be populated per-article when History tab is clicked
+            diagnosticsLog.push('ℹ️ Revisions deferred: will load on History tab open');
+            updateLoadingProgress(60, 'Skipping revisions (deferred)...');
+
+            // Step 4: Ratings — FIX 5: Deferred, loaded on-demand when article is opened
+            let ratings = []; // Will be populated per-article when article is loaded
+            diagnosticsLog.push('ℹ️ Ratings deferred: will load on article open');
+            updateLoadingProgress(70, 'Skipping ratings (deferred)...');
+
+            // Step 5: Files — FIX 5: Deferred, loaded on-demand when Files view is opened
+            // orlePediaFileStore will be populated by loadFilesView() when the Files tab is clicked
+            diagnosticsLog.push('ℹ️ Files deferred: will load when Files view is opened');
+            updateLoadingProgress(80, 'Skipping files (deferred)...');
             
             // Step 6: Load templates independently
             updateLoadingProgress(88, 'Loading templates...');
             let templates = [];
             try {
-                templates = await supabaseRequest('templates?select=*');
+                templates = await supabaseRequest('templates?select=name,content&limit=50');
                 if (Array.isArray(templates)) {
                     templates.forEach(t => { orlePediaTemplateStore[t.name] = t.content; });
                 }
@@ -1953,44 +1930,36 @@
             }
             
             // Step 7: Build the memory store from whatever we got
+            // FIX 5: Revisions and ratings are deferred — articles load with stub history/ratings
+            // They will be fetched on-demand when the History tab or article ratings are accessed
             updateLoadingProgress(95, 'Building encyclopedia...');
             if (Array.isArray(articles) && articles.length > 0) {
                 articles.forEach(art => {
-                    let artRevs = [];
-                    if (Array.isArray(revisions)) {
-                        artRevs = revisions
-                            .filter(r => r.article_id === art.id)
-                            .map(r => ({
-                                timestamp: Date.parse(r.created_at) || Date.now(),
-                                editor: r.editor_name || "Cloud Contributor",
-                                tag: "Synced",
-                                summary: r.edit_summary || "Interface update modification",
-                                content: r.new_content
-                            }));
-                    }
-
-                    let artRatings = [];
-                    if (Array.isArray(ratings)) {
-                        artRatings = ratings
-                            .filter(r => r.article_id === art.id)
-                            .map(r => r.score);
-                    }
-
+                    // FIX 5: Store the article DB id so on-demand loaders can query by it
                     orlePediaMemoryStore[art.title] = {
                         title: art.title,
+                        _db_id: art.id,
+                        _revisions_loaded: false,
+                        _ratings_loaded: false,
                         category: art.summary || "General Indexes",
                         content: art.content || '',
                         talk: `== Talk Board for ${art.title} ==`,
-                        history: artRevs.length > 0 ? artRevs : [
+                        history: [
                             { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content || '' }
                         ],
-                        ratings: artRatings.length > 0 ? artRatings : [5],
+                        ratings: [5],
                         createdTime: Date.parse(art.created_at) || Date.now(),
                         author: "Cloud Contributor"
                     };
                 });
                 
                 updateLoadingProgress(98, `Built encyclopedia with ${articles.length} articles`);
+                // FIX 3: Cache each article in sessionStorage for instant back-navigation
+                articles.forEach(art => {
+                    try {
+                        sessionStorage.setItem('article_' + art.title, JSON.stringify(orlePediaMemoryStore[art.title]));
+                    } catch(e) { /* sessionStorage full or unavailable — skip silently */ }
+                });
             } else {
                 diagnosticsLog.push('❌ No articles to build encyclopedia');
                 showDetailedError('No Articles Found', 'The database query returned no articles. Check your Supabase table.', diagnosticsLog);
@@ -2389,6 +2358,11 @@
         }
 
         function loadArticle(articleTitle, pushState = true) {
+            // FIX 3: Check sessionStorage cache before using in-memory store
+            const _cached = sessionStorage.getItem('article_' + articleTitle);
+            if (_cached && !orlePediaMemoryStore[articleTitle]) {
+                try { orlePediaMemoryStore[articleTitle] = JSON.parse(_cached); } catch(e) {}
+            }
             // Handle Redirects
             if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
                 const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
@@ -2420,6 +2394,19 @@
             const revisionCount = article.history.length;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}`;
             
+            // FIX 5: Load ratings on-demand when article is opened
+            if (article && !article._ratings_loaded && article._db_id) {
+                supabaseRequest(`ratings?article_id=eq.${article._db_id}&select=score&limit=50`)
+                    .then(ratingRows => {
+                        if (Array.isArray(ratingRows) && ratingRows.length > 0) {
+                            article.ratings = ratingRows.map(r => r.score);
+                        }
+                        article._ratings_loaded = true;
+                        renderRatingStarsCluster();
+                    })
+                    .catch(() => { article._ratings_loaded = true; });
+            }
+
             renderRatingStarsCluster();
             switchSubTab(activeSubTabState);
             openArticleSidebar();
@@ -2457,7 +2444,30 @@
             } 
             else if (targetTab === 'history') {
                 document.getElementById('tabHistory').classList.add('active');
-                renderRevisionLogsHistoryList(targetArticle);
+                // FIX 5: Load revisions on-demand when History tab is opened
+                if (targetArticle && !targetArticle._revisions_loaded && targetArticle._db_id) {
+                    contentBox.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading revision history...</div>';
+                    supabaseRequest(`revisions?article_id=eq.${targetArticle._db_id}&select=article_id,created_at,editor_name,edit_summary,new_content&order=created_at.desc&limit=50`)
+                        .then(revs => {
+                            if (Array.isArray(revs) && revs.length > 0) {
+                                targetArticle.history = revs.map(r => ({
+                                    timestamp: Date.parse(r.created_at) || Date.now(),
+                                    editor: r.editor_name || 'Cloud Contributor',
+                                    tag: 'Synced',
+                                    summary: r.edit_summary || 'Interface update modification',
+                                    content: r.new_content
+                                }));
+                            }
+                            targetArticle._revisions_loaded = true;
+                            renderRevisionLogsHistoryList(targetArticle);
+                        })
+                        .catch(() => {
+                            targetArticle._revisions_loaded = true;
+                            renderRevisionLogsHistoryList(targetArticle);
+                        });
+                } else {
+                    renderRevisionLogsHistoryList(targetArticle);
+                }
             } 
             else if (targetTab === 'meta') {
                 document.getElementById('tabMeta').classList.add('active');
@@ -2552,6 +2562,14 @@
                               .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
                 };
 
+                const getImgSrc = (val) => {
+                    if (!val) return "";
+                    // If it's a direct URL or base64, return as is
+                    if (val.startsWith('http') || val.startsWith('data:')) return val;
+                    // Otherwise check if it's a name in our file store
+                    return orlePediaFileStore[val] || val;
+                };
+
                 const row = (label, key) => {
                     if (!infoboxDataRecords[key]) return "";
                     return `<tr><th>${label}</th><td>${parseWiki(infoboxDataRecords[key])}</td></tr>`;
@@ -2575,11 +2593,11 @@
                         ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['flag'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
-                            <div class="infobox-media-box"><img src="${infoboxDataRecords['seal'] || ''}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
+                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
+                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
                         </div>
                         <div class="infobox-map">
-                            <img src="${infoboxDataRecords['map'] || ''}" onerror="this.style.display='none'">
+                            <img src="${getImgSrc(infoboxDataRecords['map'])}" onerror="this.style.display='none'">
                             <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
                             <div class="infobox-media-caption" style="font-style:italic;">${parseWiki(infoboxDataRecords['nickname'] || '')}</div>
                         </div>
@@ -2755,7 +2773,7 @@
                     formattedBlock = `<p>${formattedBlock.replace(/\n/g, '<br>')}</p>`;
                 }
 
-                structuredOutputHtml += formattedBlock;
+                structuredOutputHtml += formattedBlock + "\n";
 
                 if (idx === 0 && compiledInfoboxHtmlString !== "") {
                     structuredOutputHtml += compiledInfoboxHtmlString;
@@ -3291,12 +3309,15 @@
 
             exitEditorDashboard();
             switchSubTab('article');
+            // FIX 3: Update sessionStorage cache after save
+            try { sessionStorage.setItem('article_' + currentActiveArticleKey, JSON.stringify(orlePediaMemoryStore[currentActiveArticleKey])); } catch(e) {}
             triggerToastBannerNotification("💾 Data securely locked down and dispatched to cloud vectors.");
 
             dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
         }
 
         // ============ FILES LIBRARY MODULE ============
+        let _filesAlreadyLoaded = false; // FIX 5: track whether files have been fetched
         function loadFilesView(filter = "") {
             exitEditorDashboard();
             closeArticleSidebar();
@@ -3304,6 +3325,27 @@
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
 
+            // FIX 5: If file store is empty and not yet loaded, fetch from DB first
+            if (!_filesAlreadyLoaded && Object.keys(orlePediaFileStore).length === 0) {
+                document.getElementById('wikiTabContentBody').innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading files...</div>';
+                supabaseRequest('files?select=name,url&limit=50')
+                    .then(files => {
+                        if (Array.isArray(files)) {
+                            files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
+                        }
+                        _filesAlreadyLoaded = true;
+                        _renderFilesGrid(filter);
+                    })
+                    .catch(() => {
+                        _filesAlreadyLoaded = true;
+                        _renderFilesGrid(filter);
+                    });
+                return;
+            }
+            _renderFilesGrid(filter);
+        }
+
+        function _renderFilesGrid(filter) {
             let filesHtml = `
                 <div style="margin-bottom:1rem; display:flex; gap:0.5rem;">
                     <input type="text" id="fileSearchInput" placeholder="Search files..." value="${filter}" style="flex:1; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;">
@@ -3656,6 +3698,11 @@
                 }
             }
             lucide.createIcons();
+
+            // FIX 4: Register the service worker for offline support
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
