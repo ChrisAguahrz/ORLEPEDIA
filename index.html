@@ -1817,7 +1817,8 @@
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'return=representation'
+                'Prefer': 'return=representation',
+                'Accept-Encoding': 'gzip, br' 
             };
             const config = { method, headers, signal: controller.signal };
             if (body) config.body = JSON.stringify(body);
