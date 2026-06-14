@@ -538,12 +538,9 @@
         }
 
         .h2-section-content {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.95rem;
-    font-family: sans-serif;
-    line-height: 1.6;
-}
+            display: block;
+            margin-bottom: 0.5rem;
+        }
 
         .h2-section-content.collapsed { display: none; }
 
@@ -563,26 +560,26 @@
         .wiki-body p, .first-para { 
             margin-bottom: 0.8rem; 
             line-height: 1.6; 
-            font-size: 0.95rem; 
+            font-size: 1rem; 
             text-align: justify; 
             font-family: sans-serif;
         }
         
         .wiki-body h2 { 
             font-family: Georgia, serif; 
-            font-size: 1.6rem; 
+            font-size: 1.5rem; 
             border-bottom: 1px solid var(--border-wiki); 
             margin: 1.5rem 0 0.5rem 0; 
             padding-bottom: 0.2rem; 
         }
         
         .wiki-body h3 { 
-            font-size: 1.8rem; 
+            font-size: 1.2rem; 
             margin: 1.2rem 0 0.4rem 0; 
         }
         
         .wiki-body h4 { 
-            font-size: 1.9rem; 
+            font-size: 1rem; 
             margin: 1rem 0 0.3rem 0; 
         }
         
@@ -634,7 +631,7 @@
         }
 
         /* Paragraph Spacing Fix */
-        #wikiTabContentBody p { margin-bottom: 1.2rem; line-height: 1.6; }
+        #wikiTabContentBody p { margin-bottom: 1.2rem; line-height: 1.6; font-size: 1rem; }
 
         /* Exact Wikipedia Right-Hand Infobox Matrix Architecture */
         .portable-infobox { 
@@ -1820,8 +1817,7 @@
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'return=representation',
-                'Accept-Encoding': 'gzip, br' 
+                'Prefer': 'return=representation'
             };
             const config = { method, headers, signal: controller.signal };
             if (body) config.body = JSON.stringify(body);
@@ -2597,11 +2593,11 @@
                         ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
-                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
+                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
+                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
                         </div>
                         <div class="infobox-map">
-                            <img src="${getImgSrc(infoboxDataRecords['map'])}" onerror="this.style.display='none'">
+                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'">
                             <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
                             <div class="infobox-media-caption" style="font-style:italic;">${parseWiki(infoboxDataRecords['nickname'] || '')}</div>
                         </div>
@@ -2687,7 +2683,7 @@
                 return `
                     <div class="wiki-file-container">
                         <div class="wiki-file-box">
-                            <img src="${url}" class="wiki-file-img" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <img src="${url}" class="wiki-file-img" loading="lazy" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
                             <span class="wiki-file-caption">${caption}</span>
                         </div>
                     </div>
@@ -2698,16 +2694,20 @@
             workingTextStr = workingTextStr.replace(tableRegex, function(m, content) {
                 let params = {};
                 content.split('|').forEach(p => {
-                    let [k, v] = p.split('=');
-                    if (k && v) params[k.trim()] = v.trim();
+                    let eqIdx = p.indexOf('=');
+                    if (eqIdx !== -1) {
+                        let k = p.substring(0, eqIdx).trim();
+                        let v = p.substring(eqIdx + 1).trim();
+                        params[k] = v;
+                    }
                 });
                 let html = `<table class="wiki-table">`;
-                if (params.title) html += `<caption>${params.title}</caption>`;
+                if (params.title) html += `<caption style="font-weight:bold; padding:0.5rem; background:#f8f9fa; border:1px solid #a2a9b1; border-bottom:none;">${parseGlobalWiki(params.title)}</caption>`;
                 
                 html += `<thead><tr>`;
                 let colIdx = 1;
                 while (params['titlecolumn' + colIdx]) {
-                    html += `<th>${params['titlecolumn' + colIdx]}</th>`;
+                    html += `<th style="font-weight:normal; font-size:0.9rem; background:#f2f2f2;">${parseGlobalWiki(params['titlecolumn' + colIdx])}</th>`;
                     colIdx++;
                 }
                 html += `</tr></thead><tbody>`;
@@ -2719,9 +2719,15 @@
                     for (let i = 1; i < colIdx; i++) {
                         let val = params[`row${rowIdx}c${i}`] || "";
                         if (val) hasData = true;
-                        rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
+                        
+                        if (val.toLowerCase() === 'merge') {
+                            let mergeTxt = params[`txt`] || "";
+                            rowHtml = `<tr class="merged-row"><td colspan="${colIdx - 1}" style="background:#f9f9f9; font-weight:bold; text-align:center;">${parseGlobalWiki(mergeTxt)}</td></tr>`;
+                            i = colIdx; // break inner loop
+                        } else {
+                            rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
+                        }
                     }
-                    rowHtml += `</tr>`;
                     if (!hasData) break;
                     html += rowHtml;
                     rowIdx++;
@@ -2983,6 +2989,18 @@
                             <button class="action-btn danger" onclick="executePermanentDeletion()">⚠️ Permanently Delete Article</button>
                         </div>
                     </section>
+
+                    <section style="border-top: 1px solid #eee; padding-top: 1.5rem;">
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Bulk Operations</h3>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Compile and download the entire encyclopedia library. Note: Large databases may take a moment to process.</p>
+                        <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
+                            <button class="action-btn" onclick="downloadAllArticles('pdf')" id="bulkDownPdf">Download All (PDF)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('docx')" id="bulkDownDocx">Download All (DOCX)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('pptx')" id="bulkDownPptx">Download All (PPTX)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('txt')" id="bulkDownTxt">Download All (TXT)</button>
+                            <span id="bulkLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
+                        </div>
+                    </section>
                 </div>
             `;
         }
@@ -3005,6 +3023,93 @@
             
             closeModal('citationModal');
             triggerClientPreview();
+        }
+
+        async function downloadAllArticles(format) {
+            const statusSpan = document.getElementById('bulkLoadStatus');
+            const titles = Object.keys(orlePediaMemoryStore).sort();
+            
+            if (titles.length === 0) return alert("No articles found in memory.");
+            
+            statusSpan.innerText = `Preparing ${titles.length} articles...`;
+            
+            let fullHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>OrlePedia Full Archive</title>
+                    <style>
+                        body { font-family: Georgia, serif; padding: 2rem; max-width: 900px; margin: 0 auto; line-height: 1.6; color: #202122; }
+                        .article-break { page-break-after: always; border-bottom: 2px solid #36b; margin-bottom: 3rem; padding-bottom: 1rem; }
+                        h1.archive-title { text-align: center; font-size: 2.5rem; color: #36b; margin-bottom: 5rem; }
+                        h1.article-title { font-size: 2rem; border-bottom: 1px solid #a2a9b1; padding-bottom: 0.25rem; margin-top: 2rem; }
+                        h2 { font-size: 1.4rem; border-bottom: 1px solid #a2a9b1; margin-top: 1.5rem; }
+                        p { margin: 1rem 0; font-size: 1rem; text-align: justify; }
+                        .portable-infobox { float: right; width: 280px; background: #f8f9fa; border: 1px solid #a2a9b1; padding: 0.5rem; margin: 0 0 1rem 1rem; font-size: 0.8rem; }
+                        .infobox-title { font-size: 1.2rem; font-weight: bold; text-align: center; padding: 0.4rem; background: #eaecf0; }
+                        .wiki-table { width: 100%; border-collapse: collapse; margin: 1rem 0; border: 1px solid #a2a9b1; font-size: 0.9rem; }
+                        .wiki-table th, .wiki-table td { border: 1px solid #a2a9b1; padding: 0.4rem; }
+                        .wiki-table th { background: #f2f2f2; }
+                        .wiki-file-container { text-align: center; margin: 1rem 0; }
+                        .wiki-file-img { max-width: 100%; height: auto; border: 1px solid #eee; }
+                    </style>
+                </head>
+                <body>
+                    <h1 class="archive-title">OrlePedia Encyclopedia Archive</h1>
+                    <p style="text-align:center;">Total Articles: ${titles.length} | Generated: ${new Date().toLocaleString()}</p>
+                    <hr style="margin: 3rem 0;">
+            `;
+
+            for (let i = 0; i < titles.length; i++) {
+                const t = titles[i];
+                const art = orlePediaMemoryStore[t];
+                statusSpan.innerText = `Processing (${i+1}/${titles.length}): ${t}`;
+                
+                // For bulk download, we force render everything
+                const content = compileRawMarkupToHtml(art.content || "");
+                fullHtml += `
+                    <div class="article-break">
+                        <h1 class="article-title">${t}</h1>
+                        <p style="font-size:0.8rem; color:#666;">Category: ${art.category} | Author: ${art.author}</p>
+                        ${content}
+                    </div>
+                `;
+            }
+
+            fullHtml += `</body></html>`;
+            statusSpan.innerText = "Finalizing file...";
+
+            if (format === 'txt') {
+                // For TXT, we just strip tags or give the HTML as is? 
+                // User asked for output like download article, which uses a blob.
+                const blob = new Blob([fullHtml], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OrlePedia_Archive_${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+            } else if (format === 'pdf') {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(fullHtml);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => {
+                    printWindow.print();
+                    statusSpan.innerText = "Complete!";
+                }, 1000);
+            } else {
+                const ext = format === 'docx' ? 'doc' : 'ppt';
+                const blob = new Blob([fullHtml], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OrlePedia_Archive.${ext}`;
+                a.click();
+            }
+            
+            statusSpan.innerText = "Download triggered!";
+            setTimeout(() => { statusSpan.innerText = ""; }, 5000);
         }
 
         async function downloadArticle(format) {
@@ -3364,7 +3469,7 @@
                 found = true;
                 filesHtml += `
                     <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; cursor:pointer;" onclick="openFileEditModal('${name}')">
-                        <img src="${url}" style="width:100px; height:100px; object-fit:cover; margin-bottom:0.5rem; border:1px solid #eee;" onerror="this.src='https://via.placeholder.com/100?text=Error'">
+                        <img src="${url}" loading="lazy" style="width:100px; height:100px; object-fit:cover; margin-bottom:0.5rem; border:1px solid #eee;" onerror="this.src='https://via.placeholder.com/100?text=Error'">
                         <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue);">${name}</div>
                     </div>
                 `;
