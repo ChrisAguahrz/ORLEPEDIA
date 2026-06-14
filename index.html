@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -307,13 +307,40 @@
         
         .nav-link:hover {
             background: rgba(51, 102, 187, 0.1);
+            text-decoration: none;
         }
         
         .nav-link span {
             display: none;
         }
-        
-        .nav-link:hover { text-decoration: underline; }
+
+        .nav-group { position: relative; }
+        .nav-sub-menu {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: white;
+            border: 1px solid var(--border-wiki);
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 140px;
+            padding: 0.5rem 0;
+        }
+        .nav-group:hover .nav-sub-menu { display: block; }
+        .nav-sub-menu a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .nav-sub-menu a:hover { background: #f8f9fa; color: var(--wiki-blue); }
         
         /* Main Workspace Window Layout */
         main { 
@@ -1452,13 +1479,34 @@
         <a class="nav-link" onclick="navigateTo('Main Page')" title="Main Page"><i data-lucide="home"></i></a>
         <a class="nav-link" onclick="loadRecentChangesView()" title="Recent Changes"><i data-lucide="clock"></i></a>
         <a class="nav-link" onclick="openNewArticleModal()" title="Create Article"><i data-lucide="plus-circle"></i></a>
-        <a class="nav-link" onclick="openFileUploadModal()" title="Upload File"><i data-lucide="upload"></i></a>
-        <a class="nav-link" onclick="loadFilesView()" title="Files"><i data-lucide="image"></i></a>
-        <a class="nav-link" onclick="loadCategoryView('Article')" title="Articles"><i data-lucide="file-text"></i></a>
-        <a class="nav-link" onclick="openTemplateManager()" title="Templates"><i data-lucide="layout"></i></a>
+        
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
-        <a class="nav-link" onclick="loadStatisticsView()" title="Statistics"><i data-lucide="bar-chart-2"></i></a>
-        <a class="nav-link" onclick="loadCategoryView('All')" title="Categories"><i data-lucide="folder"></i></a>
+        
+        <div class="nav-group">
+            <a class="nav-link" onclick="loadFilesView()" title="Files Library"><i data-lucide="image"></i></a>
+            <div class="nav-sub-menu">
+                <a onclick="openFileUploadModal()"><i data-lucide="upload" style="width:14px;"></i> Upload File</a>
+            </div>
+        </div>
+
+        <div class="nav-group">
+            <a class="nav-link" onclick="loadCategoryView('Article')" title="Content Library"><i data-lucide="file-text"></i></a>
+            <div class="nav-sub-menu">
+                <a onclick="loadCategoryView('All')"><i data-lucide="folder" style="width:14px;"></i> Categories</a>
+            </div>
+        </div>
+
+        <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
+
+        <div class="nav-group">
+            <a class="nav-link" title="Meta Tools"><i data-lucide="settings"></i></a>
+            <div class="nav-sub-menu">
+                <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2" style="width:14px;"></i> Statistics</a>
+                <a onclick="openTemplateManager()"><i data-lucide="layout" style="width:14px;"></i> Templates</a>
+                <a onclick="switchSubTab('meta')"><i data-lucide="download" style="width:14px;"></i> Bulk Download</a>
+            </div>
+        </div>
+
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         <a class="nav-link" onclick="openProfileWindow()" title="My Profile"><i data-lucide="user"></i></a>
     </aside>
@@ -1916,6 +1964,13 @@
             
             // Step 6: Load templates independently
             updateLoadingProgress(88, 'Loading templates...');
+            
+            // DEFAULT TEMPLATES (CANNOT BE DELETED)
+            orlePediaTemplateStore['Color'] = 'Usage: {{Color|HexCode|Text}}';
+            orlePediaTemplateStore['Description'] = 'Usage: {{Description|Brief description for search/related articles}}';
+            orlePediaTemplateStore['Table'] = 'Usage: {{Table|title=...|titlecolumn1=...|row1c1=...}}';
+            orlePediaTemplateStore['Piechart'] = 'Usage: {{Piechart|title=...|data=...}}';
+
             let templates = [];
             try {
                 templates = await supabaseRequest('templates?select=name,content&limit=50');
@@ -2701,6 +2756,7 @@
                         params[k] = v;
                     }
                 });
+                
                 let html = `<table class="wiki-table">`;
                 if (params.title) html += `<caption style="font-weight:bold; padding:0.5rem; background:#f8f9fa; border:1px solid #a2a9b1; border-bottom:none;">${parseGlobalWiki(params.title)}</caption>`;
                 
@@ -2713,27 +2769,83 @@
                 html += `</tr></thead><tbody>`;
                 
                 let rowIdx = 1;
+                let mergedCells = new Set(); // Keep track of cells that are part of a merge
+
                 while (true) {
-                    let hasData = false;
-                    let rowHtml = `<tr>`;
+                    let hasRowData = false;
+                    // Check if row exists in any form
                     for (let i = 1; i < colIdx; i++) {
-                        let val = params[`row${rowIdx}c${i}`] || "";
-                        if (val) hasData = true;
-                        
-                        if (val.toLowerCase() === 'merge') {
-                            let mergeTxt = params[`txt`] || "";
-                            rowHtml = `<tr class="merged-row"><td colspan="${colIdx - 1}" style="background:#f9f9f9; font-weight:bold; text-align:center;">${parseGlobalWiki(mergeTxt)}</td></tr>`;
-                            i = colIdx; // break inner loop
-                        } else {
-                            rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
+                        if (params[`row${rowIdx}c${i}`] || params[`r${rowIdx}c${i}`] || params[`row${rowIdx}`]) {
+                            hasRowData = true; break;
                         }
                     }
-                    if (!hasData) break;
-                    html += rowHtml;
+                    if (!hasRowData && !params[`row${rowIdx}`] && !params[`r${rowIdx}`]) break;
+
+                    // Whole row merge
+                    if (params[`row${rowIdx}`] === 'merge' || params[`r${rowIdx}`] === 'merge') {
+                        let txt = params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || "";
+                        if (params[`txt`] === txt) params[`txt`] = "";
+                        html += `<tr class="merged-row"><td colspan="${colIdx - 1}" style="background:#f9f9f9; font-weight:bold; text-align:center;">${parseGlobalWiki(txt)}</td></tr>`;
+                    } else {
+                        let rowHtml = `<tr>`;
+                        for (let col = 1; col < colIdx; col++) {
+                            if (mergedCells.has(`${rowIdx}-${col}`)) continue;
+
+                            let key = params[`row${rowIdx}c${col}`] ? `row${rowIdx}c${col}` : `r${rowIdx}c${col}`;
+                            let val = params[key] || "";
+                            
+                            if (val.toLowerCase() === 'merge') {
+                                // Find how many columns to merge
+                                let colspan = 1;
+                                while (col + colspan < colIdx) {
+                                    let nextKey = params[`row${rowIdx}c${col + colspan}`] ? `row${rowIdx}c${col + colspan}` : `r${rowIdx}c${col + colspan}`;
+                                    if (params[nextKey] === 'merge') {
+                                        mergedCells.add(`${rowIdx}-${col + colspan}`);
+                                        colspan++;
+                                    } else break;
+                                }
+                                
+                                // Find how many rows to merge
+                                let rowspan = 1;
+                                while (true) {
+                                    let nextRowKey = params[`row${rowIdx + rowspan}c${col}`] ? `row${rowIdx + rowspan}c${col}` : `r${rowIdx + rowspan}c${col}`;
+                                    if (params[nextRowKey] === 'merge') {
+                                        // Also check if the whole range is merge
+                                        let allMerge = true;
+                                        for(let c=0; c<colspan; c++) {
+                                            let k = params[`row${rowIdx + rowspan}c${col+c}`] ? `row${rowIdx + rowspan}c${col+c}` : `r${rowIdx + rowspan}c${col+c}`;
+                                            if (params[k] !== 'merge') { allMerge = false; break; }
+                                        }
+                                        if (allMerge) {
+                                            for(let c=0; c<colspan; c++) mergedCells.add(`${rowIdx + rowspan}-${col+c}`);
+                                            rowspan++;
+                                        } else break;
+                                    } else break;
+                                }
+
+                                let txtKey = `${key}txt`;
+                                let txt = params[txtKey] || params[`txt`] || "";
+                                // Clear used txt to avoid leaking to next merged row if it doesn't have its own txt
+                                if (params[`txt`] === txt) params[`txt`] = "";
+                                rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt)}</td>`;
+                            } else {
+                                rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
+                            }
+                        }
+                        rowHtml += `</tr>`;
+                        html += rowHtml;
+                    }
                     rowIdx++;
+                    if (rowIdx > 100) break; // Safety break
                 }
                 return html + `</tbody></table>`;
             });
+
+            const colorRegex = /\{\{Color\|([^|]+)\|([^}]+)\}\}/g;
+            workingTextStr = workingTextStr.replace(colorRegex, (m, color, text) => `<span style="color:${color.trim()}">${text.trim()}</span>`);
+
+            const descRegex = /\{\{Description\|([^}]+)\}\}/g;
+            workingTextStr = workingTextStr.replace(descRegex, ''); // Descriptions are metadata, don't show in body
 
             const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(pieRegex, function(m, content) {
@@ -2783,10 +2895,10 @@
                     formattedBlock = `<p>${formattedBlock.replace(/\n/g, '<br>')}</p>`;
                 }
 
-                structuredOutputHtml += formattedBlock + "\n";
-
                 if (idx === 0 && compiledInfoboxHtmlString !== "") {
-                    structuredOutputHtml += compiledInfoboxHtmlString;
+                    structuredOutputHtml += formattedBlock + compiledInfoboxHtmlString + "\n";
+                } else {
+                    structuredOutputHtml += formattedBlock + "\n";
                 }
             });
 
@@ -3406,7 +3518,15 @@
             }
 
             let article = orlePediaMemoryStore[currentActiveArticleKey];
-            article.content = editorTextContent;
+            
+            if (currentEditingSection) {
+                const fullContent = article.content;
+                const sectionRegex = new RegExp(`(== ${currentEditingSection} ==[\\s\\S]*?)(?=\\n== |$)`, 'g');
+                article.content = fullContent.replace(sectionRegex, editorTextContent);
+                currentEditingSection = null;
+            } else {
+                article.content = editorTextContent;
+            }
 
             article.history.push({
                 timestamp: Date.now(),
