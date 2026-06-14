@@ -314,33 +314,33 @@
             display: none;
         }
 
-        .nav-group { position: relative; }
-        .nav-sub-menu {
-            display: none;
-            position: absolute;
-            left: 100%;
-            top: 0;
-            background: white;
-            border: 1px solid var(--border-wiki);
-            border-radius: 4px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            z-index: 1000;
-            min-width: 140px;
-            padding: 0.5rem 0;
+        .nav-group { 
+            display: flex;
+            flex-direction: column;
+            width: 100%;
         }
-        .nav-group:hover .nav-sub-menu { display: block; }
+        .nav-sub-menu {
+            display: flex;
+            flex-direction: column;
+            padding-left: 0.5rem;
+            margin-top: -0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        aside.collapsed .nav-sub-menu { display: none; }
         .nav-sub-menu a {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 0.5rem 1rem;
-            font-size: 0.85rem;
-            color: var(--text-main);
+            padding: 0.4rem 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
             text-decoration: none;
             cursor: pointer;
-            white-space: nowrap;
+            border-radius: 4px;
+            transition: all 0.2s;
         }
-        .nav-sub-menu a:hover { background: #f8f9fa; color: var(--wiki-blue); }
+        .nav-sub-menu a:hover { background: rgba(51, 102, 187, 0.05); color: var(--wiki-blue); }
+        .nav-sub-menu a i { width: 14px; height: 14px; }
         
         /* Main Workspace Window Layout */
         main { 
@@ -1485,14 +1485,14 @@
         <div class="nav-group">
             <a class="nav-link" onclick="loadFilesView()" title="Files Library"><i data-lucide="image"></i></a>
             <div class="nav-sub-menu">
-                <a onclick="openFileUploadModal()"><i data-lucide="upload" style="width:14px;"></i> Upload File</a>
+                <a onclick="openFileUploadModal()"><i data-lucide="upload"></i> Upload File</a>
             </div>
         </div>
 
         <div class="nav-group">
             <a class="nav-link" onclick="loadCategoryView('Article')" title="Content Library"><i data-lucide="file-text"></i></a>
             <div class="nav-sub-menu">
-                <a onclick="loadCategoryView('All')"><i data-lucide="folder" style="width:14px;"></i> Categories</a>
+                <a onclick="loadCategoryView('All')"><i data-lucide="folder"></i> Categories</a>
             </div>
         </div>
 
@@ -1501,9 +1501,9 @@
         <div class="nav-group">
             <a class="nav-link" title="Meta Tools"><i data-lucide="settings"></i></a>
             <div class="nav-sub-menu">
-                <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2" style="width:14px;"></i> Statistics</a>
-                <a onclick="openTemplateManager()"><i data-lucide="layout" style="width:14px;"></i> Templates</a>
-                <a onclick="switchSubTab('meta')"><i data-lucide="download" style="width:14px;"></i> Bulk Download</a>
+                <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> Statistics</a>
+                <a onclick="openTemplateManager()"><i data-lucide="layout"></i> Templates</a>
+                <a onclick="switchSubTab('meta')"><i data-lucide="download"></i> Bulk Download</a>
             </div>
         </div>
 
@@ -2478,9 +2478,54 @@
                 document.getElementById('tabArticle').classList.add('active');
                 let finalHtml = compileRawMarkupToHtml(targetArticle.content);
                 
+                // RELATED ARTICLES LOGIC
+                let relatedArticles = [];
+                const currentCats = (targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                
+                for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                    if (title === currentActiveArticleKey) continue;
+                    let score = 0;
+                    const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                    
+                    // Match categories
+                    currentCats.forEach(cat => { if (artCats.includes(cat)) score += 10; });
+                    
+                    // Match content links
+                    if (art.content.includes(`[[${currentActiveArticleKey}]]`)) score += 5;
+                    
+                    if (score > 0) relatedArticles.push({ title, score, content: art.content });
+                }
+                
+                relatedArticles.sort((a, b) => b.score - a.score);
+                const displayRelated = relatedArticles.slice(0, 3);
+                
+                if (displayRelated.length > 0) {
+                    finalHtml += `<div style="margin-top:2rem; border-top:2px solid var(--wiki-blue); padding-top:1rem;"><h3>See Also</h3><div style="display:flex; gap:15px; flex-wrap:wrap;">`;
+                    displayRelated.forEach(rel => {
+                        const imgMatch = rel.content.match(/\[\[File\|([^|]+)\|/);
+                        const imgUrl = imgMatch ? (orlePediaFileStore[imgMatch[1]] || "") : "";
+                        const descMatch = rel.content.match(/\{\{Description\|([^}]+)\}\}/);
+                        let firstSentence = descMatch ? descMatch[1] : rel.content.split('\n').find(l => l.trim() && !l.startsWith('=') && !l.startsWith('{')) || "";
+                        if (firstSentence.length > 80) firstSentence = firstSentence.substring(0, 80) + "...";
+                        
+                        finalHtml += `
+                            <div class="related-card" onclick="loadArticle('${rel.title}')" style="flex:1; min-width:200px; display:flex; gap:10px; padding:10px; background:#f8f9fa; border:1px solid #eee; border-radius:4px; cursor:pointer;">
+                                <div style="width:60px; height:60px; background:#eee; flex-shrink:0;">
+                                    ${imgUrl ? `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#ccc;"><i data-lucide="image"></i></div>`}
+                                </div>
+                                <div style="overflow:hidden;">
+                                    <div style="font-weight:bold; color:var(--wiki-blue); font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${rel.title}</div>
+                                    <div style="font-size:0.75rem; color:#666; margin-top:4px;">${firstSentence}</div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    finalHtml += `</div></div>`;
+                }
+
                 const cats = targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g);
                 if (cats) {
-                    finalHtml += `<div class="category-footer">Categories: ${cats.map(c => {
+                    finalHtml += `<div class="category-footer" style="margin-top:1.5rem;">Categories: ${cats.map(c => {
                         const name = c.match(/\[\[Category:([^\]]+)\]\]/)[1];
                         return `<span class="category-item" onclick="loadCategoryView('${name}')">${name}</span>`;
                     }).join(' | ')}</div>`;
@@ -2531,9 +2576,8 @@
         }
 
         // ============ ADVANCED MEDIAWIKI PARSING REGEX PARSER MOTOR ENGINE ============
-        function compileRawMarkupToHtml(wikiMarkupText) {
+                function compileRawMarkupToHtml(wikiMarkupText, isPreview = false) {
             if (!wikiMarkupText) return "";
-
             let workingTextStr = wikiMarkupText;
             let citationsArrayStorage = [];
 
@@ -2587,6 +2631,13 @@
                     return parseGlobalWiki(processed);
                 });
             }
+
+            // TEMPLATE HANDLING FIRST (BEFORE GLOBAL WIKI PARSING)
+            const colorRegex = /\{\{Color\|([^|]+)\|([^}]+)\}\}/g;
+            workingTextStr = workingTextStr.replace(colorRegex, (m, color, text) => `<span style="color:${color.trim()}">${text.trim()}</span>`);
+
+            const descRegex = /\{\{Description\|([^}]+)\}\}/g;
+            workingTextStr = workingTextStr.replace(descRegex, ''); // Descriptions are metadata, don't show in body
 
             workingTextStr = parseGlobalWiki(workingTextStr);
 
@@ -2665,10 +2716,10 @@
                             ${row('Ethnicity', 'ethnicity')}
                             ${row('Language', 'language')}
                             ${row('Religion', 'religion')}
-                            ${row('Leader', 'leader1')}
-                            ${row('Leader', 'leader2')}
-                            ${row('Leader', 'leader3')}
-                            ${row('Leader', 'leader4')}
+                            ${infoboxDataRecords['leadertitle1'] ? row(infoboxDataRecords['leadertitle1'], 'leadername1') : row('Leader', 'leader1')}
+                            ${infoboxDataRecords['leadertitle2'] ? row(infoboxDataRecords['leadertitle2'], 'leadername2') : row('Leader', 'leader2')}
+                            ${infoboxDataRecords['leadertitle3'] ? row(infoboxDataRecords['leadertitle3'], 'leadername3') : row('Leader', 'leader3')}
+                            ${infoboxDataRecords['leadertitle4'] ? row(infoboxDataRecords['leadertitle4'], 'leadername4') : row('Leader', 'leader4')}
                             
                             ${infoboxDataRecords['event1'] ? merged('History') + histRows() : ''}
                             
@@ -2683,7 +2734,7 @@
                             ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
                 `;
 
-                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'country', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'country', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
                     if (handled.includes(k)) continue;
                     compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${parseWiki(v)}</td></tr>`;
@@ -2706,7 +2757,7 @@
                         <div class="h2-section-title">
                             ${title}
                         </div>
-                        <i data-lucide="edit-2" class="edit-pencil" id="pencil-${id}" onclick="event.stopPropagation(); toggleEditMode()"></i>
+                        ${isPreview ? '' : `<i data-lucide="edit-2" class="edit-pencil" id="pencil-${id}" onclick="event.stopPropagation(); openSectionEditor('${title}')"></i>`}
                     </div>
                     <div class="h2-section-content collapsed" id="${id}">
                 `;
@@ -2784,7 +2835,8 @@
                     // Whole row merge
                     if (params[`row${rowIdx}`] === 'merge' || params[`r${rowIdx}`] === 'merge') {
                         let txt = params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || "";
-                        if (params[`txt`] === txt) params[`txt`] = "";
+                        // If we used the global 'txt', clear it so it doesn't leak to the next merged row
+                        if (txt === params[`txt`]) params[`txt`] = "";
                         html += `<tr class="merged-row"><td colspan="${colIdx - 1}" style="background:#f9f9f9; font-weight:bold; text-align:center;">${parseGlobalWiki(txt)}</td></tr>`;
                     } else {
                         let rowHtml = `<tr>`;
@@ -2825,8 +2877,8 @@
 
                                 let txtKey = `${key}txt`;
                                 let txt = params[txtKey] || params[`txt`] || "";
-                                // Clear used txt to avoid leaking to next merged row if it doesn't have its own txt
-                                if (params[`txt`] === txt) params[`txt`] = "";
+                                // If we used the global 'txt', clear it so it doesn't leak to the next merged row
+                                if (txt === params[`txt`]) params[`txt`] = "";
                                 rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt)}</td>`;
                             } else {
                                 rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
@@ -2840,12 +2892,6 @@
                 }
                 return html + `</tbody></table>`;
             });
-
-            const colorRegex = /\{\{Color\|([^|]+)\|([^}]+)\}\}/g;
-            workingTextStr = workingTextStr.replace(colorRegex, (m, color, text) => `<span style="color:${color.trim()}">${text.trim()}</span>`);
-
-            const descRegex = /\{\{Description\|([^}]+)\}\}/g;
-            workingTextStr = workingTextStr.replace(descRegex, ''); // Descriptions are metadata, don't show in body
 
             const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(pieRegex, function(m, content) {
@@ -2896,9 +2942,10 @@
                 }
 
                 if (idx === 0 && compiledInfoboxHtmlString !== "") {
-                    structuredOutputHtml += formattedBlock + compiledInfoboxHtmlString + "\n";
+                    // Ensure space between first paragraph and infobox, and between infobox and next paragraph
+                    structuredOutputHtml += formattedBlock + compiledInfoboxHtmlString + "\n\n";
                 } else {
-                    structuredOutputHtml += formattedBlock + "\n";
+                    structuredOutputHtml += formattedBlock + "\n\n";
                 }
             });
 
@@ -2976,7 +3023,7 @@
                 logHistoryListHtml += `
                     <div class="history-log-item">
                         • <span class="history-timestamp">${timeString}</span> ${byteChangeMarkup} — 
-                        <strong>${revision.editor}</strong> 
+                        <strong>${revision.editor_name || revision.editor || "Unknown"}</strong> 
                         <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
                         <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
                         ${undoOptionButtonMarkup}
@@ -3476,6 +3523,35 @@
         }
 
         // ============ MASTER CONTROL BOARD SYSTEM TRIGGERS ============
+        let currentEditingSection = null;
+
+        function openSectionEditor(sectionTitle) {
+            if(!currentUserSessionProfile.username) {
+                alert("⛔ Security Restriction: Modifying records requires registration. Please add your Profile Handle first.");
+                openProfileWindow();
+                return;
+            }
+
+            const articleData = orlePediaMemoryStore[currentActiveArticleKey];
+            const fullContent = articleData.content;
+            
+            // Match the section from == Title == until the next == Title == or end of string
+            const sectionRegex = new RegExp(`(== ${sectionTitle} ==[\\s\\S]*?)(?=\\n== |$)`, 'g');
+            const match = sectionRegex.exec(fullContent);
+            
+            if (match) {
+                currentEditingSection = sectionTitle;
+                document.getElementById('articleContainerWrapper').style.display = "none";
+                document.getElementById('masterEditorContainer').style.display = "flex";
+                document.getElementById('wikiRawInputTextarea').value = match[1];
+                document.getElementById('wikiEditSummaryInput').value = `Editing section: ${sectionTitle}`;
+                document.getElementById('editorLivePreviewCard').style.display = "none";
+                document.getElementById('editorGitDiffContainer').style.display = "none";
+            } else {
+                toggleEditMode();
+            }
+        }
+
         function toggleEditMode() {
             if(!currentUserSessionProfile.username) {
                 alert("⛔ Security Restriction: Modifying records requires registration. Please add your Profile Handle first.");
@@ -3483,6 +3559,7 @@
                 return;
             }
 
+            currentEditingSection = null;
             document.getElementById('articleContainerWrapper').style.display = "none";
             document.getElementById('masterEditorContainer').style.display = "flex";
 
@@ -3500,7 +3577,7 @@
 
         function triggerClientPreview() {
             let rawInputText = document.getElementById('wikiRawInputTextarea').value;
-            document.getElementById('editorLivePreviewContent').innerHTML = compileRawMarkupToHtml(rawInputText);
+            document.getElementById('editorLivePreviewContent').innerHTML = compileRawMarkupToHtml(rawInputText, true);
             document.getElementById('editorLivePreviewCard').style.display = "block";
         }
 
