@@ -1800,7 +1800,9 @@
             list.style.gap = '0.5rem';
             list.style.marginTop = '1rem';
             
-            list.innerHTML = Object.keys(orlePediaTemplateStore).map(name => `
+            list.innerHTML = Object.keys(orlePediaTemplateStore)
+                .filter(name => name !== 'Color' && name !== 'Description')
+                .map(name => `
                 <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; position:relative;">
                     <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue); cursor:pointer; height:40px; display:flex; align-items:center; justify-content:center;" onclick="editTemplate('${name}')">{{${name}}}</div>
                     <button class="tool-btn" onclick="deleteTemplate('${name}')" style="position:absolute; top:2px; right:2px; font-size:0.6rem; padding:2px;">🗑️</button>
@@ -2552,7 +2554,7 @@
                             if (Array.isArray(revs) && revs.length > 0) {
                                 targetArticle.history = revs.map(r => ({
                                     timestamp: Date.parse(r.created_at) || Date.now(),
-                                    editor: r.editor_name || 'Cloud Contributor',
+                                    editor: r.editor_name || 'Anonymous Contributor',
                                     tag: 'Synced',
                                     summary: r.edit_summary || 'Interface update modification',
                                     content: r.new_content
@@ -2759,7 +2761,7 @@
                         </div>
                         ${isPreview ? '' : `<i data-lucide="edit-2" class="edit-pencil" id="pencil-${id}" onclick="event.stopPropagation(); openSectionEditor('${title}')"></i>`}
                     </div>
-                    <div class="h2-section-content collapsed" id="${id}">
+                    <div class="h2-section-content ${isPreview ? '' : 'collapsed'}" id="${id}" ${isPreview ? 'style="display:block;"' : ''}>
                 `;
             });
 
@@ -2799,12 +2801,22 @@
             const tableRegex = /\{\{Table\|([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(tableRegex, function(m, content) {
                 let params = {};
+                let lastRowKey = "";
                 content.split('|').forEach(p => {
                     let eqIdx = p.indexOf('=');
                     if (eqIdx !== -1) {
                         let k = p.substring(0, eqIdx).trim();
                         let v = p.substring(eqIdx + 1).trim();
-                        params[k] = v;
+                        if (k === 'txt' && lastRowKey) {
+                            params[lastRowKey + 'txt'] = v;
+                        } else {
+                            params[k] = v;
+                            if (k.startsWith('row') || k.startsWith('r')) {
+                                // Extract row number to associate txt
+                                let rowMatch = k.match(/^(?:row|r)(\d+)/);
+                                if (rowMatch) lastRowKey = 'row' + rowMatch[1];
+                            }
+                        }
                     }
                 });
                 
@@ -3605,13 +3617,14 @@
                 article.content = editorTextContent;
             }
 
-            article.history.push({
-                timestamp: Date.now(),
-                editor: currentUserSessionProfile.username,
-                tag: currentUserSessionProfile.tag,
-                summary: changeSummaryText || "(No summary provided)",
-                content: editorTextContent
-            });
+                article.history.push({
+                    timestamp: Date.now(),
+                    editor: currentUserSessionProfile.username,
+                    editor_name: currentUserSessionProfile.username, // Ensure editor_name is also set
+                    tag: currentUserSessionProfile.tag,
+                    summary: changeSummaryText || "(No summary provided)",
+                    content: editorTextContent
+                });
 
             exitEditorDashboard();
             switchSubTab('article');
