@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1503,7 +1503,7 @@
             <div class="nav-sub-menu">
                 <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> Statistics</a>
                 <a onclick="openTemplateManager()"><i data-lucide="layout"></i> Templates</a>
-                <a onclick="switchSubTab('meta')"><i data-lucide="download"></i> Bulk Download</a>
+                <a onclick="switchSubTab('bulk')"><i data-lucide="download"></i> Bulk Download</a>
             </div>
         </div>
 
@@ -1544,6 +1544,7 @@
                         <div id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
                         <div id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
                         <div id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
+                        <div id="tabBulk" onclick="switchSubTab('bulk')">Bulk Download</div>
                     </div>
                 </div>
             </div>
@@ -1680,8 +1681,8 @@
                 </select>
             </div>
             <div class="modal-row">
-                <label>Category (for Articles)</label>
-                <input type="text" id="newArticleCategoryInput" placeholder="Enter category name">
+                <label>Short Description (Template)</label>
+                <input type="text" id="newArticleCategoryInput" placeholder="Enter short description...">
             </div>
             <div class="btn-set">
                 <button class="action-btn success" onclick="executeArticleCreationInit()">Create Article</button>
@@ -1968,8 +1969,8 @@
             updateLoadingProgress(88, 'Loading templates...');
             
             // DEFAULT TEMPLATES (CANNOT BE DELETED)
-            orlePediaTemplateStore['Color'] = 'Usage: {{Color|HexCode|Text}}';
-            orlePediaTemplateStore['Description'] = 'Usage: {{Description|Brief description for search/related articles}}';
+            // Color and Description are handled by regex, not stored as strings to avoid overwriting usage text
+            orlePediaTemplateStore['Templatecolor'] = 'Usage: {{Color|HexCode|Text}}';
             orlePediaTemplateStore['Table'] = 'Usage: {{Table|title=...|titlecolumn1=...|row1c1=...}}';
             orlePediaTemplateStore['Piechart'] = 'Usage: {{Piechart|title=...|data=...}}';
 
@@ -2002,11 +2003,11 @@
                         content: art.content || '',
                         talk: `== Talk Board for ${art.title} ==`,
                         history: [
-                            { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Cloud Cluster", tag: "Synced", summary: "Restored from database.", content: art.content || '' }
+                            { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Synced Data", tag: "Synced", summary: "Restored from database.", content: art.content || '' }
                         ],
                         ratings: [5],
                         createdTime: Date.parse(art.created_at) || Date.now(),
-                        author: "Cloud Contributor"
+                        author: "Registry Sync"
                     };
                 });
                 
@@ -2229,6 +2230,8 @@
 
             const createdDate = new Date(article.createdTime).toLocaleString();
 
+            const authorName = article.history[0]?.editor_name || article.history[0]?.editor || article.author;
+            
             pageInfoDiv.innerHTML = `
                 <div class="collapsible-panel">
                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
@@ -2238,7 +2241,7 @@
                     <div class="collapsible-content open">
                         <div class="sidebar-stat">
                             <span class="sidebar-stat-label">Author:</span>
-                            <span class="sidebar-stat-value">${article.author}</span>
+                            <span class="sidebar-stat-value">${authorName}</span>
                         </div>
                         <div class="sidebar-stat">
                             <span class="sidebar-stat-label">Created:</span>
@@ -2250,7 +2253,15 @@
                         </div>
                         <div class="sidebar-stat">
                             <span class="sidebar-stat-label">Category:</span>
-                            <span class="sidebar-stat-value"><span class="wiki-link" onclick="loadCategoryView('${article.category}')">${article.category}</span></span>
+                            <span class="sidebar-stat-value">
+                                ${ (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).length > 0 
+                                    ? (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => {
+                                        const name = c.match(/\[\[Category:([^\]]+)\]\]/)[1];
+                                        return `<span class="wiki-link" onclick="loadCategoryView('${name}')">${name}</span>`;
+                                      }).join(', ')
+                                    : `<span style="color:grey; font-style:italic;">Uncategorized</span>`
+                                }
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -2316,7 +2327,11 @@
                 return;
             }
 
-            dropdown.innerHTML = results.slice(0, 8).map(article => `
+            dropdown.innerHTML = results.slice(0, 8).map(article => {
+                const isTitleMatch = article.title.toLowerCase().includes(query);
+                // FIX 8: Show "article key word found" if not title match
+                const matchNote = isTitleMatch ? "Article" : "Article key wird found";
+                return `
                 <div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
                         <div style="width:100%; height:100%; background:linear-gradient(135deg, var(--wiki-blue), var(--wiki-blue-hover)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:0.7rem;">
@@ -2325,10 +2340,10 @@
                     </div>
                     <div class="search-result-info">
                         <div class="search-result-title">${article.title}</div>
-                        <div class="search-result-namespace">Article</div>
+                        <div class="search-result-namespace">${matchNote}</div>
                     </div>
                 </div>
-            `).join('');
+            `;}).join('');
             dropdown.classList.add('active');
         }
 
@@ -2508,6 +2523,9 @@
                         const imgUrl = imgMatch ? (orlePediaFileStore[imgMatch[1]] || "") : "";
                         const descMatch = rel.content.match(/\{\{Description\|([^}]+)\}\}/);
                         let firstSentence = descMatch ? descMatch[1] : rel.content.split('\n').find(l => l.trim() && !l.startsWith('=') && !l.startsWith('{')) || "";
+                        
+                        // FIX 6: Clean symbols from See Also text
+                        firstSentence = firstSentence.replace(/'''/g, '').replace(/''/g, '').replace(/\[\[([^|\]]+)\]\]/g, '$1').replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '$2');
                         if (firstSentence.length > 80) firstSentence = firstSentence.substring(0, 80) + "...";
                         
                         finalHtml += `
@@ -2548,6 +2566,14 @@
                 document.getElementById('tabHistory').classList.add('active');
                 // FIX 5: Load revisions on-demand when History tab is opened
                 if (targetArticle && !targetArticle._revisions_loaded && targetArticle._db_id) {
+                    // FIX 5: Aggressive caching check
+                    const cachedRevs = sessionStorage.getItem('revs_' + targetArticle._db_id);
+                    if (cachedRevs) {
+                        targetArticle.history = JSON.parse(cachedRevs);
+                        targetArticle._revisions_loaded = true;
+                        renderRevisionLogsHistoryList(targetArticle);
+                        return;
+                    }
                     contentBox.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading revision history...</div>';
                     supabaseRequest(`revisions?article_id=eq.${targetArticle._db_id}&select=article_id,created_at,editor_name,edit_summary,new_content&order=created_at.desc&limit=50`)
                         .then(revs => {
@@ -2559,6 +2585,7 @@
                                     summary: r.edit_summary || 'Interface update modification',
                                     content: r.new_content
                                 }));
+                                sessionStorage.setItem('revs_' + targetArticle._db_id, JSON.stringify(targetArticle.history));
                             }
                             targetArticle._revisions_loaded = true;
                             renderRevisionLogsHistoryList(targetArticle);
@@ -2574,6 +2601,10 @@
             else if (targetTab === 'meta') {
                 document.getElementById('tabMeta').classList.add('active');
                 renderMetaInformationDashboard(targetArticle);
+            }
+            else if (targetTab === 'bulk') {
+                document.getElementById('tabBulk').classList.add('active');
+                renderBulkDownloadDashboard();
             }
         }
 
@@ -2622,6 +2653,7 @@
             };
 
             for (let [tName, tContent] of Object.entries(orlePediaTemplateStore)) {
+                if (tName === 'Color' || tName === 'Description' || tName === 'Templatecolor') continue;
                 const tRegex = new RegExp(`\\{\\{${tName}\\|(.*?)\\}\\}`, 'g');
                 workingTextStr = workingTextStr.replace(tRegex, function(m, paramsStr) {
                     let processed = tContent;
@@ -2888,7 +2920,7 @@
                                 }
 
                                 let txtKey = `${key}txt`;
-                                let txt = params[txtKey] || params[`txt`] || "";
+                                let txt = params[txtKey] || params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || params[key] || "";
                                 // If we used the global 'txt', clear it so it doesn't leak to the next merged row
                                 if (txt === params[`txt`]) params[`txt`] = "";
                                 rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt)}</td>`;
@@ -3075,18 +3107,29 @@
             let htmlDiffStreamRows = "";
 
             for (let i = 0; i < longestIndexBound; i++) {
-                let originalLine = oldTextLines[i];
-                let modifiedLine = newTextLines[i];
+                let originalLine = oldTextLines[i] || "";
+                let modifiedLine = newTextLines[i] || "";
 
                 if (originalLine !== modifiedLine) {
-                    if (originalLine !== undefined) {
-                        htmlDiffStreamRows += `<div class="diff-line removed"><span class="diff-marker">-</span>${escapeHtmlCode(originalLine)}</div>`;
+                    // FIX 9: Word-level diff
+                    let originalWords = originalLine.split(/(\s+)/);
+                    let modifiedWords = modifiedLine.split(/(\s+)/);
+                    let diffLineHtml = `<div class="diff-line modified"><span class="diff-marker">M</span>`;
+                    
+                    let maxWords = Math.max(originalWords.length, modifiedWords.length);
+                    for(let j=0; j<maxWords; j++) {
+                        let ow = originalWords[j] || "";
+                        let mw = modifiedWords[j] || "";
+                        if(ow === mw) {
+                            diffLineHtml += escapeHtmlCode(ow);
+                        } else {
+                            if(ow) diffLineHtml += `<span style="background:var(--diff-remove-bg); color:var(--diff-remove-text); text-decoration:line-through;">${escapeHtmlCode(ow)}</span>`;
+                            if(mw) diffLineHtml += `<span style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold;">${escapeHtmlCode(mw)}</span>`;
+                        }
                     }
-                    if (modifiedLine !== undefined) {
-                        htmlDiffStreamRows += `<div class="diff-line added"><span class="diff-marker">+</span>${escapeHtmlCode(modifiedLine)}</div>`;
-                    }
+                    htmlDiffStreamRows += diffLineHtml + `</div>`;
                 } else {
-                    if (originalLine !== undefined) {
+                    if (oldTextLines[i] !== undefined) {
                         htmlDiffStreamRows += `<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(originalLine)}</div>`;
                     }
                 }
@@ -3357,6 +3400,26 @@
                 loadArticle("Main Page");
                 triggerToastBannerNotification("🗑️ Article permanently purged from system records.");
             }
+        }
+
+        function renderBulkDownloadDashboard() {
+            const container = document.getElementById('wikiTabContentBody');
+            container.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
+                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Bulk Encyclopedia Archive Download</h3>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Compile and download the entire encyclopedia library. Note: Large databases may take a moment to process.</p>
+                        <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
+                            <button class="action-btn" onclick="downloadAllArticles('pdf')" id="bulkDownPdf">Download All (PDF)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('docx')" id="bulkDownDocx">Download All (DOCX)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('pptx')" id="bulkDownPptx">Download All (PPTX)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('txt')" id="bulkDownTxt">Download All (TXT)</button>
+                            <span id="bulkLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
+                        </div>
+                    </section>
+                </div>
+            `;
+            lucide.createIcons();
         }
 
         // ============ RATING SYSTEM LOGIC ENGINE CALCULATOR ============
@@ -3696,6 +3759,21 @@
 
         // ============ CATEGORY EXPLORER VIEW MODULE ============
         function loadCategoryView(categoryName) {
+            // FIX 7: Category editing
+            if(categoryName.startsWith('EDIT:')) {
+                const oldName = categoryName.replace('EDIT:', '');
+                const newName = prompt("Enter new name for category: " + oldName, oldName);
+                if(newName && newName !== oldName) {
+                    for(let [k, v] of Object.entries(orlePediaMemoryStore)) {
+                        if(v.content.includes(`[[Category:${oldName}]]`)) {
+                            v.content = v.content.replace(new RegExp(`\\[\\[Category:${oldName}\\]\\]`, 'g'), `[[Category:${newName}]]`);
+                        }
+                    }
+                    alert("Category updated across all articles.");
+                    return loadCategoryView(newName);
+                }
+                return;
+            }
             exitEditorDashboard();
             closeArticleSidebar();
             document.getElementById('displayArticleTitle').innerText = categoryName === 'Article' ? 'All Articles' : `Category: ${categoryName}`;
@@ -3718,24 +3796,30 @@
             const allArticles = [];
 
             for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
+                // FIX 4: Only show in category if tag is in content
+                const artCats = (obj.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                
                 if (categoryName === 'Article') {
                     allArticles.push(obj);
                 } else if (categoryName === 'All') {
-                    categories.add(obj.category);
-                } else if (obj.category === categoryName) {
+                    artCats.forEach(c => categories.add(c));
+                } else if (artCats.includes(categoryName)) {
                     matchesFoundCount++;
                     allArticles.push(obj);
                 }
             }
 
             if (categoryName === 'Article' || (categoryName !== 'All' && matchesFoundCount > 0)) {
+                if(categoryName !== 'Article') {
+                    matchedArticlesListHtml += `<button class="tool-btn" onclick="loadCategoryView('EDIT:${categoryName}')" style="margin-bottom:1rem;"><i data-lucide="edit"></i> Rename Category</button>`;
+                }
                 allArticles.sort((a, b) => a.title.localeCompare(b.title));
                 allArticles.forEach(art => {
                     matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></li>`;
                 });
             } else if (categoryName === 'All') {
                 Array.from(categories).sort().forEach(cat => {
-                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span></li>`;
+                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span> <span style="font-size:0.7rem; color:grey; cursor:pointer;" onclick="loadCategoryView('EDIT:${cat}')">(edit)</span></li>`;
                 });
             } else {
                 matchedArticlesListHtml += `<li style="color:var(--text-muted)">No articles registered inside this jurisdiction yet.</li>`;
@@ -3774,8 +3858,8 @@
 
             orlePediaMemoryStore[targetTitleStr] = {
                 title: targetTitleStr,
-                category: selectedCategoryStr,
-                content: ``,
+                category: "General Indexes",
+                content: `{{Description|${selectedCategoryStr}}}\n\n`,
                 talk: `== Talk Board for ${targetTitleStr} ==`,
                 history: [{
                     timestamp: Date.now(),
