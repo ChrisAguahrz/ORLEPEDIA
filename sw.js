@@ -41,31 +41,37 @@ self.addEventListener('fetch', (event) => {
                     event.request.url.includes('supabase.co/storage/v1/object/public/');
 
     // Optimized Image Handling in sw.js
+// AGGRESSIVE INSTANT IMAGE CACHE
 if (isImage) {
     event.respondWith(
         caches.open(IMAGE_CACHE_NAME).then((cache) => {
             return cache.match(event.request).then((cachedResponse) => {
-                // 1. Immediately return if it's already cached
+                
+                // 1. If it's cached, show it INSTANTLY. Zero network delay.
                 if (cachedResponse) {
+                    // Secretly check the network in the background to update it for next time
+                    fetch(event.request).then((networkResponse) => {
+                        if (networkResponse && networkResponse.ok) {
+                            cache.put(event.request, networkResponse);
+                        }
+                    }).catch(() => {/* Silent fail if offline */});
+                    
                     return cachedResponse;
                 }
                 
-                // 2. If it's a new image request, fetch it and clone it to cache asynchronously
+                // 2. If it's NOT cached, pull it from the internet and save it forever
                 return fetch(event.request).then((networkResponse) => {
                     if (networkResponse && networkResponse.ok) {
-                        // Stash a copy in the image cache for next time
                         cache.put(event.request, networkResponse.clone());
                     }
                     return networkResponse;
-                }).catch(() => {
-                    // Fallback if completely offline and not cached
-                    return caches.match('/index.html'); 
                 });
             });
         })
     );
     return;
 }
+
 
     // 3. App Shell (Cache-First)
     event.respondWith(
