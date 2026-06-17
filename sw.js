@@ -40,29 +40,32 @@ self.addEventListener('fetch', (event) => {
                     url.pathname.match(/\.(jpg|jpeg|png|gif|svg|webp)$/i) ||
                     event.request.url.includes('supabase.co/storage/v1/object/public/');
 
-    if (isImage) {
-        event.respondWith(
-            caches.open(IMAGE_CACHE_NAME).then((cache) => {
-                return cache.match(event.request).then((cachedResponse) => {
-                    if (cachedResponse) {
-                        // console.log('[SW] Serving Image from Cache:', url.pathname);
-                        return cachedResponse;
+    // Optimized Image Handling in sw.js
+if (isImage) {
+    event.respondWith(
+        caches.open(IMAGE_CACHE_NAME).then((cache) => {
+            return cache.match(event.request).then((cachedResponse) => {
+                // 1. Immediately return if it's already cached
+                if (cachedResponse) {
+                    return cachedResponse;
+                }
+                
+                // 2. If it's a new image request, fetch it and clone it to cache asynchronously
+                return fetch(event.request).then((networkResponse) => {
+                    if (networkResponse && networkResponse.ok) {
+                        // Stash a copy in the image cache for next time
+                        cache.put(event.request, networkResponse.clone());
                     }
-                    
-                    return fetch(event.request).then((networkResponse) => {
-                        if (networkResponse && networkResponse.ok) {
-                            console.log('[SW] Caching New Image:', url.pathname);
-                            cache.put(event.request, networkResponse.clone());
-                        }
-                        return networkResponse;
-                    }).catch(() => {
-                        // If offline and not in cache, you could return a placeholder here
-                    });
+                    return networkResponse;
+                }).catch(() => {
+                    // Fallback if completely offline and not cached
+                    return caches.match('/index.html'); 
                 });
-            })
-        );
-        return;
-    }
+            });
+        })
+    );
+    return;
+}
 
     // 3. App Shell (Cache-First)
     event.respondWith(
