@@ -1,5 +1,5 @@
-const CACHE_NAME = 'orlepedia-v3';
-const IMAGE_CACHE_NAME = 'orlepedia-images-v2';
+const CACHE_NAME = 'orlepedia-v4';         // Changed v3 to v4
+const IMAGE_CACHE_NAME = 'orlepedia-images-v3';  // Changed v2 to v3
 
 const PRECACHE_URLS = [
     '/',
