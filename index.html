@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-           <meta charset="UTF-8">
+            <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1568,7 +1568,8 @@
                 <button class="tool-btn" onclick="document.getElementById('citationModal').style.display='flex'">📚 APA</button>
                 <button class="tool-btn" onclick="wrapEditorText('[[File|DB|', '|200px|Caption]]')">🖼️ DB File</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('{{Table|title=Title|titlecolumn1=Col1|row1c1=Data}}', '')">📅 Table</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|flag=\n|voters=\n|turnout=\n|map=\n|c1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n}}', '')">🗳️ Election</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Table\n|title=Title\n|titlecolumn1=Col1|titlecolumn2=Col2\n|row1c1=merge|row1c1txt=MergedHeader\n|row2c1=Data1|row2c2=Data2\n}}', '')">📅 Table</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
@@ -1732,14 +1733,14 @@
     <!-- File Upload Modal -->
     <div class="modal-overlay" id="fileUploadModal">
         <div class="modal-card">
-            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Upload File to Supabase</div>
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Register External Image Link</div>
             <div class="modal-row">
-                <label>File Name (to use in articles)</label>
-                <input type="text" id="fileNameInput" placeholder="e.g. MyImage.png">
+                <label>Image Link (Postimages, etc.)</label>
+                <input type="text" id="fileUrlInput" placeholder="https://i.postimg.cc/...">
             </div>
             <div class="modal-row">
-                <label>Select File</label>
-                <input type="file" id="fileInput" accept="image/*">
+                <label>Image Name (Shortname to use in articles)</label>
+                <input type="text" id="fileNameInput" placeholder="e.g. OrlandMap">
             </div>
             <div class="btn-set">
                 <button class="action-btn success" onclick="handleFileUpload()">Upload</button>
@@ -1749,6 +1750,27 @@
     </div>
 
     <!-- Move Page Modal -->
+    <!-- Redirect Manager Modal -->
+    <div class="modal-overlay" id="redirectManagerModal">
+        <div class="modal-card">
+            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Redirect Management</div>
+            <p style="font-size:0.85rem; margin:0.5rem 0;">Redirects for: <b id="redirectTargetTitle"></b></p>
+            <div id="redirectListContainer" style="max-height:200px; overflow-y:auto; border:1px solid #eee; padding:0.5rem; margin-bottom:1rem;">
+                <!-- Redirects will be listed here -->
+            </div>
+            <div class="modal-row">
+                <label>Add New Redirect (Article Title)</label>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="newRedirectTitle" placeholder="e.g. Alternate Name">
+                    <button class="action-btn success" onclick="addNewRedirect()">Add</button>
+                </div>
+            </div>
+            <div class="btn-set">
+                <button class="action-btn" onclick="closeModal('redirectManagerModal')" style="background:#64748b; color:white;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="movePageModal">
         <div class="modal-card">
             <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Move Article</div>
@@ -2331,7 +2353,12 @@
             const titleResults = [];
             const contentResults = [];
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                if (article.title.toLowerCase().includes(query)) {
+                // Filter out redirects from search results
+                if (article.content && article.content.startsWith('#REDIRECT')) continue;
+
+                if (article.title.toLowerCase() === query) {
+                    titleResults.unshift(article); // Exact match first
+                } else if (article.title.toLowerCase().includes(query)) {
                     titleResults.push(article);
                 } else if (article.content && article.content.toLowerCase().includes(query)) {
                     contentResults.push(article);
@@ -2507,6 +2534,9 @@
                 
                 for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
                     if (title === currentActiveArticleKey) continue;
+                    // Exclude redirects from See Also
+                    if (art.content && art.content.startsWith('#REDIRECT')) continue;
+
                     let score = 0;
                     const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
                     
@@ -2720,9 +2750,9 @@
 
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox election-infobox" style="width:100%; max-width:400px; float:right; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem; overflow-x:auto;">
-                        <div class="infobox-title" style="font-size:1.5rem; font-weight:bold; text-align:center; padding:0.5rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
-                        <div style="text-align:center; margin-bottom:1rem;">
-                            <img src="${getImgSrc(eData['flag'])}" style="max-width:200px; border:1px solid #ddd;" onerror="this.style.display='none'">
+                        <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
+                        <div style="text-align:center; margin-bottom:0.8rem;">
+                            <img src="${getImgSrc(eData['flag'])}" style="max-width:120px; border:1px solid #ddd;" onerror="this.style.display='none'">
                         </div>
                         <table style="width:100%; border-collapse:collapse; min-width:300px;">
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
@@ -2979,7 +3009,22 @@
                                 }
 
                                 let txtKey = `${key}txt`;
+                                // Look for txt in specific cell key, then row key, then global txt
                                 let txt = params[txtKey] || params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || "";
+                                
+                                // NEW FIX: If still no txt, look for ANY key in the merged range that has a 'txt' suffix
+                                if (!txt) {
+                                    for(let r=0; r<rowspan; r++) {
+                                        for(let c=0; c<colspan; c++) {
+                                            let subKey = `row${rowIdx+r}c${col+c}txt`;
+                                            if (params[subKey]) { txt = params[subKey]; break; }
+                                            let subKeyAlt = `r${rowIdx+r}c${col+c}txt`;
+                                            if (params[subKeyAlt]) { txt = params[subKeyAlt]; break; }
+                                        }
+                                        if (txt) break;
+                                    }
+                                }
+
                                 // If txt is still empty and the value is 'merge', check the base key (rXcY) for content if it's not 'merge'
                                 if (!txt && params[key] && params[key].toLowerCase() !== 'merge') txt = params[key];
                                 
@@ -3259,6 +3304,8 @@
                     <section>
                         <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Operations</h3>
                         <div style="display:flex; gap:10px; flex-wrap: wrap;">
+                            <button class="action-btn" onclick="openMoveModal()">Move Page</button>
+                            <button class="action-btn" onclick="openRedirectManager()">Manage Redirects</button>
                             <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
                             <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
                             <button class="action-btn" onclick="downloadArticle('pptx')">Download PPTX</button>
@@ -3556,8 +3603,8 @@
 
             const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
             
-            // If totalEdits is only reflecting viewed pages, we need to ensure we sum the stored _rev_count
-            totalEdits = pageStats.reduce((sum, p) => sum + p.edits, 0);
+            // FIX: Sum up all revisions from memory store accurately
+            totalEdits = Object.values(orlePediaMemoryStore).reduce((sum, art) => sum + (art._rev_count || 0), 0);
             const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
             const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
             const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
@@ -4089,31 +4136,26 @@
 
         // ============ NEW FEATURES LOGIC ============
         async function handleFileUpload() {
-            const file = document.getElementById('fileInput').files[0];
+            const url = document.getElementById('fileUrlInput').value.trim();
             const name = document.getElementById('fileNameInput').value.trim();
             const btn = event.target;
-            if (!file || !name) return alert("File and Name required");
+            if (!url || !name) return alert("URL and Name required");
             
             const originalText = btn.innerText;
-            btn.innerText = "⌛ Uploading...";
+            btn.innerText = "⌛ Registering...";
             btn.disabled = true;
 
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const base64 = e.target.result;
-                    await supabaseRequest('files', 'POST', { name, url: base64, uploader: currentUserSessionProfile.username });
-                    orlePediaFileStore[name] = base64;
-                    alert("File uploaded!");
-                    closeModal('fileUploadModal');
-                } catch (err) {
-                    alert("Upload failed: " + err.message);
-                } finally {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                }
-            };
-            reader.readAsDataURL(file);
+            try {
+                await supabaseRequest('files', 'POST', { name, url: url, uploader: currentUserSessionProfile.username });
+                orlePediaFileStore[name] = url;
+                alert("Image link registered successfully!");
+                closeModal('fileUploadModal');
+            } catch (err) {
+                alert("Registration failed: " + err.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
 
         async function executePageMove() {
@@ -4140,9 +4182,80 @@
 
                 navigateTo(newTitle);
                 closeModal('movePageModal');
-                triggerToastBannerNotification(`🚚 Page moved successfully to ${newTitle}`);
+                triggerToastBannerNotification(`✅ Page moved to ${newTitle}`);
             } catch (err) {
                 alert("Move failed: " + err.message);
+            }
+        }
+
+        function openRedirectManager() {
+            const target = currentActiveArticleKey;
+            document.getElementById('redirectTargetTitle').innerText = target;
+            document.getElementById('redirectManagerModal').style.display = 'flex';
+            renderRedirectList();
+        }
+
+        function renderRedirectList() {
+            const target = currentActiveArticleKey;
+            const container = document.getElementById('redirectListContainer');
+            const redirects = Object.keys(orlePediaMemoryStore).filter(k => 
+                orlePediaMemoryStore[k].content && 
+                orlePediaMemoryStore[k].content.startsWith('#REDIRECT') && 
+                orlePediaMemoryStore[k].content.includes(`[[${target}]]`)
+            );
+
+            if (redirects.length === 0) {
+                container.innerHTML = '<p style="font-size:0.8rem; color:grey;">No redirects point here.</p>';
+                return;
+            }
+
+            container.innerHTML = redirects.map(r => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.3rem; border-bottom:1px solid #eee; font-size:0.85rem;">
+                    <span>${r}</span>
+                    <button class="action-btn danger" style="padding:0.2rem 0.4rem; font-size:0.7rem;" onclick="deleteRedirect('${r}')">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        async function addNewRedirect() {
+            const newTitle = document.getElementById('newRedirectTitle').value.trim();
+            const target = currentActiveArticleKey;
+            if (!newTitle || newTitle === target) return alert("Invalid Redirect Title");
+
+            if (orlePediaMemoryStore[newTitle]) return alert("Title already exists.");
+
+            try {
+                const content = `#REDIRECT [[${target}]]`;
+                const artPayload = { title: newTitle, content: content, summary: "Redirect" };
+                const res = await supabaseRequest('articles', 'POST', artPayload);
+                
+                orlePediaMemoryStore[newTitle] = {
+                    title: newTitle,
+                    _db_id: res[0].id,
+                    content: content,
+                    category: "Redirect",
+                    author: "ChrisAguahrz",
+                    history: [{ timestamp: Date.now(), editor: "ChrisAguahrz", summary: "Created redirect" }]
+                };
+
+                document.getElementById('newRedirectTitle').value = '';
+                renderRedirectList();
+                triggerToastBannerNotification("✅ Redirect added.");
+            } catch (err) {
+                alert("Failed to add redirect: " + err.message);
+            }
+        }
+
+        async function deleteRedirect(title) {
+            if (!confirm(`Delete redirect "${title}"?`)) return;
+            try {
+                const id = orlePediaMemoryStore[title]._db_id;
+                await supabaseRequest(`articles?id=eq.${id}`, 'DELETE');
+                delete orlePediaMemoryStore[title];
+                renderRedirectList();
+                triggerToastBannerNotification("✅ Redirect removed.");
+            } catch (err) {
+                alert("Failed to delete: " + err.message);
             }
         }
 
