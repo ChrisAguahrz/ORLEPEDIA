@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-          <meta charset="UTF-8">
+           <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1396,6 +1396,13 @@
             main {
                 padding: 0.75rem;
             }
+
+            .election-infobox {
+                float: none !important;
+                width: 100% !important;
+                margin: 1rem 0 !important;
+                max-width: none !important;
+            }
             
             .firstHeading {
                 font-size: 1.2rem;
@@ -2008,17 +2015,18 @@
                     orlePediaMemoryStore[art.title] = {
                         title: art.title,
                         _db_id: art.id,
+                        _rev_count: art.rev_count || 1, // Store the count from the database
                         _revisions_loaded: false,
                         _ratings_loaded: false,
                         category: art.summary || "General Indexes",
                         content: art.content || '',
+                        author: "ChrisAguahrz",
                         talk: `== Talk Board for ${art.title} ==`,
                         history: [
-                            { timestamp: Date.parse(art.created_at) || Date.now(), editor: "Synced Data", tag: "Synced", summary: "Restored from database.", content: art.content || '' }
+                            { timestamp: Date.parse(art.created_at) || Date.now(), editor: "ChrisAguahrz", tag: "admin", summary: "Restored from database.", content: art.content || '' }
                         ],
                         ratings: [5],
-                        createdTime: Date.parse(art.created_at) || Date.now(),
-                        author: "Registry Sync"
+                        createdTime: Date.parse(art.created_at) || Date.now()
                     };
                 });
                 
@@ -2711,12 +2719,12 @@
                 };
 
                 compiledInfoboxHtmlString = `
-                    <div class="portable-infobox" style="width:400px; float:right; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem;">
+                    <div class="portable-infobox election-infobox" style="width:100%; max-width:400px; float:right; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem; overflow-x:auto;">
                         <div class="infobox-title" style="font-size:1.5rem; font-weight:bold; text-align:center; padding:0.5rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
                         <div style="text-align:center; margin-bottom:1rem;">
                             <img src="${getImgSrc(eData['flag'])}" style="max-width:200px; border:1px solid #ddd;" onerror="this.style.display='none'">
                         </div>
-                        <table style="width:100%; border-collapse:collapse;">
+                        <table style="width:100%; border-collapse:collapse; min-width:300px;">
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
                             <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%;" onerror="this.style.display='none'"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
@@ -3298,6 +3306,8 @@
             const titles = Object.keys(orlePediaMemoryStore).sort();
             
             if (titles.length === 0) return alert("No articles found in memory.");
+
+            const includeImages = confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
             
             statusSpan.innerText = `Preparing ${titles.length} articles...`;
             
@@ -3335,7 +3345,11 @@
                 statusSpan.innerText = `Processing (${i+1}/${titles.length}): ${t}`;
                 
                 // For bulk download, we force render everything
-                const content = compileRawMarkupToHtml(art.content || "");
+                let rawContent = art.content || "";
+                if (!includeImages) {
+                    rawContent = rawContent.replace(/\[\[File\|.*?\]\]/g, "");
+                }
+                const content = compileRawMarkupToHtml(rawContent);
                 fullHtml += `
                     <div class="article-break">
                         <h1 class="article-title">${t}</h1>
@@ -3541,6 +3555,9 @@
             }
 
             const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
+            
+            // If totalEdits is only reflecting viewed pages, we need to ensure we sum the stored _rev_count
+            totalEdits = pageStats.reduce((sum, p) => sum + p.edits, 0);
             const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
             const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
             const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
