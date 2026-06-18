@@ -2741,6 +2741,8 @@
                         let val = eData[keyPrefix + i] || "";
                         if (keyPrefix === 'pc') {
                             cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
+                        } else if (keyPrefix === 'img') {
+                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'">` : ''}</td>`;
                         } else {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
                         }
@@ -2758,6 +2760,7 @@
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
                             <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%;" onerror="this.style.display='none'"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
+                            ${candRow('Photo', 'img')}
                             <tr style="font-weight:bold; background:#eee;"><th style="text-align:left; padding:0.3rem; border-bottom:1px solid #ddd;">Candidate</th><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c1']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c2']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c3']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c4']||''}</td></tr>
                             ${candRow('Party Color', 'pc')}
                             ${candRow('Party', 'p')}
@@ -3800,9 +3803,9 @@
 
                 article.history.push({
                     timestamp: Date.now(),
-                    editor: currentUserSessionProfile.username,
-                    editor_name: currentUserSessionProfile.username, // Ensure editor_name is also set
-                    tag: currentUserSessionProfile.tag,
+                    editor: "ChrisAguahrz",
+                    editor_name: "ChrisAguahrz",
+                    tag: "admin",
                     summary: changeSummaryText || "(No summary provided)",
                     content: editorTextContent
                 });
@@ -3826,9 +3829,9 @@
             document.getElementById('articleMetaInfo').innerHTML = "";
 
             // FIX 5: If file store is empty and not yet loaded, fetch from DB first
-            if (!_filesAlreadyLoaded && Object.keys(orlePediaFileStore).length === 0) {
+            if (!_filesAlreadyLoaded) {
                 document.getElementById('wikiTabContentBody').innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading files...</div>';
-                supabaseRequest('files?select=name,url&limit=50')
+                supabaseRequest('files?select=name,url&limit=200')
                     .then(files => {
                         if (Array.isArray(files)) {
                             files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
@@ -3981,14 +3984,14 @@
                 talk: `== Talk Board for ${targetTitleStr} ==`,
                 history: [{
                     timestamp: Date.now(),
-                    editor: currentUserSessionProfile.username || "System Core",
-                    tag: currentUserSessionProfile.tag || "Core System",
+                    editor: "ChrisAguahrz",
+                    tag: "admin",
                     summary: "Initialized configuration schema mapping boundaries.",
                     content: ``
                 }],
                 ratings: [],
                 createdTime: Date.now(),
-                author: currentUserSessionProfile.username || "System Core"
+                author: "ChrisAguahrz"
             };
 
             closeNewArticleModal();
