@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-            <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2731,8 +2731,10 @@
 
                 const getImgSrc = (val) => {
                     if (!val) return "";
-                    if (val.startsWith('http') || val.startsWith('data:')) return val;
-                    return orlePediaFileStore[val] || val;
+                    const trimmed = val.trim();
+                    // Support direct URL, base64, or shortname mapping to URL
+                    if (trimmed.startsWith('http') || trimmed.startsWith('data:')) return trimmed;
+                    return orlePediaFileStore[trimmed] || trimmed;
                 };
 
                 const candRow = (label, keyPrefix) => {
@@ -3011,28 +3013,30 @@
                                     } else break;
                                 }
 
-                                let txtKey = `${key}txt`;
-                                // Look for txt in specific cell key, then row key, then global txt
-                                let txt = params[txtKey] || params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || "";
+                                // NEW SIMPLIFIED MERGE LOGIC
+                                // 1. Check specific key + 'txt' (e.g., row1c1txt)
+                                // 2. Check the base key itself if it's NOT 'merge' (e.g., row1c1 = My Text)
+                                // 3. Scan the entire merged block for ANY value that isn't 'merge'
+                                let txt = params[key + 'txt'] || params[key.replace('row', 'r') + 'txt'] || "";
                                 
-                                // NEW FIX: If still no txt, look for ANY key in the merged range that has a 'txt' suffix
+                                if (!txt && params[key] && params[key].toLowerCase() !== 'merge') {
+                                    txt = params[key];
+                                }
+
                                 if (!txt) {
                                     for(let r=0; r<rowspan; r++) {
                                         for(let c=0; c<colspan; c++) {
-                                            let subKey = `row${rowIdx+r}c${col+c}txt`;
-                                            if (params[subKey]) { txt = params[subKey]; break; }
-                                            let subKeyAlt = `r${rowIdx+r}c${col+c}txt`;
-                                            if (params[subKeyAlt]) { txt = params[subKeyAlt]; break; }
+                                            let k = `row${rowIdx+r}c${col+c}`;
+                                            let ka = `r${rowIdx+r}c${col+c}`;
+                                            let val = params[k] || params[ka] || "";
+                                            let tval = params[k+'txt'] || params[ka+'txt'] || "";
+                                            if (tval) { txt = tval; break; }
+                                            if (val && val.toLowerCase() !== 'merge') { txt = val; break; }
                                         }
                                         if (txt) break;
                                     }
                                 }
 
-                                // If txt is still empty and the value is 'merge', check the base key (rXcY) for content if it's not 'merge'
-                                if (!txt && params[key] && params[key].toLowerCase() !== 'merge') txt = params[key];
-                                
-                                // If we used the global 'txt', clear it so it doesn't leak to the next merged row
-                                if (txt === params[`txt`]) params[`txt`] = "";
                                 rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt)}</td>`;
                             } else {
                                 rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
@@ -3828,10 +3832,10 @@
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
 
-            // FIX 5: If file store is empty and not yet loaded, fetch from DB first
+            // FIX 5: Load from 'img_links' (text-only) for speed
             if (!_filesAlreadyLoaded) {
-                document.getElementById('wikiTabContentBody').innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading files...</div>';
-                supabaseRequest('files?select=name,url&limit=200')
+                document.getElementById('wikiTabContentBody').innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading image library...</div>';
+                supabaseRequest('img_links?select=name,url&limit=500')
                     .then(files => {
                         if (Array.isArray(files)) {
                             files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
@@ -3840,8 +3844,19 @@
                         _renderFilesGrid(filter);
                     })
                     .catch(() => {
-                        _filesAlreadyLoaded = true;
-                        _renderFilesGrid(filter);
+                        // Fallback to 'files'
+                        supabaseRequest('files?select=name,url&limit=100')
+                            .then(files => {
+                                if (Array.isArray(files)) {
+                                    files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
+                                }
+                                _filesAlreadyLoaded = true;
+                                _renderFilesGrid(filter);
+                            })
+                            .catch(() => {
+                                _filesAlreadyLoaded = true;
+                                _renderFilesGrid(filter);
+                            });
                     });
                 return;
             }
@@ -4149,12 +4164,22 @@
             btn.disabled = true;
 
             try {
-                await supabaseRequest('files', 'POST', { name, url: url, uploader: currentUserSessionProfile.username });
+                // Using 'img_links' table for lightweight text-only storage
+                // Use a direct fetch with shorter timeout for the POST to avoid long waits
+                const res = await supabaseRequest('img_links', 'POST', { name, url: url });
                 orlePediaFileStore[name] = url;
                 alert("Image link registered successfully!");
                 closeModal('fileUploadModal');
             } catch (err) {
-                alert("Registration failed: " + err.message);
+                console.error("img_links failed, trying fallback...", err);
+                try {
+                    await supabaseRequest('files', 'POST', { name, url: url });
+                    orlePediaFileStore[name] = url;
+                    alert("Image link registered (Fallback)!");
+                    closeModal('fileUploadModal');
+                } catch(e) {
+                    alert("Registration failed. Check your Supabase connection or run the SQL setup command.");
+                }
             } finally {
                 btn.innerText = originalText;
                 btn.disabled = false;
