@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+          <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1974,11 +1974,22 @@
             orlePediaTemplateStore['Table'] = 'Usage: {{Table|title=...|titlecolumn1=...|row1c1=...}}';
             orlePediaTemplateStore['Piechart'] = 'Usage: {{Piechart|title=...|data=...}}';
 
+            // FOLDER-BASED TEMPLATE LOADER
+            // This loads templates from the repository's virtual folder structure (via Supabase)
+            // It maps "Infoboxes/Templates/Subfolder/Name" to orlePediaTemplateStore
             let templates = [];
             try {
-                templates = await supabaseRequest('templates?select=name,content&limit=50');
+                // Fetch templates from the 'templates' table which can store path-like names
+                templates = await supabaseRequest('templates?select=name,content&limit=100');
                 if (Array.isArray(templates)) {
-                    templates.forEach(t => { orlePediaTemplateStore[t.name] = t.content; });
+                    templates.forEach(t => { 
+                        // Store the template under its full path name and its short name for convenience
+                        orlePediaTemplateStore[t.name] = t.content;
+                        if (t.name.includes('/')) {
+                            const shortName = t.name.split('/').pop();
+                            if (!orlePediaTemplateStore[shortName]) orlePediaTemplateStore[shortName] = t.content;
+                        }
+                    });
                 }
                 diagnosticsLog.push(`✅ Templates loaded: ${templates.length} found`);
                 updateLoadingProgress(92, 'Templates loaded');
@@ -2355,11 +2366,17 @@
 
         // ============ USER PROFILE MANAGEMENT ============
         function loadUserProfile() {
-            const saved = localStorage.getItem('orlepedia_profile');
-            if (saved) {
-                currentUserSessionProfile = JSON.parse(saved);
-                updateUIProfileDisplays();
-            }
+            currentUserSessionProfile = {
+                username: "ChrisAguahrz",
+                tag: "admin",
+                created: Date.now()
+            };
+            updateUIProfileDisplays();
+        }
+
+        function saveUserProfile() {
+            updateUIProfileDisplays();
+            closeProfileWindow();
         }
 
         function openProfileWindow() {
@@ -2373,26 +2390,7 @@
             document.getElementById('profileModal').style.display = "none";
         }
 
-        function saveUserProfile() {
-            const userVal = document.getElementById('profileUsernameInput').value.trim();
-            const imageVal = document.getElementById('profileImageInput').value.trim();
-            const descVal = document.getElementById('profileDescriptionInput').value.trim();
 
-            if (!userVal) {
-                alert("⛔ Username is required.");
-                return;
-            }
-
-            currentUserSessionProfile.username = userVal;
-            currentUserSessionProfile.image = imageVal;
-            currentUserSessionProfile.description = descVal;
-
-            localStorage.setItem('orlepedia_profile', JSON.stringify(currentUserSessionProfile));
-            updateUIProfileDisplays();
-            closeProfileWindow();
-
-            dispatchDataPayloadToRemoteDataNetworks("USER_REGISTER_OR_MOD", currentUserSessionProfile);
-        }
 
         let currentEditingFileName = "";
         let orlePediaFileMetadataStore = {}; // Store descriptions
@@ -2676,10 +2674,63 @@
             workingTextStr = parseGlobalWiki(workingTextStr);
 
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
+            const electionRegex = /\{\{Election([\s\S]*?)\}\}/g;
+            
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
+            let electionMatch = electionRegex.exec(workingTextStr);
             let compiledInfoboxHtmlString = "";
 
-            if (infoboxMatch) {
+            if (electionMatch) {
+                let eContent = electionMatch[1];
+                workingTextStr = workingTextStr.replace(electionMatch[0], "");
+                let eData = {};
+                eContent.split('\n').forEach(ln => {
+                    if (ln.startsWith('|') && ln.includes('=')) {
+                        let eqIdx = ln.indexOf('=');
+                        eData[ln.substring(1, eqIdx).trim()] = ln.substring(eqIdx + 1).trim();
+                    }
+                });
+
+                const getImgSrc = (val) => {
+                    if (!val) return "";
+                    if (val.startsWith('http') || val.startsWith('data:')) return val;
+                    return orlePediaFileStore[val] || val;
+                };
+
+                const candRow = (label, keyPrefix) => {
+                    let cells = "";
+                    for(let i=1; i<=4; i++) {
+                        let val = eData[keyPrefix + i] || "";
+                        if (keyPrefix === 'pc') {
+                            cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
+                        } else {
+                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
+                        }
+                    }
+                    return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th>${cells}</tr>`;
+                };
+
+                compiledInfoboxHtmlString = `
+                    <div class="portable-infobox" style="width:400px; float:right; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem;">
+                        <div class="infobox-title" style="font-size:1.5rem; font-weight:bold; text-align:center; padding:0.5rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
+                        <div style="text-align:center; margin-bottom:1rem;">
+                            <img src="${getImgSrc(eData['flag'])}" style="max-width:200px; border:1px solid #ddd;" onerror="this.style.display='none'">
+                        </div>
+                        <table style="width:100%; border-collapse:collapse;">
+                            <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
+                            <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
+                            <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%;" onerror="this.style.display='none'"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
+                            <tr style="font-weight:bold; background:#eee;"><th style="text-align:left; padding:0.3rem; border-bottom:1px solid #ddd;">Candidate</th><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c1']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c2']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c3']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c4']||''}</td></tr>
+                            ${candRow('Party Color', 'pc')}
+                            ${candRow('Party', 'p')}
+                            ${candRow('Votes', 'v')}
+                            ${candRow('Percentage', 'pct')}
+                            ${candRow('States Won', 's')}
+                            ${candRow('Counties Won', 'co')}
+                        </table>
+                    </div>
+                `;
+            } else if (infoboxMatch) {
                 let infoboxInternalContent = infoboxMatch[1];
                 workingTextStr = workingTextStr.replace(infoboxMatch[0], "");
 
@@ -2920,7 +2971,10 @@
                                 }
 
                                 let txtKey = `${key}txt`;
-                                let txt = params[txtKey] || params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || params[key] || "";
+                                let txt = params[txtKey] || params[`row${rowIdx}txt`] || params[`r${rowIdx}txt`] || params[`txt`] || "";
+                                // If txt is still empty and the value is 'merge', check the base key (rXcY) for content if it's not 'merge'
+                                if (!txt && params[key] && params[key].toLowerCase() !== 'merge') txt = params[key];
+                                
                                 // If we used the global 'txt', clear it so it doesn't leak to the next merged row
                                 if (txt === params[`txt`]) params[`txt`] = "";
                                 rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt)}</td>`;
