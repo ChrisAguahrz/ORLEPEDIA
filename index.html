@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1568,7 +1568,7 @@
                 <button class="tool-btn" onclick="document.getElementById('citationModal').style.display='flex'">📚 APA</button>
                 <button class="tool-btn" onclick="wrapEditorText('[[File|DB|', '|200px|Caption]]')">🖼️ DB File</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|flag=\n|voters=\n|turnout=\n|map=\n|c1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n}}', '')">🗳️ Election</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|flag=\n|voters=\n|turnout=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n}}', '')">🗳️ Election</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Table\n|title=Title\n|titlecolumn1=Col1|titlecolumn2=Col2\n|row1c1=merge|row1c1txt=MergedHeader\n|row2c1=Data1|row2c2=Data2\n}}', '')">📅 Table</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
@@ -2743,7 +2743,7 @@
                         let val = eData[keyPrefix + i] || "";
                         if (keyPrefix === 'pc') {
                             cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
-                        } else if (keyPrefix === 'img') {
+                        } else if (keyPrefix === 'imgc') {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'">` : ''}</td>`;
                         } else {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
@@ -2761,8 +2761,8 @@
                         <table style="width:100%; border-collapse:collapse; min-width:300px;">
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
-                            <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%;" onerror="this.style.display='none'"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
-                            ${candRow('Photo', 'img')}
+                            <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.style.display='none'"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
+                            ${candRow('Photo', 'imgc')}
                             <tr style="font-weight:bold; background:#eee;"><th style="text-align:left; padding:0.3rem; border-bottom:1px solid #ddd;">Candidate</th><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c1']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c2']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c3']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c4']||''}</td></tr>
                             ${candRow('Party Color', 'pc')}
                             ${candRow('Party', 'p')}
