@@ -2827,9 +2827,8 @@
                         ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Flag</span></div>
-                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'"><span class="infobox-media-caption">Seal</span></div>
-                        </div>
+                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 150px; height: auto;"><span class="infobox-media-caption">Flag</span></div>
+<div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 150px; height: auto;"><span class="infobox-media-caption">Seal</span></div>       </div>
                         <div class="infobox-map">
                             <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'">
                             <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
