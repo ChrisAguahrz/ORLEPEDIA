@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1489,12 +1489,7 @@
         
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         
-        <div class="nav-group">
-            <a class="nav-link" onclick="loadFilesView()" title="Files Library"><i data-lucide="image"></i></a>
-            <div class="nav-sub-menu">
-                <a onclick="openFileUploadModal()"><i data-lucide="upload"></i> Upload File</a>
-            </div>
-        </div>
+<!-- Files Library and Upload Removed -->
 
         <div class="nav-group">
             <a class="nav-link" onclick="loadCategoryView('Article')" title="Content Library"><i data-lucide="file-text"></i></a>
@@ -1730,24 +1725,7 @@
         </div>
     </div>
 
-    <!-- File Upload Modal -->
-    <div class="modal-overlay" id="fileUploadModal">
-        <div class="modal-card">
-            <div style="font-weight:bold; font-size:1.1rem; border-bottom:1px solid var(--border-wiki); padding-bottom:0.4rem;">Register External Image Link</div>
-            <div class="modal-row">
-                <label>Image Link (Postimages, etc.)</label>
-                <input type="text" id="fileUrlInput" placeholder="https://i.postimg.cc/...">
-            </div>
-            <div class="modal-row">
-                <label>Image Name (Shortname to use in articles)</label>
-                <input type="text" id="fileNameInput" placeholder="e.g. OrlandMap">
-            </div>
-            <div class="btn-set">
-                <button class="action-btn success" onclick="handleFileUpload()">Upload</button>
-                <button class="action-btn" onclick="closeModal('fileUploadModal')" style="background:#64748b; color:white;">Cancel</button>
-            </div>
-        </div>
-    </div>
+<!-- File Upload Modal Removed -->
 
     <!-- Move Page Modal -->
     <!-- Redirect Manager Modal -->
@@ -1815,7 +1793,7 @@
             tag: ""
         };
         
-        function openFileUploadModal() { document.getElementById('fileUploadModal').style.display = 'flex'; }
+// openFileUploadModal removed
         function openMovePageModal() { document.getElementById('movePageModal').style.display = 'flex'; }
         let orlePediaTemplateStore = {};
         function openTemplateManager() { 
@@ -2038,6 +2016,7 @@
                         title: art.title,
                         _db_id: art.id,
                         _rev_count: art.rev_count || 1, // Store the count from the database
+                        views: art.views || 0,
                         _revisions_loaded: false,
                         _ratings_loaded: false,
                         category: art.summary || "General Indexes",
@@ -2474,6 +2453,15 @@
                 return loadArticle(target, pushState);
             }
 
+            // Page View Tracking
+            if (orlePediaMemoryStore[articleTitle]) {
+                const art = orlePediaMemoryStore[articleTitle];
+                art.views = (art.views || 0) + 1;
+                if (art._db_id) {
+                    supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { views: art.views });
+                }
+            }
+
             currentActiveArticleKey = articleTitle;
             if (pushState) {
                 window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
@@ -2497,7 +2485,8 @@
             
             const article = orlePediaMemoryStore[articleTitle];
             const revisionCount = article.history.length;
-            document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''}`;
+            const viewCount = article.views || 0;
+            document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''}`;
             
             // FIX 5: Load ratings on-demand when article is opened
             if (article && !article._ratings_loaded && article._db_id) {
@@ -2708,6 +2697,9 @@
 
             const descRegex = /\{\{Description\|([^}]+)\}\}/g;
             workingTextStr = workingTextStr.replace(descRegex, ''); // Descriptions are metadata, don't show in body
+            
+            // Avoid rendering categories in articles
+            workingTextStr = workingTextStr.replace(/\[\[Category:.*?\]\]/g, '');
 
             workingTextStr = parseGlobalWiki(workingTextStr);
 
@@ -2756,12 +2748,12 @@
                     <div class="portable-infobox election-infobox" style="width:100%; max-width:400px; float:right; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem; overflow-x:auto;">
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
                         <div style="text-align:center; margin-bottom:0.8rem;">
-                            <img src="${getImgSrc(eData['flag'])}" style="max-width:120px; border:1px solid #ddd;" onerror="this.style.display='none'">
+                            <img src="${getImgSrc(eData['flag'])}" style="max-width:80px; border:1px solid #ddd;" onerror="this.style.display='none'">
                         </div>
                         <table style="width:100%; border-collapse:collapse; min-width:300px;">
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
-                            <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.style.display='none'"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
+                            <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.src=eData['map']"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
                             ${candRow('Photo', 'imgc')}
                             <tr style="font-weight:bold; background:#eee;"><th style="text-align:left; padding:0.3rem; border-bottom:1px solid #ddd;">Candidate</th><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c1']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c2']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c3']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c4']||''}</td></tr>
                             ${candRow('Party Color', 'pc')}
@@ -3356,7 +3348,31 @@
 
         async function downloadAllArticles(format) {
             const statusSpan = document.getElementById('bulkLoadStatus');
-            const titles = Object.keys(orlePediaMemoryStore).sort();
+            
+            // Get sorted titles based on requirements
+            const titles = Object.keys(orlePediaMemoryStore).filter(t => {
+                const art = orlePediaMemoryStore[t];
+                // Avoid redirects and categories
+                if (art.content && art.content.startsWith('#REDIRECT')) return false;
+                if (t.startsWith('Category:')) return false;
+                return true;
+            }).sort((a, b) => {
+                const artA = orlePediaMemoryStore[a];
+                const artB = orlePediaMemoryStore[b];
+                const catA = artA.category || "";
+                const catB = artB.category || "";
+                
+                // Those without categories (General Indexes or empty) should be last
+                const isUncategorizedA = !catA || catA === "General Indexes";
+                const isUncategorizedB = !catB || catB === "General Indexes";
+                
+                if (isUncategorizedA && !isUncategorizedB) return 1;
+                if (!isUncategorizedA && isUncategorizedB) return -1;
+                
+                // If both categorized or both uncategorized, sort by category then title
+                if (catA !== catB) return catA.localeCompare(catB);
+                return a.localeCompare(b);
+            });
             
             if (titles.length === 0) return alert("No articles found in memory.");
 
@@ -3402,6 +3418,9 @@
                 if (!includeImages) {
                     rawContent = rawContent.replace(/\[\[File\|.*?\]\]/g, "");
                 }
+                // Avoid rendering categories in articles during bulk download
+                rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, "");
+                
                 const content = compileRawMarkupToHtml(rawContent);
                 fullHtml += `
                     <div class="article-break">
@@ -3583,7 +3602,7 @@
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
 
-            let totalPages = Object.keys(orlePediaMemoryStore).length;
+            let totalPages = Object.keys(orlePediaMemoryStore).filter(k => !orlePediaMemoryStore[k].content?.startsWith('#REDIRECT')).length;
             let totalEdits = 0;
             let totalWords = 0;
             let pageStats = [];
@@ -3604,13 +3623,17 @@
                 const byteSize = article.content ? new Blob([article.content]).size : 0;
                 const linkedCount = calculateLinksTo(key);
                 const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
-                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount });
+                const views = article.views || 0;
+                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views });
             }
 
             const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
             
             // FIX: Sum up all revisions from memory store accurately
-            totalEdits = Object.values(orlePediaMemoryStore).reduce((sum, art) => sum + (art._rev_count || 0), 0);
+            totalEdits = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
+                if (art.content && art.content.startsWith('#REDIRECT')) return sum;
+                return sum + (art._rev_count || 0);
+            }, 0);
             const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
             const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
             const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
@@ -3619,6 +3642,8 @@
             const bottomBytes = [...validStats].sort((a, b) => a.bytes - b.bytes).slice(0, 5);
             const topLinks = [...validStats].sort((a, b) => b.links - a.links).slice(0, 5);
             const bottomLinks = [...validStats].sort((a, b) => a.links - b.links).slice(0, 5);
+            const topViews = [...validStats].sort((a, b) => b.views - a.views).slice(0, 5);
+            const bottomViews = [...validStats].sort((a, b) => a.views - b.views).slice(0, 5);
 
             let statsHtml = `
                 <div class="statistics-grid">
@@ -3697,6 +3722,22 @@
                     <thead><tr><th>Article</th><th>Links</th></tr></thead>
                     <tbody>
                         ${bottomLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Most Viewed Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Views</th></tr></thead>
+                    <tbody>
+                        ${topViews.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.views}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Least Viewed Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Views</th></tr></thead>
+                    <tbody>
+                        ${bottomViews.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.views}</td></tr>`).join('')}
                     </tbody>
                 </table>
             `;
@@ -3822,75 +3863,7 @@
             dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
         }
 
-        // ============ FILES LIBRARY MODULE ============
-        let _filesAlreadyLoaded = false; // FIX 5: track whether files have been fetched
-        function loadFilesView(filter = "") {
-            exitEditorDashboard();
-            closeArticleSidebar();
-            document.getElementById('displayArticleTitle').innerText = 'Files Library';
-            document.getElementById('articleStarsContainer').innerHTML = "";
-            document.getElementById('articleMetaInfo').innerHTML = "";
-
-            // FIX 5: Load from 'img_links' (text-only) for speed
-            if (!_filesAlreadyLoaded) {
-                document.getElementById('wikiTabContentBody').innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading image library...</div>';
-                supabaseRequest('img_links?select=name,url&limit=500')
-                    .then(files => {
-                        if (Array.isArray(files)) {
-                            files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
-                        }
-                        _filesAlreadyLoaded = true;
-                        _renderFilesGrid(filter);
-                    })
-                    .catch(() => {
-                        // Fallback to 'files'
-                        supabaseRequest('files?select=name,url&limit=100')
-                            .then(files => {
-                                if (Array.isArray(files)) {
-                                    files.forEach(f => { orlePediaFileStore[f.name] = f.url; });
-                                }
-                                _filesAlreadyLoaded = true;
-                                _renderFilesGrid(filter);
-                            })
-                            .catch(() => {
-                                _filesAlreadyLoaded = true;
-                                _renderFilesGrid(filter);
-                            });
-                    });
-                return;
-            }
-            _renderFilesGrid(filter);
-        }
-
-        function _renderFilesGrid(filter) {
-            let filesHtml = `
-                <div style="margin-bottom:1rem; display:flex; gap:0.5rem;">
-                    <input type="text" id="fileSearchInput" placeholder="Search files..." value="${filter}" style="flex:1; padding:0.5rem; border:1px solid var(--border-wiki); border-radius:4px;">
-                    <button class="action-btn" onclick="loadFilesView(document.getElementById('fileSearchInput').value)">Search</button>
-                </div>
-                <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:1rem;">
-            `;
-
-            let found = false;
-            for (let [name, url] of Object.entries(orlePediaFileStore)) {
-                if (filter && !name.toLowerCase().includes(filter.toLowerCase())) continue;
-                found = true;
-                filesHtml += `
-                    <div style="border:1px solid var(--border-wiki); padding:0.5rem; border-radius:4px; text-align:center; background:#f8f9fa; cursor:pointer;" onclick="openFileEditModal('${name}')">
-                        <img src="${url}" loading="lazy" style="width:100px; height:100px; object-fit:cover; margin-bottom:0.5rem; border:1px solid #eee;" onerror="this.src='https://via.placeholder.com/100?text=Error'">
-                        <div style="font-size:0.75rem; word-break:break-all; color:var(--wiki-blue);">${name}</div>
-                    </div>
-                `;
-            }
-
-            if (!found) filesHtml += `<p style="color:var(--text-muted)">No files found.</p>`;
-            filesHtml += `</div>`;
-            document.getElementById('wikiTabContentBody').innerHTML = filesHtml;
-
-            document.getElementById('fileSearchInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') loadFilesView(this.value);
-            });
-        }
+// Files Library Module Removed
 
         // ============ CATEGORY EXPLORER VIEW MODULE ============
         function loadCategoryView(categoryName) {
@@ -4152,38 +4125,7 @@
         }
 
         // ============ NEW FEATURES LOGIC ============
-        async function handleFileUpload() {
-            const url = document.getElementById('fileUrlInput').value.trim();
-            const name = document.getElementById('fileNameInput').value.trim();
-            const btn = event.target;
-            if (!url || !name) return alert("URL and Name required");
-            
-            const originalText = btn.innerText;
-            btn.innerText = "⌛ Registering...";
-            btn.disabled = true;
-
-            try {
-                // Using 'img_links' table for lightweight text-only storage
-                // Use a direct fetch with shorter timeout for the POST to avoid long waits
-                const res = await supabaseRequest('img_links', 'POST', { name, url: url });
-                orlePediaFileStore[name] = url;
-                alert("Image link registered successfully!");
-                closeModal('fileUploadModal');
-            } catch (err) {
-                console.error("img_links failed, trying fallback...", err);
-                try {
-                    await supabaseRequest('files', 'POST', { name, url: url });
-                    orlePediaFileStore[name] = url;
-                    alert("Image link registered (Fallback)!");
-                    closeModal('fileUploadModal');
-                } catch(e) {
-                    alert("Registration failed. Check your Supabase connection or run the SQL setup command.");
-                }
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        }
+// handleFileUpload removed
 
         async function executePageMove() {
             const oldTitle = currentActiveArticleKey;
