@@ -1937,7 +1937,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id&limit=100');
+                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions&limit=100');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2015,7 +2015,7 @@
                     orlePediaMemoryStore[art.title] = {
                         title: art.title,
                         _db_id: art.id,
-                        _rev_count: art.rev_count || 1, // Store the count from the database
+                        _rev_count: art.total_revisions || 1, // Store the count from the database
                         views: art.views || 0,
                         _revisions_loaded: false,
                         _ratings_loaded: false,
@@ -2453,12 +2453,19 @@
                 return loadArticle(target, pushState);
             }
 
-            // Page View Tracking
+            // Page View Tracking (with 10-minute cooldown)
             if (orlePediaMemoryStore[articleTitle]) {
                 const art = orlePediaMemoryStore[articleTitle];
-                art.views = (art.views || 0) + 1;
-                if (art._db_id) {
-                    supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { views: art.views });
+                const now = Date.now();
+                const cooldownKey = `view_cooldown_${articleTitle}`;
+                const lastView = localStorage.getItem(cooldownKey);
+                
+                if (!lastView || (now - parseInt(lastView)) > 10 * 60 * 1000) {
+                    art.views = (art.views || 0) + 1;
+                    localStorage.setItem(cooldownKey, now.toString());
+                    if (art._db_id) {
+                        supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { views: art.views });
+                    }
                 }
             }
 
@@ -3616,7 +3623,7 @@
             };
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                const editCount = article.history ? article.history.length : 0;
+                const editCount = article._rev_count || (article.history ? article.history.length : 0);
                 totalEdits += editCount;
                 const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
                 totalWords += wordCount;
