@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -737,9 +737,8 @@
         }
         
         .infobox-media-box img { 
-            max-width: 100%; 
-            height: 50px; 
-            object-fit: contain; 
+            width: 100%; 
+            height: auto; 
             display: block; 
             margin: 0 auto; 
         }
@@ -1495,6 +1494,8 @@
             <a class="nav-link" onclick="loadCategoryView('Article')" title="Content Library"><i data-lucide="file-text"></i></a>
             <div class="nav-sub-menu">
                 <a onclick="loadCategoryView('All')"><i data-lucide="folder"></i> Categories</a>
+                <a onclick="loadCategoryView('Redirects')"><i data-lucide="corner-up-right"></i> Redirects</a>
+                <a onclick="loadImagesGallery()"><i data-lucide="image"></i> Images</a>
             </div>
         </div>
 
@@ -2053,6 +2054,7 @@
             }
             
             switchSubTab(activeSubTabState);
+            window._appInitialized = true;
             return true;
         }
 
@@ -2453,16 +2455,12 @@
                 return loadArticle(target, pushState);
             }
 
-            // Page View Tracking (with 10-minute cooldown)
+            // Page View Tracking
             if (orlePediaMemoryStore[articleTitle]) {
                 const art = orlePediaMemoryStore[articleTitle];
-                const now = Date.now();
-                const cooldownKey = `view_cooldown_${articleTitle}`;
-                const lastView = localStorage.getItem(cooldownKey);
-                
-                if (!lastView || (now - parseInt(lastView)) > 10 * 60 * 1000) {
+                // Increment view only if it's not a fresh page load (check if app is already initialized)
+                if (window._appInitialized) {
                     art.views = (art.views || 0) + 1;
-                    localStorage.setItem(cooldownKey, now.toString());
                     if (art._db_id) {
                         supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { views: art.views });
                     }
@@ -2536,11 +2534,13 @@
                     let score = 0;
                     const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
                     
-                    // Match categories
-                    currentCats.forEach(cat => { if (artCats.includes(cat)) score += 10; });
-                    
-                    // Match content links
-                    if (art.content.includes(`[[${currentActiveArticleKey}]]`)) score += 5;
+                // Match categories (20 points each)
+                currentCats.forEach(cat => { if (artCats.includes(cat)) score += 20; });
+                
+                // Count mentions of this article in the current article (10 points each)
+                const mentionRegex = new RegExp(`\\[\\[${title}(\\||\\]\\])`, 'g');
+                const matches = targetArticle.content.match(mentionRegex);
+                if (matches) score += (matches.length * 10);
                     
                     if (score > 0) relatedArticles.push({ title, score, content: art.content });
                 }
@@ -2708,6 +2708,62 @@
             // Avoid rendering categories in articles
             workingTextStr = workingTextStr.replace(/\[\[Category:.*?\]\]/g, '');
 
+            const getImgSrcLocal = (val) => {
+                if (!val) return "";
+                const trimmed = val.trim();
+                if (trimmed.startsWith('http') || trimmed.startsWith('data:')) return trimmed;
+                return orlePediaFileStore[trimmed] || trimmed;
+            };
+
+            // {{Images}} Template
+            const imagesRegex = /\{\{Images([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(imagesRegex, function(m, content) {
+                let imgData = {};
+                content.split('\n').forEach(ln => {
+                    if (ln.startsWith('|') && ln.includes('=')) {
+                        let eqIdx = ln.indexOf('=');
+                        imgData[ln.substring(1, eqIdx).trim()] = ln.substring(eqIdx + 1).trim();
+                    }
+                });
+                
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; gap:10px; margin:1rem 0; width:100%;">`;
+                if (imgData['img1']) {
+                    html += `<div style="width:100%;"><img src="${getImgSrcLocal(imgData['img1'])}" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;"></div>`;
+                }
+                
+                let rows = [];
+                for (let i = 2; i <= 8; i += 2) {
+                    let imgA = imgData['img' + i];
+                    let imgB = imgData['img' + (i + 1)];
+                    if (imgA || imgB) {
+                        rows.push(`<div style="display:flex; gap:10px;">
+                            <div style="flex:1;">${imgA ? `<img src="${getImgSrcLocal(imgA)}" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;">` : ''}</div>
+                            <div style="flex:1;">${imgB ? `<img src="${getImgSrcLocal(imgB)}" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;">` : ''}</div>
+                        </div>`);
+                    }
+                }
+                html += rows.join('') + `</div>`;
+                return html;
+            });
+
+            // {{Map}} Template Placeholder (GeoJSON missing in environment)
+            const mapRegex = /\{\{Map([\s\S]*?)\}\}/g;
+            workingTextStr = workingTextStr.replace(mapRegex, function(m, content) {
+                let mData = {};
+                content.split('\n').forEach(ln => {
+                    if (ln.startsWith('|') && ln.includes('=')) {
+                        let eqIdx = ln.indexOf('=');
+                        mData[ln.substring(1, eqIdx).trim()] = ln.substring(eqIdx + 1).trim();
+                    }
+                });
+                return `<div class="wiki-map-container" style="background:#f0f0f0; border:1px solid #ddd; padding:1rem; text-align:center; border-radius:4px; margin:1rem 0;">
+                    <div style="font-weight:bold;">Map: ${mData['state'] || 'Unknown'}</div>
+                    <div style="font-size:0.8rem; color:#666;">Method: ${mData['method'] || 'Highlight'} | Color: ${mData['color'] || 'Default'}</div>
+                    <div style="margin-top:0.5rem; font-style:italic;">${mData['txt'] || ''}</div>
+                    <p style="font-size:0.7rem; color:red; margin-top:0.5rem;">⚠️ Map data (GeoJSON) not found in system repository. Please ensure the file is uploaded correctly.</p>
+                </div>`;
+            });
+
             workingTextStr = parseGlobalWiki(workingTextStr);
 
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
@@ -2826,8 +2882,8 @@
                         ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 150px; height: auto;"><span class="infobox-media-caption">Flag</span></div>
-<div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 150px; height: auto;"><span class="infobox-media-caption">Seal</span></div>       </div>
+                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto;"><span class="infobox-media-caption">Flag</span></div>
+<div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto;"><span class="infobox-media-caption">Seal</span></div>       </div>
                         <div class="infobox-map">
                             <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'">
                             <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
@@ -3370,14 +3426,16 @@
                 const catB = artB.category || "";
                 
                 // Those without categories (General Indexes or empty) should be last
-                const isUncategorizedA = !catA || catA === "General Indexes";
-                const isUncategorizedB = !catB || catB === "General Indexes";
+                const catA_first = (artA.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
+                const catB_first = (artB.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
+                
+                const isUncategorizedA = catA_first === "General Indexes";
+                const isUncategorizedB = catB_first === "General Indexes";
                 
                 if (isUncategorizedA && !isUncategorizedB) return 1;
                 if (!isUncategorizedA && isUncategorizedB) return -1;
                 
-                // If both categorized or both uncategorized, sort by category then title
-                if (catA !== catB) return catA.localeCompare(catB);
+                if (catA_first !== catB_first) return catA_first.localeCompare(catB_first);
                 return a.localeCompare(b);
             });
             
@@ -3617,12 +3675,20 @@
             const calculateLinksTo = (title) => {
                 let count = 0;
                 for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
-                    if (obj.content && obj.content.includes(`[[${title}`)) count++;
+                    if (k === title) continue;
+                    if (obj.content && obj.content.includes(`[[${title}`)) {
+                        // Ensure it's not just a partial match
+                        const linkRegex = new RegExp(`\\[\\[${title}(\\||\\]\\])`, 'g');
+                        if (linkRegex.test(obj.content)) count++;
+                    }
                 }
                 return count;
             };
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                // Skip redirects from all counts
+                if (article.content && article.content.startsWith('#REDIRECT')) continue;
+
                 const editCount = article._rev_count || (article.history ? article.history.length : 0);
                 totalEdits += editCount;
                 const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
@@ -3871,6 +3937,41 @@
         }
 
 // Files Library Module Removed
+        let _imagesCache = null;
+        function loadImagesGallery() {
+            exitEditorDashboard();
+            closeArticleSidebar();
+            document.getElementById('displayArticleTitle').innerText = 'Images Gallery';
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+
+            if (_imagesCache) {
+                document.getElementById('wikiTabContentBody').innerHTML = _imagesCache;
+                return;
+            }
+
+            let images = new Set();
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                const matches = art.content.match(/\[\[File:([^|\]]+)/g);
+                if (matches) {
+                    matches.forEach(m => {
+                        const fileName = m.replace('[[File:', '');
+                        const url = orlePediaFileStore[fileName] || fileName;
+                        if (url.startsWith('http')) images.add(url);
+                    });
+                }
+            }
+
+            let html = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; padding:10px;">`;
+            images.forEach(url => {
+                html += `<div style="border:1px solid #ddd; border-radius:4px; overflow:hidden; background:#f8f9fa;">
+                    <img src="${url}" style="width:100%; height:150px; object-fit:cover;" onerror="this.parentElement.style.display='none'">
+                </div>`;
+            });
+            html += `</div>`;
+            _imagesCache = html;
+            document.getElementById('wikiTabContentBody').innerHTML = html;
+        }
 
         // ============ CATEGORY EXPLORER VIEW MODULE ============
         function loadCategoryView(categoryName) {
@@ -3915,17 +4016,24 @@
                 const artCats = (obj.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
                 
                 if (categoryName === 'Article') {
-                    allArticles.push(obj);
+                    if (!(obj.content && obj.content.startsWith('#REDIRECT'))) {
+                        allArticles.push(obj);
+                    }
                 } else if (categoryName === 'All') {
                     artCats.forEach(c => categories.add(c));
+                } else if (categoryName === 'Redirects') {
+                    if (obj.content && obj.content.startsWith('#REDIRECT')) {
+                        matchesFoundCount++;
+                        allArticles.push(obj);
+                    }
                 } else if (artCats.includes(categoryName)) {
                     matchesFoundCount++;
                     allArticles.push(obj);
                 }
             }
 
-            if (categoryName === 'Article' || (categoryName !== 'All' && matchesFoundCount > 0)) {
-                if(categoryName !== 'Article') {
+            if (categoryName === 'Article' || categoryName === 'Redirects' || (categoryName !== 'All' && matchesFoundCount > 0)) {
+                if(categoryName !== 'Article' && categoryName !== 'Redirects') {
                     matchedArticlesListHtml += `<button class="tool-btn" onclick="loadCategoryView('EDIT:${categoryName}')" style="margin-bottom:1rem;"><i data-lucide="edit"></i> Rename Category</button>`;
                 }
                 allArticles.sort((a, b) => a.title.localeCompare(b.title));
