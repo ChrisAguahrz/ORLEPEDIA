@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         /* Modern Wiki Design Tokens */
         :root {
@@ -1494,7 +1496,7 @@
             <a class="nav-link" onclick="loadCategoryView('Article')" title="Content Library"><i data-lucide="file-text"></i></a>
             <div class="nav-sub-menu">
                 <a onclick="loadCategoryView('All')"><i data-lucide="folder"></i> Categories</a>
-                <a onclick="loadCategoryView('Redirects')"><i data-lucide="corner-up-right"></i> Redirects</a>
+                <a onclick="loadCategoryView('Redirects', true)"><i data-lucide="corner-up-right"></i> Redirects</a>
                 <a onclick="loadImagesGallery()"><i data-lucide="image"></i> Images</a>
             </div>
         </div>
@@ -1569,6 +1571,8 @@
                 <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Map\\n|state = \\n|method = Highlight \\n|color = \\n|txt = \\n}}', '')">🗺️ Map</button>
+                <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', \']]')">↪️ Redirect</button>
             </div>
             <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
             
@@ -2746,7 +2750,7 @@
                 return html;
             });
 
-            // {{Map}} Template Placeholder (GeoJSON missing in environment)
+            // {{Map}} Template Implementation
             const mapRegex = /\{\{Map([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(mapRegex, function(m, content) {
                 let mData = {};
@@ -2756,12 +2760,46 @@
                         mData[ln.substring(1, eqIdx).trim()] = ln.substring(eqIdx + 1).trim();
                     }
                 });
-                return `<div class="wiki-map-container" style="background:#f0f0f0; border:1px solid #ddd; padding:1rem; text-align:center; border-radius:4px; margin:1rem 0;">
-                    <div style="font-weight:bold;">Map: ${mData['state'] || 'Unknown'}</div>
-                    <div style="font-size:0.8rem; color:#666;">Method: ${mData['method'] || 'Highlight'} | Color: ${mData['color'] || 'Default'}</div>
-                    <div style="margin-top:0.5rem; font-style:italic;">${mData['txt'] || ''}</div>
-                    <p style="font-size:0.7rem; color:red; margin-top:0.5rem;">⚠️ Map data (GeoJSON) not found in system repository. Please ensure the file is uploaded correctly.</p>
-                </div>`;
+                const mapId = 'map_' + Math.random().toString(36).substr(2, 9);
+                setTimeout(() => {
+                    const container = document.getElementById(mapId);
+                    if (!container) return;
+                    // Check for Leaflet availability
+                    if (typeof L === 'undefined') {
+                        container.innerHTML = `<p style="color:red; font-size:0.7rem;">Leaflet.js not loaded. Cannot render map.</p>`;
+                        return;
+                    }
+                    const map = L.map(mapId, { zoomControl: false, attributionControl: false }).setView([0, 0], 2);
+                    fetch('(B) ORLAND STATES.geojson')
+                        .then(res => res.json())
+                        .then(data => {
+                            const layer = L.geoJSON(data, {
+                                style: (feature) => {
+                                    const isTarget = feature.properties.name === mData['state'] || feature.properties.STATE === mData['state'];
+                                    return {
+                                        fillColor: isTarget ? (mData['color'] || 'red') : '#ccc',
+                                        weight: 1,
+                                        opacity: 1,
+                                        color: 'white',
+                                        fillOpacity: isTarget ? 0.8 : 0.4
+                                    };
+                                }
+                            }).addTo(map);
+                            const bounds = layer.getBounds();
+                            if (mData['method'] === 'zoom' && mData['state']) {
+                                const targetLayer = layer.getLayers().find(l => l.feature.properties.name === mData['state'] || l.feature.properties.STATE === mData['state']);
+                                if (targetLayer) map.fitBounds(targetLayer.getBounds());
+                                else map.fitBounds(bounds);
+                            } else {
+                                map.fitBounds(bounds);
+                            }
+                        })
+                        .catch(err => {
+                            container.innerHTML = `<p style="color:red; font-size:0.7rem;">Failed to load map data: (B) ORLAND STATES.geojson</p>`;
+                        });
+                }, 100);
+                return `<div id="${mapId}" class="wiki-map-container" style="height:300px; background:#f0f0f0; border:1px solid #ddd; border-radius:4px; margin:1rem 0;"></div>
+                        ${mData['txt'] ? `<div style="font-size:0.8rem; text-align:center; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">${mData['txt']}</div>` : ''}`;
             });
 
             workingTextStr = parseGlobalWiki(workingTextStr);
@@ -2877,17 +2915,20 @@
                 };
 
                 compiledInfoboxHtmlString = `
-                    <div class="portable-infobox">
-                        <div class="infobox-title">${parseWiki(infoboxDataRecords['name'] || currentActiveArticleKey)}</div>
-                        ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
-                        ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
-                        <div class="infobox-media-row">
-                            <div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto;"><span class="infobox-media-caption">Flag</span></div>
-<div class="infobox-media-box"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto;"><span class="infobox-media-caption">Seal</span></div>       </div>
-                        <div class="infobox-map">
-                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'">
-                            <div class="infobox-media-caption">${parseWiki(infoboxDataRecords['motto'] || '')}</div>
-                            <div class="infobox-media-caption" style="font-style:italic;">${parseWiki(infoboxDataRecords['nickname'] || '')}</div>
+                    <div class="portable-infobox country-infobox" style="border-top: 5px solid var(--wiki-blue);">
+                        <div class="infobox-title" style="background:var(--wiki-blue); color:white;">${parseWiki(infoboxDataRecords['name'] || currentActiveArticleKey)}</div>
+                        ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic; border-bottom:1px solid #eee; margin-bottom:5px;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
+                        ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
+                        
+                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
+                            <div class="infobox-media-box" style="border:none; background:none;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Flag</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Seal</span></div>
+                        </div>
+
+                        <div class="infobox-map" style="padding:10px 0; background:#fff;">
+                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="max-width:100%; height:auto; border-radius:4px;">
+                            ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
+                            ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
                         <table class="infobox-data-table">
                             ${row('Country', 'country')}
@@ -3695,7 +3736,15 @@
                 totalWords += wordCount;
                 const byteSize = article.content ? new Blob([article.content]).size : 0;
                 const linkedCount = calculateLinksTo(key);
-                const avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+                
+                // FIX: Use real average from database if possible, or fallback
+                let avgRating = 0;
+                if (article.ratings && article.ratings.length > 0) {
+                    avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+                } else if (article._avg_rating) {
+                    avgRating = parseFloat(article._avg_rating);
+                }
+                
                 const views = article.views || 0;
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views });
             }
@@ -3952,14 +4001,19 @@
 
             let images = new Set();
             for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                const matches = art.content.match(/\[\[File:([^|\]]+)/g);
-                if (matches) {
-                    matches.forEach(m => {
-                        const fileName = m.replace('[[File:', '');
-                        const url = orlePediaFileStore[fileName] || fileName;
-                        if (url.startsWith('http')) images.add(url);
-                    });
-                }
+                // Support both [[File:name]] and [[File|name]] and direct img links in templates
+                const matches = art.content.match(/\[\[File[:|]([^|\]\n]+)/g) || [];
+                const templateMatches = art.content.match(/img\d+\s*=\s*(https?:\/\/[^\s\n]+)/g) || [];
+                
+                matches.forEach(m => {
+                    const fileName = m.replace(/\[\[File[:|]/, '').trim();
+                    const url = orlePediaFileStore[fileName] || fileName;
+                    if (url.startsWith('http')) images.add(url);
+                });
+                templateMatches.forEach(m => {
+                    const url = m.split('=')[1].trim();
+                    if (url.startsWith('http')) images.add(url);
+                });
             }
 
             let html = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; padding:10px;">`;
@@ -3974,7 +4028,7 @@
         }
 
         // ============ CATEGORY EXPLORER VIEW MODULE ============
-        function loadCategoryView(categoryName) {
+        function loadCategoryView(categoryName, isRedirectTab = false) {
             // FIX 7: Category editing
             if(categoryName.startsWith('EDIT:')) {
                 const oldName = categoryName.replace('EDIT:', '');
@@ -4038,7 +4092,11 @@
                 }
                 allArticles.sort((a, b) => a.title.localeCompare(b.title));
                 allArticles.forEach(art => {
-                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></li>`;
+                    if (isRedirectTab) {
+                        matchedArticlesListHtml += `<li><span class="wiki-link" onclick="openSectionEditor(); loadArticle('${art.title}', false);">${art.title}</span></li>`;
+                    } else {
+                        matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></li>`;
+                    }
                 });
             } else if (categoryName === 'All') {
                 Array.from(categories).sort().forEach(cat => {
