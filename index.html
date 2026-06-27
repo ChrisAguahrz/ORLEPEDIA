@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1942,7 +1942,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions&limit=100');
+                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2061,8 +2061,12 @@
             window._appInitialized = true;
             // Force hide if stuck at 100%
             setTimeout(() => {
-                if (document.getElementById('globalLoadingOverlay')) hideLoadingScreen();
-            }, 1000);
+                const overlay = document.getElementById('globalLoadingOverlay');
+                if (overlay && !overlay.classList.contains('hidden')) {
+                    console.warn("Loading screen timed out. Forcing entry.");
+                    hideLoadingScreen();
+                }
+            }, 1500);
             return true;
         }
 
