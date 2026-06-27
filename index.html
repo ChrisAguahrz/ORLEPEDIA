@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1503,14 +1503,15 @@
 
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
 
-        <div class="nav-group">
-            <a class="nav-link" title="Meta Tools"><i data-lucide="settings"></i></a>
-            <div class="nav-sub-menu">
-                <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> Statistics</a>
-                <a onclick="openTemplateManager()"><i data-lucide="layout"></i> Templates</a>
-                <a onclick="switchSubTab('bulk')"><i data-lucide="download"></i> Bulk Download</a>
-            </div>
-        </div>
+                <div class="nav-group">
+                    <a class="nav-link" title="Meta Tools"><i data-lucide="settings"></i></a>
+                    <div class="nav-sub-menu">
+                        <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> Statistics</a>
+                        <a onclick="openTemplateManager()"><i data-lucide="layout"></i> Templates</a>
+                        <a onclick="switchSubTab('bulk')"><i data-lucide="download"></i> Bulk Download</a>
+                        <a onclick="switchSubTab('replace')"><i data-lucide="replace"></i> Global Replace</a>
+                    </div>
+                </div>
 
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         <a class="nav-link" onclick="openProfileWindow()" title="My Profile"><i data-lucide="user"></i></a>
@@ -2266,6 +2267,8 @@
 
             const authorName = article.history[0]?.editor_name || article.history[0]?.editor || article.author;
             
+            const vIndex = calculateVerifiabilityIndex(article);
+            
             pageInfoDiv.innerHTML = `
                 <div class="collapsible-panel">
                     <div class="collapsible-header" onclick="toggleCollapsible(this)">
@@ -2284,6 +2287,10 @@
                         <div class="sidebar-stat">
                             <span class="sidebar-stat-label">Total Revisions:</span>
                             <span class="sidebar-stat-value">${article.history.length}</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Verifiability:</span>
+                            <span class="sidebar-stat-value" style="color:${vIndex.color}; font-weight:bold;">${vIndex.label} (${vIndex.score.toFixed(1)})</span>
                         </div>
                         <div class="sidebar-stat">
                             <span class="sidebar-stat-label">Category:</span>
@@ -2651,6 +2658,9 @@
                 document.getElementById('tabBulk').classList.add('active');
                 renderBulkDownloadDashboard();
             }
+            else if (targetTab === 'replace') {
+                loadGlobalSearchReplaceView();
+            }
         }
 
         // ============ ADVANCED MEDIAWIKI PARSING REGEX PARSER MOTOR ENGINE ============
@@ -2739,17 +2749,17 @@
                     }
                 });
                 
-                const box = (src, cap) => {
+                const box = (src, cap, isFirst = false) => {
                     if (!src) return '';
-                    return `<div style="background:white; border:1px solid #ddd; padding:5px; border-radius:4px; flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <img src="${getImgSrcLocal(src)}" style="width:100%; height:auto; display:block; object-fit:contain;">
+                    return `<div style="background:white; border:1px solid #ddd; padding:5px; border-radius:4px; display:inline-flex; flex-direction:column; justify-content:center; align-items:center; width:fit-content; max-width:100%;">
+                        <img src="${getImgSrcLocal(src)}" style="max-width:100%; max-height:${isFirst ? '400px' : '300px'}; height:auto; display:block; object-fit:contain;">
                         ${cap ? `<div style="font-size:0.7rem; color:#666; margin-top:4px; text-align:center;">${cap}</div>` : ''}
                     </div>`;
                 };
 
-                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; gap:10px; margin:1rem 0; width:100%;">`;
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:10px; margin:1rem 0; width:100%;">`;
                 if (imgData['img1']) {
-                    html += `<div style="display:flex;">${box(imgData['img1'], imgData['txt1'])}</div>`;
+                    html += `<div style="display:flex; justify-content:center; width:100%;">${box(imgData['img1'], imgData['txt1'], true)}</div>`;
                 }
                 
                 for (let i = 2; i <= 8; i += 2) {
@@ -2955,12 +2965,12 @@
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         
                         <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Flag</span></div>
-                            <div class="infobox-media-box" style="border:none; background:none; height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Seal</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Flag</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Seal</span></div>
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="width: 100%; height: 200px; object-fit: fill; border-radius:4px;">
+                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="width: 100%; height: 250px; object-fit: fill; border-radius:4px;">
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
@@ -3654,6 +3664,112 @@
             lucide.createIcons();
         }
 
+        function calculateVerifiabilityIndex(article) {
+            if (!article) return { score: 0, label: "Unverifiable", color: "darkred" };
+            
+            // 60% Page Edits (Max 60, Min 2)
+            const editCount = article._rev_count || (article.history ? article.history.length : 0);
+            let editScore = Math.min(60, Math.max(2, editCount));
+            
+            // 20% Page Views (Max 100 views)
+            const views = article.views || 0;
+            let viewScore = Math.min(20, (views / 100) * 20);
+            
+            // 20% Page Size (Max 20000 bytes)
+            const byteSize = article.content ? new Blob([article.content]).size : 0;
+            let sizeScore = Math.min(20, (byteSize / 20000) * 20);
+            
+            const totalScore = (editScore + viewScore + sizeScore) / 10; // Scale 1-10
+            
+            if (totalScore >= 8) return { score: totalScore, label: "Highly Verifiable", color: "darkgreen" };
+            if (totalScore >= 6) return { score: totalScore, label: "Verifiable", color: "green" };
+            if (totalScore >= 5) return { score: totalScore, label: "Normal", color: "lightgreen" };
+            if (totalScore >= 3.5) return { score: totalScore, label: "Low Verifiability", color: "orange" };
+            if (totalScore >= 2) return { score: totalScore, label: "Very Low", color: "lightred" };
+            return { score: totalScore, label: "Unverifiable", color: "darkred" };
+        }
+
+        function loadGlobalSearchReplaceView() {
+            exitEditorDashboard();
+            closeArticleSidebar();
+            document.getElementById('displayArticleTitle').innerText = "Special: Global Search & Replace";
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+            
+            const container = document.getElementById('wikiTabContentBody');
+            container.innerHTML = `
+                <div style="padding:1.5rem;">
+                    <h3>Global Word Replacement</h3>
+                    <p style="color:var(--text-muted); margin-bottom:1.5rem;">Search for a specific keyword and replace it across all encyclopedia articles.</p>
+                    
+                    <div style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; margin-bottom:1.5rem;">
+                        <div style="display:flex; gap:10px; margin-bottom:1rem;">
+                            <input type="text" id="globalReplaceSearch" placeholder="Find word..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
+                            <input type="text" id="globalReplaceTarget" placeholder="Replace with..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        <button class="action-btn success" onclick="performGlobalReplaceSearch()">Search & List Articles</button>
+                    </div>
+                    
+                    <div id="globalReplaceResults" style="margin-top:1.5rem;"></div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function performGlobalReplaceSearch() {
+            const findText = document.getElementById('globalReplaceSearch').value.trim();
+            if (!findText) return alert("Please enter a word to find.");
+            
+            const results = [];
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                if (art.content && art.content.includes(findText)) {
+                    const count = (art.content.match(new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+                    results.push({ title, count });
+                }
+            }
+            
+            const resultsContainer = document.getElementById('globalReplaceResults');
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `<p style="color:grey;">No articles found containing "${findText}".</p>`;
+                return;
+            }
+            
+            resultsContainer.innerHTML = `
+                <p style="margin-bottom:1rem;">Found <b>${results.length}</b> articles containing "${findText}":</p>
+                <table class="stat-table" style="margin-bottom:1.5rem;">
+                    <thead><tr><th>Article</th><th>Occurrences</th></tr></thead>
+                    <tbody>
+                        ${results.map(r => `<tr><td>${r.title}</td><td>${r.count}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+                <button class="action-btn danger" onclick="commitGlobalReplace()">Commit Changes Across ${results.length} Articles</button>
+            `;
+        }
+
+        async function commitGlobalReplace() {
+            const findText = document.getElementById('globalReplaceSearch').value.trim();
+            const replaceText = document.getElementById('globalReplaceTarget').value;
+            
+            if (!confirm(`Are you sure you want to replace "${findText}" with "${replaceText}" across all listed articles? This cannot be undone.`)) return;
+            
+            let updatedCount = 0;
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                if (art.content && art.content.includes(findText)) {
+                    const newContent = art.content.split(findText).join(replaceText);
+                    art.content = newContent;
+                    
+                    // Persist to Supabase
+                    if (art._db_id) {
+                        await supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { content: newContent });
+                    }
+                    updatedCount++;
+                }
+            }
+            
+            triggerToastBannerNotification(`Successfully updated ${updatedCount} articles.`);
+            loadGlobalSearchReplaceView();
+        }
+
         // ============ RATING SYSTEM LOGIC ENGINE CALCULATOR ============
         function renderRatingStarsCluster() {
             const container = document.getElementById('articleStarsContainer');
@@ -3732,7 +3848,8 @@
                 }
                 
                 const views = article.views || 0;
-                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views });
+                const vIndex = calculateVerifiabilityIndex(article);
+                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views, vScore: vIndex.score, vLabel: vIndex.label, vColor: vIndex.color });
             }
 
             const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
@@ -3752,6 +3869,8 @@
             const bottomLinks = [...validStats].sort((a, b) => a.links - b.links).slice(0, 5);
             const topViews = [...validStats].sort((a, b) => b.views - a.views).slice(0, 5);
             const bottomViews = [...validStats].sort((a, b) => a.views - b.views).slice(0, 5);
+            const topVerifiable = [...validStats].sort((a, b) => b.vScore - a.vScore).slice(0, 5);
+            const bottomVerifiable = [...validStats].sort((a, b) => a.vScore - b.vScore).slice(0, 5);
 
             let statsHtml = `
                 <div class="statistics-grid">
@@ -3846,6 +3965,22 @@
                     <thead><tr><th>Article</th><th>Views</th></tr></thead>
                     <tbody>
                         ${bottomViews.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.views}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Top 5 Highly Verifiable Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Index</th></tr></thead>
+                    <tbody>
+                        ${topVerifiable.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td style="color:${art.vColor}; font-weight:bold;">${art.vLabel} (${art.vScore.toFixed(1)})</td></tr>`).join('')}
+                    </tbody>
+                </table>
+
+                <h3>Bottom 5 Least Verifiable Articles</h3>
+                <table class="stat-table">
+                    <thead><tr><th>Article</th><th>Index</th></tr></thead>
+                    <tbody>
+                        ${bottomVerifiable.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td style="color:${art.vColor}; font-weight:bold;">${art.vLabel} (${art.vScore.toFixed(1)})</td></tr>`).join('')}
                     </tbody>
                 </table>
             `;
