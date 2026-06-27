@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1572,7 +1572,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Map\\n|state = \\n|method = Highlight \\n|color = \\n|txt = \\n}}', '')">🗺️ Map</button>
-                <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', \']]')">↪️ Redirect</button>
+                <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', ']]')">↪️ Redirect</button>
             </div>
             <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
             
@@ -2937,7 +2937,7 @@
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
-                        ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${compileRawMarkupToHtml(infoboxDataRecords['images']).replace(/width:100%/g, 'width:80%').replace(/height:auto/g, 'height:auto')}</div>` : ''}
+                        ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${parseGlobalWiki(infoboxDataRecords['images'])}</div>` : ''}
                         <table class="infobox-data-table">
                             ${row('Country', 'country')}
                             ${row('State', 'state')}
