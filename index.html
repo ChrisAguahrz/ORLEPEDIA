@@ -1572,7 +1572,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Map\\n|state = \\n|method = Highlight \\n|color = \\n|txt = \\n}}', '')">🗺️ Map</button>
-                <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', ']]')">↪️ Redirect</button>
+                <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', \']]')">↪️ Redirect</button>
             </div>
             <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
             
@@ -2447,16 +2447,16 @@
             loadArticle(articleTitle);
         }
 
-        function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
+        function loadArticle(articleTitle, pushState = true) {
             // FIX 3: Check sessionStorage cache before using in-memory store
             const _cached = sessionStorage.getItem('article_' + articleTitle);
             if (_cached && !orlePediaMemoryStore[articleTitle]) {
                 try { orlePediaMemoryStore[articleTitle] = JSON.parse(_cached); } catch(e) {}
             }
             // Handle Redirects
-            if (!skipRedirect && orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
-                const match = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/);
-                if (match) return loadArticle(match[1], pushState);
+            if (orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
+                const target = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/)[1];
+                return loadArticle(target, pushState);
             }
 
             // Page View Tracking
@@ -2719,7 +2719,7 @@
                 return orlePediaFileStore[trimmed] || trimmed;
             };
 
-            // {{Images}} Template Refined
+            // {{Images}} Template
             const imagesRegex = /\{\{Images([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(imagesRegex, function(m, content) {
                 let imgData = {};
@@ -2730,27 +2730,24 @@
                     }
                 });
                 
-                const box = (src, cap) => {
-                    if (!src) return '';
-                    return `<div style="background:white; border:1px solid #ddd; padding:5px; border-radius:4px; flex:1;">
-                        <img src="${getImgSrcLocal(src)}" style="width:100%; height:auto; display:block;">
-                        ${cap ? `<div style="font-size:0.7rem; color:#666; margin-top:4px; text-align:center;">${cap}</div>` : ''}
-                    </div>`;
-                };
-
                 let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; gap:10px; margin:1rem 0; width:100%;">`;
                 if (imgData['img1']) {
-                    html += `<div style="display:flex;">${box(imgData['img1'], imgData['txt1'])}</div>`;
+                    html += `<div style="width:100%;"><img src="${getImgSrcLocal(imgData['img1'])}" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;"></div>`;
                 }
                 
+                let rows = [];
                 for (let i = 2; i <= 8; i += 2) {
-                    let imgA = imgData['img' + i], capA = imgData['txt' + i];
-                    let imgB = imgData['img' + (i + 1)], capB = imgData['txt' + (i + 1)];
+                    let imgA = imgData['img' + i];
+                    let imgB = imgData['img' + (i + 1)];
                     if (imgA || imgB) {
-                        html += `<div style="display:flex; gap:10px;">${box(imgA, capA)}${box(imgB, capB)}</div>`;
+                        rows.push(`<div style="display:flex; gap:10px;">
+                            <div style="flex:1;">${imgA ? `<img src="${getImgSrcLocal(imgA)}" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;">` : ''}</div>
+                            <div style="flex:1;">${imgB ? `<img src="${getImgSrcLocal(imgB)}" style="width:100%; height:auto; border:1px solid #ddd; border-radius:4px;">` : ''}</div>
+                        </div>`);
                     }
                 }
-                return html + `</div>`;
+                html += rows.join('') + `</div>`;
+                return html;
             });
 
             // {{Map}} Template Implementation
@@ -2778,7 +2775,7 @@
                         .then(data => {
                             const layer = L.geoJSON(data, {
                                 style: (feature) => {
-                                    const isTarget = (feature.properties.name || feature.properties.STATE || "").toLowerCase().trim() === (mData['state'] || "").toLowerCase().trim();
+                                    const isTarget = feature.properties.name === mData['state'] || feature.properties.STATE === mData['state'];
                                     return {
                                         fillColor: isTarget ? (mData['color'] || 'red') : '#ccc',
                                         weight: 1,
@@ -2789,17 +2786,13 @@
                                 }
                             }).addTo(map);
                             const bounds = layer.getBounds();
-                            if ((mData['method'] || "").toLowerCase() === 'zoom' && mData['state']) {
-                                const targetLayer = layer.getLayers().find(l => (l.feature.properties.name || l.feature.properties.STATE || "").toLowerCase().trim() === mData['state'].toLowerCase().trim());
+                            if (mData['method'] === 'zoom' && mData['state']) {
+                                const targetLayer = layer.getLayers().find(l => l.feature.properties.name === mData['state'] || l.feature.properties.STATE === mData['state']);
                                 if (targetLayer) map.fitBounds(targetLayer.getBounds());
                                 else map.fitBounds(bounds);
                             } else {
                                 map.fitBounds(bounds);
                             }
-                            map.dragging.disable();
-                            map.touchZoom.disable();
-                            map.doubleClickZoom.disable();
-                            map.scrollWheelZoom.disable();
                         })
                         .catch(err => {
                             container.innerHTML = `<p style="color:red; font-size:0.7rem;">Failed to load map data: (B) ORLAND STATES.geojson</p>`;
@@ -2844,7 +2837,7 @@
                         if (keyPrefix === 'pc') {
                             cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
                         } else if (keyPrefix === 'imgc') {
-                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:80px; height:80px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
+                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;" onerror="this.style.display='none'">` : ''}</td>`;
                         } else {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
                         }
@@ -2928,16 +2921,15 @@
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         
                         <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Flag</span></div>
-                            <div class="infobox-media-box" style="border:none; background:none; height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Seal</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Flag</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: auto; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Seal</span></div>
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="width: 100%; height: 200px; object-fit: fill; border-radius:4px;">
+                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="max-width:100%; height:auto; border-radius:4px;">
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
-                        ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${parseGlobalWiki(infoboxDataRecords['images'])}</div>` : ''}
                         <table class="infobox-data-table">
                             ${row('Country', 'country')}
                             ${row('State', 'state')}
@@ -3049,15 +3041,13 @@
                     }
                 });
                 
-                const tableId = 'table_' + Math.random().toString(36).substr(2, 9);
-                let html = `<table class="wiki-table sortable" id="${tableId}">`;
+                let html = `<table class="wiki-table">`;
                 if (params.title) html += `<caption style="font-weight:bold; padding:0.5rem; background:#f8f9fa; border:1px solid #a2a9b1; border-bottom:none;">${parseGlobalWiki(params.title)}</caption>`;
                 
                 html += `<thead><tr>`;
                 let colIdx = 1;
-                while (params['titlecolumn' + colIdx] || params['tc' + colIdx] || params['titlecolumn' + colIdx + 'txt'] || params['tc' + colIdx + 'txt']) {
-                    const t = params['titlecolumn' + colIdx] || params['tc' + colIdx] || params['titlecolumn' + colIdx + 'txt'] || params['tc' + colIdx + 'txt'] || "";
-                    html += `<th onclick="sortTable('${tableId}', ${colIdx-1})" style="cursor:pointer; font-weight:normal; font-size:0.9rem; background:#f2f2f2;">${parseGlobalWiki(t)} ↕️</th>`;
+                while (params['titlecolumn' + colIdx]) {
+                    html += `<th style="font-weight:normal; font-size:0.9rem; background:#f2f2f2;">${parseGlobalWiki(params['titlecolumn' + colIdx])}</th>`;
                     colIdx++;
                 }
                 html += `</tr></thead><tbody>`;
@@ -3142,9 +3132,9 @@
                                     }
                                 }
 
-                                rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt || " ")}</td>`;
+                                rowHtml += `<td colspan="${colspan}" rowspan="${rowspan}" style="background:#f9f9f9; font-weight:bold; text-align:center; vertical-align:middle;">${parseGlobalWiki(txt)}</td>`;
                             } else {
-                                rowHtml += `<td>${parseGlobalWiki(val || " ")}</td>`;
+                                rowHtml += `<td>${parseGlobalWiki(val)}</td>`;
                             }
                         }
                         rowHtml += `</tr>`;
@@ -4269,35 +4259,8 @@
         }
 
         function triggerToastBannerNotification(messageText) {
-            const old = document.querySelectorAll('.lite-toast');
-            old.forEach(o => o.remove());
-
-            const toast = document.createElement('div');
-            toast.className = 'lite-toast';
-            toast.innerText = messageText;
-            toast.style = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:8px 16px; border-radius:20px; font-size:0.8rem; z-index:10000; animation: fadeInOut 3s forwards;";
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-
-        function sortTable(tableId, colIdx) {
-            const table = document.getElementById(tableId);
-            const tbody = table.tBodies[0];
-            const rows = Array.from(tbody.rows);
-            const th = table.tHead.rows[0].cells[colIdx];
-            const currentDir = th.getAttribute('data-dir') || 'asc';
-            const newDir = currentDir === 'asc' ? 'desc' : 'asc';
-            
-            rows.sort((a, b) => {
-                const aVal = a.cells[colIdx]?.innerText || "";
-                const bVal = b.cells[colIdx]?.innerText || "";
-                return newDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-            });
-            
-            rows.forEach(row => tbody.appendChild(row));
-            th.setAttribute('data-dir', newDir);
-            const baseText = th.innerText.replace(/[🔼🔽↕️]/g, '').trim();
-            th.innerText = baseText + (newDir === 'asc' ? ' 🔼' : ' 🔽');
+            console.log(`[ALERT BROADCAST]: ${messageText}`);
+            alert(messageText);
         }
 
         function jumpToFootnotesSection() {
