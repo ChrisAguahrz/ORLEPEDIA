@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+        <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2032,7 +2032,7 @@
                         history: [
                             { timestamp: Date.parse(art.created_at) || Date.now(), editor: "ChrisAguahrz", tag: "admin", summary: "Restored from database.", content: art.content || '' }
                         ],
-                        ratings: [5],
+                        ratings: [],
                         createdTime: Date.parse(art.created_at) || Date.now()
                     };
                 });
@@ -3537,9 +3537,30 @@
             statusSpan.innerText = "Finalizing file...";
 
             if (format === 'txt') {
-                // For TXT, we just strip tags or give the HTML as is? 
-                // User asked for output like download article, which uses a blob.
-                const blob = new Blob([fullHtml], { type: 'text/plain' });
+                // For TXT, we provide clean, plain text article content
+                let cleanTxt = `ORLEPEDIA ENCYCLOPEDIA ARCHIVE\nGenerated: ${new Date().toLocaleString()}\nTotal Articles: ${titles.length}\n\n`;
+                cleanTxt += `================================================================================\n\n`;
+                
+                for (const t of titles) {
+                    const art = orlePediaMemoryStore[t];
+                    cleanTxt += `ARTICLE: ${t}\n`;
+                    cleanTxt += `CATEGORY: ${art.category}\n`;
+                    cleanTxt += `AUTHOR: ${art.author}\n`;
+                    cleanTxt += `--------------------------------------------------------------------------------\n\n`;
+                    
+                    // Remove wiki tags for clean text output
+                    let body = art.content || "";
+                    body = body.replace(/\[\[Category:.*?\]\]/g, "");
+                    body = body.replace(/\[\[File:.*?\]\]/g, "");
+                    body = body.replace(/\[\[File\|.*?\]\]/g, "");
+                    body = body.replace(/\[\[(.*?)\]\]/g, "$1"); // Simple link strip
+                    body = body.replace(/\{\{[\s\S]*?\}\}/g, ""); // Strip templates
+                    
+                    cleanTxt += body + `\n\n`;
+                    cleanTxt += `================================================================================\n\n`;
+                }
+                
+                const blob = new Blob([cleanTxt], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
