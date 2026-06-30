@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-        <meta charset="UTF-8">
+         <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2751,13 +2751,13 @@
                 
                 const box = (src, cap, isFirst = false) => {
                     if (!src) return '';
-                    return `<div style="background:white; border:1px solid #ddd; padding:5px; border-radius:4px; display:inline-flex; flex-direction:column; justify-content:center; align-items:center; width:fit-content; max-width:100%;">
-                        <img src="${getImgSrcLocal(src)}" style="max-width:100%; max-height:${isFirst ? '400px' : '300px'}; height:auto; display:block; object-fit:contain;">
-                        ${cap ? `<div style="font-size:0.7rem; color:#666; margin-top:4px; text-align:center;">${cap}</div>` : ''}
+                    return `<div style="padding:10px; border-radius:4px; display:inline-flex; flex-direction:column; justify-content:center; align-items:center; width:fit-content; max-width:calc(100% - 20px);">
+                        <img src="${getImgSrcLocal(src)}" style="max-width:100%; max-height:${isFirst ? '400px' : '300px'}; height:auto; display:block; object-fit:contain; border-radius:2px;">
+                        ${cap ? `<div style="font-size:0.7rem; color:#666; margin-top:6px; text-align:center;">${cap}</div>` : ''}
                     </div>`;
                 };
 
-                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:10px; margin:1rem 0; width:100%;">`;
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:10px; margin:1rem 0; width:100%; background:white; border:1px solid #ddd; padding:10px; border-radius:4px;">`;
                 if (imgData['img1']) {
                     html += `<div style="display:flex; justify-content:center; width:100%;">${box(imgData['img1'], imgData['txt1'], true)}</div>`;
                 }
@@ -2890,12 +2890,12 @@
                 };
 
                 compiledInfoboxHtmlString = `
-                    <div class="portable-infobox election-infobox" style="width:100%; max-width:400px; float:right; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem; overflow-x:auto;">
+                    <div class="portable-infobox election-infobox" style="width:100%; max-width:100%; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 0; font-size:0.8rem; overflow-x:visible;">
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
                         <div style="text-align:center; margin-bottom:0.8rem;">
                             <img src="${getImgSrc(eData['flag'])}" style="max-width:80px; border:1px solid #ddd;" onerror="this.style.display='none'">
                         </div>
-                        <table style="width:100%; border-collapse:collapse; min-width:300px;">
+                        <table style="width:100%; border-collapse:collapse; table-layout: fixed;">
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
                             <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
                             <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.src=eData['map']"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
@@ -2943,7 +2943,13 @@
 
                 const row = (label, key) => {
                     if (!infoboxDataRecords[key]) return "";
-                    return `<tr><th>${label}</th><td>${parseWiki(infoboxDataRecords[key])}</td></tr>`;
+                    let val = infoboxDataRecords[key];
+                    // Handle nested lists: * for list, ** for sub-list
+                    val = val.replace(/^\* (.*)/gm, '<li>$1</li>');
+                    val = val.replace(/^\*\* (.*)/gm, '<li style="font-size:0.85rem; margin-left:1rem; list-style-type:circle;">$1</li>');
+                    if (val.includes('<li>')) val = `<ul style="margin:0; padding-left:1.2rem; list-style-type:disc;">${val}</ul>`;
+                    
+                    return `<tr><th>${label}</th><td>${parseWiki(val)}</td></tr>`;
                 };
 
                 const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2">${label}</td></tr>`;
@@ -2970,7 +2976,7 @@
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="width: 100%; height: 250px; object-fit: fill; border-radius:4px;">
+                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="width: 100%; height: 350px; object-fit: fill; border-radius:4px;">
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
@@ -3248,18 +3254,20 @@
 
             let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;">Revision History Tracking Stream:</div>`;
 
-            for (let index = articleObj.history.length - 1; index >= 0; index--) {
+            // FIX: Newest first (history is already ordered by created_at desc from Supabase)
+            for (let index = 0; index < articleObj.history.length; index++) {
                 let revision = articleObj.history[index];
                 let timeString = new Date(revision.timestamp).toLocaleString();
 
                 let undoOptionButtonMarkup = "";
-                if (index === articleObj.history.length - 1 && articleObj.history.length > 1) {
+                // Undo button only on the CURRENT (newest) revision
+                if (index === 0 && articleObj.history.length > 1) {
                     undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
                 }
 
                 let byteChange = 0;
-                if (index > 0) {
-                    byteChange = calculateByteChange(articleObj.history[index - 1].content, revision.content);
+                if (index < articleObj.history.length - 1) {
+                    byteChange = calculateByteChange(articleObj.history[index + 1].content, revision.content);
                 }
 
                 const byteChangeClass = byteChange > 0 ? 'positive' : byteChange < 0 ? 'negative' : '';
@@ -3345,8 +3353,8 @@
             let currentSelectedContent = article.history[historyIndex].content;
 
             let baseContentStr = "";
-            if (parseInt(historyIndex) > 0) {
-                baseContentStr = article.history[historyIndex - 1].content;
+            if (parseInt(historyIndex) < article.history.length - 1) {
+                baseContentStr = article.history[parseInt(historyIndex) + 1].content;
             }
 
             let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
@@ -3688,19 +3696,19 @@
         function calculateVerifiabilityIndex(article) {
             if (!article) return { score: 0, label: "Unverifiable", color: "darkred" };
             
-            // 60% Page Edits (Max 60, Min 2)
+            // 60% Page Edits (Max 60, Min 2) - Adjusted to be more lenient
             const editCount = article._rev_count || (article.history ? article.history.length : 0);
-            let editScore = Math.min(60, Math.max(2, editCount));
+            let editScore = Math.min(60, editCount * 10); // Each edit worth 10 pts
             
             // 20% Page Views (Max 100 views)
             const views = article.views || 0;
-            let viewScore = Math.min(20, (views / 100) * 20);
+            let viewScore = Math.min(20, (views / 50) * 20); // 50 views for max pts
             
             // 20% Page Size (Max 20000 bytes)
             const byteSize = article.content ? new Blob([article.content]).size : 0;
-            let sizeScore = Math.min(20, (byteSize / 20000) * 20);
+            let sizeScore = Math.min(20, (byteSize / 5000) * 20); // 5KB for max pts
             
-            const totalScore = (editScore + viewScore + sizeScore) / 10; // Scale 1-10
+            const totalScore = Math.min(10, (editScore + viewScore + sizeScore) / 10); // Scale 1-10
             
             if (totalScore >= 8) return { score: totalScore, label: "Highly Verifiable", color: "darkgreen" };
             if (totalScore >= 6) return { score: totalScore, label: "Verifiable", color: "green" };
@@ -3860,12 +3868,12 @@
                 const byteSize = article.content ? new Blob([article.content]).size : 0;
                 const linkedCount = calculateLinksTo(key);
                 
-                // FIX: Use real average from database if possible, or fallback
+                // FIX: Pre-fetch real average from database if possible
                 let avgRating = 0;
-                if (article.ratings && article.ratings.length > 0) {
-                    avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
-                } else if (article._avg_rating) {
+                if (article._avg_rating !== undefined && article._avg_rating !== null) {
                     avgRating = parseFloat(article._avg_rating);
+                } else if (article.ratings && article.ratings.length > 0) {
+                    avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
                 }
                 
                 const views = article.views || 0;
