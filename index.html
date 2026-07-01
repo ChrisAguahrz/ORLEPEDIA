@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-            <meta charset="UTF-8">
+              <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2945,9 +2945,19 @@
                     if (!infoboxDataRecords[key]) return "";
                     let val = infoboxDataRecords[key];
                     // Handle nested lists: * for list, ** for sub-list
-                    val = val.replace(/^\*\* (.*)/gm, '<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">$1</li>');
-                    val = val.replace(/^\* (.*)/gm, '<li>$1</li>');
-                    if (val.includes('<li>')) val = `<ul style="margin:0; padding-left:1.2rem; list-style-type:disc;">${val}</ul>`;
+                    let listItems = val.split('\n').filter(l => l.trim().startsWith('*'));
+                    if (listItems.length > 0) {
+                        let listHtml = '<ul style="margin:0; padding-left:1.2rem; list-style-type:disc;">';
+                        listItems.forEach(item => {
+                            if (item.startsWith('**')) {
+                                listHtml += `<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">${parseWiki(item.substring(2).trim())}</li>`;
+                            } else if (item.startsWith('*')) {
+                                listHtml += `<li>${parseWiki(item.substring(1).trim())}</li>`;
+                            }
+                        });
+                        listHtml += '</ul>';
+                        val = listHtml;
+                    }
                     
                     return `<tr><th>${label}</th><td>${parseWiki(val)}</td></tr>`;
                 };
@@ -3545,7 +3555,6 @@
             statusSpan.innerText = "Finalizing file...";
 
             if (format === 'txt') {
-                // Restore original bulk download logic for TXT (HTML-based text)
                 const blob = new Blob([fullHtml], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -3561,13 +3570,19 @@
                     printWindow.print();
                     statusSpan.innerText = "Complete!";
                 }, 1000);
-            } else {
-                const ext = format === 'docx' ? 'doc' : 'ppt';
-                const blob = new Blob([fullHtml], { type: 'text/html' });
+            } else if (format === 'docx') {
+                const blob = new Blob([fullHtml], { type: 'application/msword' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `OrlePedia_Archive.${ext}`;
+                a.download = `OrlePedia_Archive.doc`;
+                a.click();
+            } else if (format === 'pptx') {
+                const blob = new Blob([fullHtml], { type: 'application/vnd.ms-powerpoint' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OrlePedia_Archive.ppt`;
                 a.click();
             }
             
@@ -3861,10 +3876,13 @@
                 
                 // FIX: Pre-fetch real average from database if possible
                 let avgRating = 0;
-                if (article._avg_rating !== undefined && article._avg_rating !== null) {
+                if (article._avg_rating !== undefined && article._avg_rating !== null && article._avg_rating > 0) {
                     avgRating = parseFloat(article._avg_rating);
                 } else if (article.ratings && article.ratings.length > 0) {
                     avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+                } else {
+                    // Final fallback: try to calculate from memory history if no avg exists
+                    avgRating = 0;
                 }
                 
                 const views = article.views || 0;
