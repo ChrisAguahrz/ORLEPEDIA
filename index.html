@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-              <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2751,13 +2751,13 @@
                 
                 const box = (src, cap, isFirst = false) => {
                     if (!src) return '';
-                    return `<div style="padding:10px; border-radius:4px; display:inline-flex; flex-direction:column; justify-content:center; align-items:center; width:fit-content; max-width:calc(100% - 20px);">
-                        <img src="${getImgSrcLocal(src)}" style="max-width:100%; max-height:${isFirst ? '400px' : '300px'}; height:auto; display:block; object-fit:contain; border-radius:2px;">
-                        ${cap ? `<div style="font-size:0.7rem; color:#666; margin-top:6px; text-align:center;">${cap}</div>` : ''}
+                    return `<div style="padding:10px; border-radius:4px; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; box-sizing:border-box;">
+                        <img src="${getImgSrcLocal(src)}" style="width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; display:block; object-fit:cover; border-radius:2px;">
+                        ${cap ? `<div style="font-size:0.75rem; color:#444; margin-top:8px; text-align:center; font-weight:500;">${cap}</div>` : ''}
                     </div>`;
                 };
 
-                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:15px; margin:1.5rem 0; width:calc(100% - 2px); background:#ffffff; border:1px solid #a2a9b1; padding:15px; border-radius:2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">`;
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:0; margin:1.5rem 0; width:100%; background:#ffffff; border:1px solid #a2a9b1; padding:0; border-radius:2px; overflow:hidden;">`;
                 if (imgData['img1']) {
                     html += `<div style="display:flex; justify-content:center; width:100%;">${box(imgData['img1'], imgData['txt1'], true)}</div>`;
                 }
@@ -2945,14 +2945,18 @@
                     if (!infoboxDataRecords[key]) return "";
                     let val = infoboxDataRecords[key];
                     // Handle nested lists: * for list, ** for sub-list
-                    let listItems = val.split('\n').filter(l => l.trim().startsWith('*'));
-                    if (listItems.length > 0) {
+                    let lines = val.split('\n');
+                    let hasList = lines.some(l => l.trim().startsWith('*'));
+                    if (hasList) {
                         let listHtml = '<ul style="margin:0; padding-left:1.2rem; list-style-type:disc;">';
-                        listItems.forEach(item => {
-                            if (item.startsWith('**')) {
-                                listHtml += `<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">${parseWiki(item.substring(2).trim())}</li>`;
-                            } else if (item.startsWith('*')) {
-                                listHtml += `<li>${parseWiki(item.substring(1).trim())}</li>`;
+                        lines.forEach(line => {
+                            let trimmed = line.trim();
+                            if (trimmed.startsWith('**')) {
+                                listHtml += `<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">${parseWiki(trimmed.substring(2).trim())}</li>`;
+                            } else if (trimmed.startsWith('*')) {
+                                listHtml += `<li>${parseWiki(trimmed.substring(1).trim())}</li>`;
+                            } else if (trimmed) {
+                                listHtml += `<div>${parseWiki(trimmed)}</div>`;
                             }
                         });
                         listHtml += '</ul>';
@@ -2986,7 +2990,9 @@
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.style.display='none'" style="width: 100%; height: 350px; object-fit: fill; border-radius:4px;">
+                            <div style="width: 100%; height: 300px; overflow: hidden; border-radius:4px; border: 1px solid #eee;">
+                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: cover;">
+                            </div>
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
@@ -3554,14 +3560,14 @@
             fullHtml += `</body></html>`;
             statusSpan.innerText = "Finalizing file...";
 
-            if (format === 'txt') {
-                const blob = new Blob([fullHtml], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `OrlePedia_Archive_${new Date().toISOString().split('T')[0]}.txt`;
-                a.click();
-            } else if (format === 'pdf') {
+            const blob = new Blob([fullHtml], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `OrlePedia_Archive_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.html`;
+            a.click();
+            
+            if (format === 'pdf') {
                 const printWindow = window.open('', '_blank');
                 printWindow.document.write(fullHtml);
                 printWindow.document.close();
@@ -3570,20 +3576,6 @@
                     printWindow.print();
                     statusSpan.innerText = "Complete!";
                 }, 1000);
-            } else if (format === 'docx') {
-                const blob = new Blob([fullHtml], { type: 'application/msword' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `OrlePedia_Archive.doc`;
-                a.click();
-            } else if (format === 'pptx') {
-                const blob = new Blob([fullHtml], { type: 'application/vnd.ms-powerpoint' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `OrlePedia_Archive.ppt`;
-                a.click();
             }
             
             statusSpan.innerText = "Download triggered!";
@@ -3867,7 +3859,7 @@
                 // Skip redirects from all counts
                 if (article.content && article.content.startsWith('#REDIRECT')) continue;
 
-                const editCount = article._rev_count || (article.history ? article.history.length : 0);
+                const editCount = parseInt(article._rev_count) || (article.history ? article.history.length : 0);
                 totalEdits += editCount;
                 const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
                 totalWords += wordCount;
