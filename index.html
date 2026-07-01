@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-         <meta charset="UTF-8">
+            <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2757,7 +2757,7 @@
                     </div>`;
                 };
 
-                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:10px; margin:1rem 0; width:100%; background:white; border:1px solid #ddd; padding:10px; border-radius:4px;">`;
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:15px; margin:1.5rem 0; width:calc(100% - 2px); background:#ffffff; border:1px solid #a2a9b1; padding:15px; border-radius:2px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">`;
                 if (imgData['img1']) {
                     html += `<div style="display:flex; justify-content:center; width:100%;">${box(imgData['img1'], imgData['txt1'], true)}</div>`;
                 }
@@ -2945,8 +2945,8 @@
                     if (!infoboxDataRecords[key]) return "";
                     let val = infoboxDataRecords[key];
                     // Handle nested lists: * for list, ** for sub-list
+                    val = val.replace(/^\*\* (.*)/gm, '<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">$1</li>');
                     val = val.replace(/^\* (.*)/gm, '<li>$1</li>');
-                    val = val.replace(/^\*\* (.*)/gm, '<li style="font-size:0.85rem; margin-left:1rem; list-style-type:circle;">$1</li>');
                     if (val.includes('<li>')) val = `<ul style="margin:0; padding-left:1.2rem; list-style-type:disc;">${val}</ul>`;
                     
                     return `<tr><th>${label}</th><td>${parseWiki(val)}</td></tr>`;
@@ -2980,7 +2980,7 @@
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
                         </div>
-                        ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${parseGlobalWiki(infoboxDataRecords['images'])}</div>` : ''}
+                        ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${compileRawMarkupToHtml(infoboxDataRecords['images'])}</div>` : ''}
                         <table class="infobox-data-table">
                             ${row('Country', 'country')}
                             ${row('State', 'state')}
@@ -3325,7 +3325,7 @@
                     // FIX 9: Word-level diff
                     let originalWords = originalLine.split(/(\s+)/);
                     let modifiedWords = modifiedLine.split(/(\s+)/);
-                    let diffLineHtml = `<div class="diff-line modified"><span class="diff-marker">M</span>`;
+                    let diffLineHtml = `<div class="diff-line modified" style="padding: 2px 5px;">`;
                     
                     let maxWords = Math.max(originalWords.length, modifiedWords.length);
                     for(let j=0; j<maxWords; j++) {
@@ -3334,14 +3334,14 @@
                         if(ow === mw) {
                             diffLineHtml += escapeHtmlCode(ow);
                         } else {
-                            if(ow) diffLineHtml += `<span style="background:var(--diff-remove-bg); color:var(--diff-remove-text); text-decoration:line-through;">${escapeHtmlCode(ow)}</span>`;
-                            if(mw) diffLineHtml += `<span style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold;">${escapeHtmlCode(mw)}</span>`;
+                            if(ow) diffLineHtml += `<span style="background:var(--diff-remove-bg); color:var(--diff-remove-text); text-decoration:line-through; padding: 0 2px;">${escapeHtmlCode(ow)}</span>`;
+                            if(mw) diffLineHtml += `<span style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold; padding: 0 2px;">${escapeHtmlCode(mw)}</span>`;
                         }
                     }
                     htmlDiffStreamRows += diffLineHtml + `</div>`;
                 } else {
                     if (oldTextLines[i] !== undefined) {
-                        htmlDiffStreamRows += `<div class="diff-line neutral"><span class="diff-marker"> </span>${escapeHtmlCode(originalLine)}</div>`;
+                        htmlDiffStreamRows += `<div class="diff-line neutral" style="padding: 2px 5px;">${escapeHtmlCode(originalLine)}</div>`;
                     }
                 }
             }
@@ -3545,30 +3545,8 @@
             statusSpan.innerText = "Finalizing file...";
 
             if (format === 'txt') {
-                // For TXT, we provide clean, plain text article content
-                let cleanTxt = `ORLEPEDIA ENCYCLOPEDIA ARCHIVE\nGenerated: ${new Date().toLocaleString()}\nTotal Articles: ${titles.length}\n\n`;
-                cleanTxt += `================================================================================\n\n`;
-                
-                for (const t of titles) {
-                    const art = orlePediaMemoryStore[t];
-                    cleanTxt += `ARTICLE: ${t}\n`;
-                    cleanTxt += `CATEGORY: ${art.category}\n`;
-                    cleanTxt += `AUTHOR: ${art.author}\n`;
-                    cleanTxt += `--------------------------------------------------------------------------------\n\n`;
-                    
-                    // Remove wiki tags for clean text output
-                    let body = art.content || "";
-                    body = body.replace(/\[\[Category:.*?\]\]/g, "");
-                    body = body.replace(/\[\[File:.*?\]\]/g, "");
-                    body = body.replace(/\[\[File\|.*?\]\]/g, "");
-                    body = body.replace(/\[\[(.*?)\]\]/g, "$1"); // Simple link strip
-                    body = body.replace(/\{\{[\s\S]*?\}\}/g, ""); // Strip templates
-                    
-                    cleanTxt += body + `\n\n`;
-                    cleanTxt += `================================================================================\n\n`;
-                }
-                
-                const blob = new Blob([cleanTxt], { type: 'text/plain' });
+                // Restore original bulk download logic for TXT (HTML-based text)
+                const blob = new Blob([fullHtml], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -3696,19 +3674,32 @@
         function calculateVerifiabilityIndex(article) {
             if (!article) return { score: 0, label: "Unverifiable", color: "darkred" };
             
-            // 60% Page Edits (Max 60, Min 2) - Adjusted to be more lenient
+            // 50% Revisions
             const editCount = article._rev_count || (article.history ? article.history.length : 0);
-            let editScore = Math.min(60, editCount * 10); // Each edit worth 10 pts
+            let editScore = Math.min(50, editCount * 5); 
             
-            // 20% Page Views (Max 100 views)
+            // 30% Rating
+            let avgRating = 0;
+            if (article._avg_rating !== undefined && article._avg_rating !== null) {
+                avgRating = parseFloat(article._avg_rating);
+            } else if (article.ratings && article.ratings.length > 0) {
+                avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+            }
+            let ratingScore = (avgRating / 5) * 30;
+            
+            // 10% Page views
             const views = article.views || 0;
-            let viewScore = Math.min(20, (views / 50) * 20); // 50 views for max pts
+            let viewScore = Math.min(10, (views / 100) * 10);
             
-            // 20% Page Size (Max 20000 bytes)
+            // 2% Ref tags
+            const refCount = (article.content.match(/<ref/g) || []).length;
+            let refScore = Math.min(2, refCount * 0.5);
+            
+            // 8% size (7000 bytes max)
             const byteSize = article.content ? new Blob([article.content]).size : 0;
-            let sizeScore = Math.min(20, (byteSize / 5000) * 20); // 5KB for max pts
+            let sizeScore = Math.min(8, (byteSize / 7000) * 8);
             
-            const totalScore = Math.min(10, (editScore + viewScore + sizeScore) / 10); // Scale 1-10
+            const totalScore = (editScore + ratingScore + viewScore + refScore + sizeScore) / 10; // Scale 1-10
             
             if (totalScore >= 8) return { score: totalScore, label: "Highly Verifiable", color: "darkgreen" };
             if (totalScore >= 6) return { score: totalScore, label: "Verifiable", color: "green" };
