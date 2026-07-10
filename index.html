@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+          <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2021,7 +2021,8 @@
                     orlePediaMemoryStore[art.title] = {
                         title: art.title,
                         _db_id: art.id,
-                        _rev_count: art.total_revisions || 1, // Store the count from the database
+                        _rev_count: art.total_revisions || 0,
+                        _avg_rating: art._avg_rating || 0,
                         views: art.views || 0,
                         _revisions_loaded: false,
                         _ratings_loaded: false,
@@ -2680,14 +2681,22 @@
 
             const listRegex = /\{\{List([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(listRegex, function(m, content) {
-                let listHtml = `<ul class="wiki-list">`;
+                let listHtml = `<ul class="wiki-list" style="list-style-type: disc; padding-left: 1.2rem;">`;
                 content.split('\n').forEach(line => {
                     let trimmed = line.trim();
-                    if (trimmed.startsWith('*')) {
+                    if (trimmed.startsWith('**')) {
+                        listHtml += `<li style="margin-left: 1.2rem; font-size: 0.75rem; list-style-type: circle;">${trimmed.substring(2).trim()}</li>`;
+                    } else if (trimmed.startsWith('*')) {
                         listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
                     }
                 });
                 return listHtml + `</ul>`;
+            });
+
+            // 11b. {{Related|ArticleName}} template
+            workingTextStr = workingTextStr.replace(/{{Related\|(.*?)}}/g, (match, title) => {
+                const t = title.trim();
+                return `<div class="manual-related-article" data-title="${t}" style="display:none;"></div>`;
             });
 
             const infoRegex = /\{\{Info\|(.*?)\}\}/g;
@@ -2752,12 +2761,12 @@
                 const box = (src, cap, isFirst = false) => {
                     if (!src) return '';
                     return `<div style="padding:10px; border-radius:4px; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; box-sizing:border-box;">
-                        <img src="${getImgSrcLocal(src)}" style="width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; display:block; object-fit:cover; border-radius:2px;">
+                        <img src="${getImgSrcLocal(src)}" style="width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; display:block; object-fit:contain; border-radius:2px; background:#f9f9f9;">
                         ${cap ? `<div style="font-size:0.75rem; color:#444; margin-top:8px; text-align:center; font-weight:500;">${cap}</div>` : ''}
                     </div>`;
                 };
 
-                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:0; margin:1.5rem 0; width:100%; background:#ffffff; border:1px solid #a2a9b1; padding:0; border-radius:2px; overflow:hidden;">`;
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:0; margin:1.5rem 0; width:100%; background:#ffffff; border:1px solid #a2a9b1; padding:0; border-radius:2px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05);">`;
                 if (imgData['img1']) {
                     html += `<div style="display:flex; justify-content:center; width:100%;">${box(imgData['img1'], imgData['txt1'], true)}</div>`;
                 }
@@ -2881,7 +2890,7 @@
                         if (keyPrefix === 'pc') {
                             cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
                         } else if (keyPrefix === 'imgc') {
-                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
+                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:85px; height:85px; border-radius:50%; object-fit:cover; border:1px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
                         } else {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
                         }
@@ -2990,8 +2999,8 @@
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <div style="width: 100%; height: 300px; overflow: hidden; border-radius:4px; border: 1px solid #eee;">
-                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div style="width: 100%; height: 350px; overflow: hidden; border-radius:4px; border: 1px solid #eee; background:#eee;">
+                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: contain;">
                             </div>
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
@@ -3468,41 +3477,36 @@
             triggerClientPreview();
         }
 
-        async function downloadAllArticles(format) {
-            const statusSpan = document.getElementById('bulkLoadStatus');
+        async function downloadAllArticles(format, customTitles = null) {
+            const statusSpan = document.getElementById('bulkLoadStatus') || { innerText: "" };
             
-            // Get sorted titles based on requirements
-            const titles = Object.keys(orlePediaMemoryStore).filter(t => {
+            let titles = customTitles || Object.keys(orlePediaMemoryStore).filter(t => {
                 const art = orlePediaMemoryStore[t];
-                // Avoid redirects and categories
                 if (art.content && art.content.startsWith('#REDIRECT')) return false;
                 if (t.startsWith('Category:')) return false;
                 return true;
-            }).sort((a, b) => {
-                // Special case: Orland is always first
-                if (a === 'Orland') return -1;
-                if (b === 'Orland') return 1;
-
-                const artA = orlePediaMemoryStore[a];
-                const artB = orlePediaMemoryStore[b];
-                
-                // Those without categories (General Indexes or empty) should be last
-                const catA_first = (artA.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
-                const catB_first = (artB.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
-                
-                const isUncategorizedA = catA_first === "General Indexes";
-                const isUncategorizedB = catB_first === "General Indexes";
-                
-                if (isUncategorizedA && !isUncategorizedB) return 1;
-                if (!isUncategorizedA && isUncategorizedB) return -1;
-                
-                if (catA_first !== catB_first) return catA_first.localeCompare(catB_first);
-                return a.localeCompare(b);
             });
+
+            if (!customTitles) {
+                titles.sort((a, b) => {
+                    if (a === 'Orland') return -1;
+                    if (b === 'Orland') return 1;
+                    const artA = orlePediaMemoryStore[a];
+                    const artB = orlePediaMemoryStore[b];
+                    const catA_first = (artA.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
+                    const catB_first = (artB.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
+                    const isUncategorizedA = catA_first === "General Indexes";
+                    const isUncategorizedB = catB_first === "General Indexes";
+                    if (isUncategorizedA && !isUncategorizedB) return 1;
+                    if (!isUncategorizedA && isUncategorizedB) return -1;
+                    if (catA_first !== catB_first) return catA_first.localeCompare(catB_first);
+                    return a.localeCompare(b);
+                });
+            }
             
             if (titles.length === 0) return alert("No articles found in memory.");
 
-            const includeImages = confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
+            const includeImages = customTitles ? true : confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
             
             statusSpan.innerText = `Preparing ${titles.length} articles...`;
             
@@ -3681,32 +3685,51 @@
         function calculateVerifiabilityIndex(article) {
             if (!article) return { score: 0, label: "Unverifiable", color: "darkred" };
             
-            // 50% Revisions
-            const editCount = article._rev_count || (article.history ? article.history.length : 0);
-            let editScore = Math.min(50, editCount * 5); 
-            
-            // 30% Rating
+            // Log base 10 helper
+            const log10 = (val) => val > 0 ? Math.log10(val) : 0;
+
+            // 15% Size (15000 max, 1000 min)
+            const byteSize = article.content ? new Blob([article.content]).size : 0;
+            let sizeScore = 0;
+            if (byteSize >= 1000) {
+                sizeScore = Math.min(15, (byteSize / 15000) * 15);
+            }
+
+            // 15% Sections (5 or more max, 1 min)
+            const sectionCount = (article.content.match(/^==[^=]/gm) || []).length;
+            let sectionScore = Math.min(15, (Math.max(1, sectionCount) / 5) * 15);
+
+            // 10% Images (5 max)
+            const imageCount = (article.content.match(/\[\[File:|{{Images/g) || []).length;
+            let imageScore = Math.min(10, (imageCount / 5) * 10);
+
+            // 5% References (3 max)
+            const refCount = (article.content.match(/<ref/g) || []).length;
+            let refScore = Math.min(5, (refCount / 3) * 5);
+
+            // 10% Views (80 max, 1 min, use log)
+            const views = article.views || 0;
+            let viewScore = Math.min(10, (log10(Math.max(1, views)) / log10(80)) * 10);
+
+            // 35% Revisions (40 max, 1 min, use log)
+            const editCount = parseInt(article._rev_count) || (article.history ? article.history.length : 0);
+            let editScore = Math.min(35, (log10(Math.max(1, editCount)) / log10(40)) * 35);
+
+            // 5% Page linking (20 max)
+            const linkedCount = calculateLinksTo(article.title);
+            let linkScore = Math.min(5, (linkedCount / 20) * 5);
+
+            // 5% Rating (5.0 max)
             let avgRating = 0;
-            if (article._avg_rating !== undefined && article._avg_rating !== null) {
+            if (article._avg_rating !== undefined && article._avg_rating !== null && article._avg_rating > 0) {
                 avgRating = parseFloat(article._avg_rating);
             } else if (article.ratings && article.ratings.length > 0) {
                 avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
             }
-            let ratingScore = (avgRating / 5) * 30;
-            
-            // 10% Page views
-            const views = article.views || 0;
-            let viewScore = Math.min(10, (views / 100) * 10);
-            
-            // 2% Ref tags
-            const refCount = (article.content.match(/<ref/g) || []).length;
-            let refScore = Math.min(2, refCount * 0.5);
-            
-            // 8% size (7000 bytes max)
-            const byteSize = article.content ? new Blob([article.content]).size : 0;
-            let sizeScore = Math.min(8, (byteSize / 7000) * 8);
-            
-            const totalScore = (editScore + ratingScore + viewScore + refScore + sizeScore) / 10; // Scale 1-10
+            let ratingScore = (avgRating / 5) * 5;
+
+            const totalScore = (sizeScore + sectionScore + imageScore + refScore + viewScore + editScore + linkScore + ratingScore); 
+            const finalScore = totalScore / 10; // Scale 1-10
             
             if (totalScore >= 8) return { score: totalScore, label: "Highly Verifiable", color: "darkgreen" };
             if (totalScore >= 6) return { score: totalScore, label: "Verifiable", color: "green" };
@@ -3856,27 +3879,15 @@
             };
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                // Skip redirects from all counts
                 if (article.content && article.content.startsWith('#REDIRECT')) continue;
 
-                const editCount = parseInt(article._rev_count) || (article.history ? article.history.length : 0);
+                const editCount = parseInt(article._rev_count) || 0;
                 totalEdits += editCount;
                 const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
                 totalWords += wordCount;
                 const byteSize = article.content ? new Blob([article.content]).size : 0;
                 const linkedCount = calculateLinksTo(key);
-                
-                // FIX: Pre-fetch real average from database if possible
-                let avgRating = 0;
-                if (article._avg_rating !== undefined && article._avg_rating !== null && article._avg_rating > 0) {
-                    avgRating = parseFloat(article._avg_rating);
-                } else if (article.ratings && article.ratings.length > 0) {
-                    avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
-                } else {
-                    // Final fallback: try to calculate from memory history if no avg exists
-                    avgRating = 0;
-                }
-                
+                const avgRating = parseFloat(article._avg_rating) || 0;
                 const views = article.views || 0;
                 const vIndex = calculateVerifiabilityIndex(article);
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views, vScore: vIndex.score, vLabel: vIndex.label, vColor: vIndex.color });
