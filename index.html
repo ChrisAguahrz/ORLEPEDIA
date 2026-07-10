@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-             <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1943,7 +1943,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views&limit=1000');
+                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2021,8 +2021,7 @@
                     orlePediaMemoryStore[art.title] = {
                         title: art.title,
                         _db_id: art.id,
-                        _rev_count: 0,
-                        _avg_rating: 0,
+                        _rev_count: art.total_revisions || 1, // Store the count from the database
                         views: art.views || 0,
                         _revisions_loaded: false,
                         _ratings_loaded: false,
@@ -2059,12 +2058,8 @@
                 console.log('📋 Diagnostics:\n' + diagnosticsLog.join('\n'));
             }
             
-                        switchSubTab(activeSubTabState);
+            switchSubTab(activeSubTabState);
             window._appInitialized = true;
-            
-            // Background statistics fetch - doesn't block startup
-            setTimeout(fetchStatisticsInBackground, 1000);
-            
             // Force hide if stuck at 100%
             setTimeout(() => {
                 const overlay = document.getElementById('globalLoadingOverlay');
@@ -2073,28 +2068,7 @@
                     hideLoadingScreen();
                 }
             }, 1500);
-            
             return true;
-        }
-
-        async function fetchStatisticsInBackground() {
-            try {
-                // Fetch stats for all articles in one go - lightweight
-                const stats = await supabaseRequest('articles?select=title,total_revisions,_avg_rating&limit=1000');
-                if (Array.isArray(stats)) {
-                    stats.forEach(s => {
-                        if (orlePediaMemoryStore[s.title]) {
-                            orlePediaMemoryStore[s.title]._rev_count = s.total_revisions || 0;
-                            orlePediaMemoryStore[s.title]._avg_rating = s._avg_rating || 0;
-                        }
-                    });
-                    console.log('✅ Background statistics sync complete');
-                    // Refresh stats view if currently open
-                    if (activeSubTabState === 'statistics') loadStatisticsView();
-                }
-            } catch (err) {
-                console.error('⚠️ Background stats fetch failed:', err);
-            }
         }
 
         function showDetailedError(title, message, diagnosticsLog) {
@@ -2706,22 +2680,14 @@
 
             const listRegex = /\{\{List([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(listRegex, function(m, content) {
-                let listHtml = `<ul class="wiki-list" style="list-style-type: disc; padding-left: 1.2rem;">`;
+                let listHtml = `<ul class="wiki-list">`;
                 content.split('\n').forEach(line => {
                     let trimmed = line.trim();
-                    if (trimmed.startsWith('**')) {
-                        listHtml += `<li style="margin-left: 1.2rem; font-size: 0.75rem; list-style-type: circle;">${trimmed.substring(2).trim()}</li>`;
-                    } else if (trimmed.startsWith('*')) {
+                    if (trimmed.startsWith('*')) {
                         listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
                     }
                 });
                 return listHtml + `</ul>`;
-            });
-
-            // 11b. {{Related|ArticleName}} template
-            workingTextStr = workingTextStr.replace(/{{Related\|(.*?)}}/g, (match, title) => {
-                const t = title.trim();
-                return `<div class="manual-related-article" data-title="${t}" style="display:none;"></div>`;
             });
 
             const infoRegex = /\{\{Info\|(.*?)\}\}/g;
@@ -2786,12 +2752,12 @@
                 const box = (src, cap, isFirst = false) => {
                     if (!src) return '';
                     return `<div style="padding:10px; border-radius:4px; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; box-sizing:border-box;">
-                        <img src="${getImgSrcLocal(src)}" style="width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; display:block; object-fit:contain; border-radius:2px; background:#f9f9f9;">
+                        <img src="${getImgSrcLocal(src)}" style="width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; display:block; object-fit:cover; border-radius:2px;">
                         ${cap ? `<div style="font-size:0.75rem; color:#444; margin-top:8px; text-align:center; font-weight:500;">${cap}</div>` : ''}
                     </div>`;
                 };
 
-                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:0; margin:1.5rem 0; width:100%; background:#ffffff; border:1px solid #a2a9b1; padding:0; border-radius:2px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05);">`;
+                let html = `<div class="wiki-images-container" style="display:flex; flex-direction:column; align-items:center; gap:0; margin:1.5rem 0; width:100%; background:#ffffff; border:1px solid #a2a9b1; padding:0; border-radius:2px; overflow:hidden;">`;
                 if (imgData['img1']) {
                     html += `<div style="display:flex; justify-content:center; width:100%;">${box(imgData['img1'], imgData['txt1'], true)}</div>`;
                 }
@@ -2876,7 +2842,7 @@
                             container.innerHTML = `<p style="color:red; font-size:0.7rem;">Failed to load map data: (B) ORLAND STATES.geojson</p>`;
                         });
                 }, 100);
-                return `<div id="${mapId}" class="wiki-map-container" style="height:350px; width:100%; background:#f0f0f0; border:1px solid #ddd; border-radius:4px; margin:1rem 0; overflow:hidden;"></div>
+                return `<div id="${mapId}" class="wiki-map-container" style="height:300px; width:100%; background:#f0f0f0; border:1px solid #ddd; border-radius:4px; margin:1rem 0; overflow:hidden;"></div>
                         ${mData['txt'] ? `<div style="font-size:0.8rem; text-align:center; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">${mData['txt']}</div>` : ''}`;
             });
 
@@ -2915,7 +2881,7 @@
                         if (keyPrefix === 'pc') {
                             cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
                         } else if (keyPrefix === 'imgc') {
-                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:85px; height:85px; border-radius:50%; object-fit:cover; border:1px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
+                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
                         } else {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
                         }
@@ -2986,7 +2952,7 @@
                         lines.forEach(line => {
                             let trimmed = line.trim();
                             if (trimmed.startsWith('**')) {
-                                listHtml += `<ul style="margin:0; padding-left:1.2rem; list-style-type:circle;"><li>${parseWiki(trimmed.substring(2).trim())}</li></ul>`;
+                                listHtml += `<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">${parseWiki(trimmed.substring(2).trim())}</li>`;
                             } else if (trimmed.startsWith('*')) {
                                 listHtml += `<li>${parseWiki(trimmed.substring(1).trim())}</li>`;
                             } else if (trimmed) {
@@ -3024,8 +2990,8 @@
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <div style="width: 100%; height: 350px; overflow: hidden; border-radius:4px; border: 1px solid #eee; background:#eee;">
-                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: contain;">
+                            <div style="width: 100%; height: 300px; overflow: hidden; border-radius:4px; border: 1px solid #eee;">
+                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: cover;">
                             </div>
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
@@ -3361,80 +3327,41 @@
         }
 
         function generateLineByLineGithubStyleDiff(oldTextRaw, newTextRaw) {
-            // Simple sentence splitting regex (can be improved for more complex cases)
-            const sentenceSplitter = /(?<=[.?!])\s+(?=[A-Z])/;
-
-            let oldSentences = oldTextRaw.split(sentenceSplitter);
-            let newSentences = newTextRaw.split(sentenceSplitter);
+            let oldTextLines = oldTextRaw.split('\n');
+            let newTextLines = newTextRaw.split('\n');
+            let longestIndexBound = Math.max(oldTextLines.length, newTextLines.length);
 
             let htmlDiffStreamRows = "";
 
-            // Add Copy Code button
-            htmlDiffStreamRows += `<button class="action-btn" onclick="copyToClipboard(document.getElementById('wikiTabContentBody').querySelector('.github-diff-board').innerText)" style="margin-bottom:1rem;">📋 Copy Diff</button>`;
+            for (let i = 0; i < longestIndexBound; i++) {
+                let originalLine = oldTextLines[i] || "";
+                let modifiedLine = newTextLines[i] || "";
 
-            // Basic sentence-level diff (can be enhanced with a proper diff algorithm)
-            let i = 0, j = 0;
-            while (i < oldSentences.length || j < newSentences.length) {
-                let oldSentence = oldSentences[i] || "";
-                let newSentence = newSentences[j] || "";
-
-                if (oldSentence === newSentence) {
-                    htmlDiffStreamRows += `<div class="diff-line neutral" style="padding: 2px 5px;">${escapeHtmlCode(oldSentence)}</div>`;
-                    i++;
-                    j++;
+                if (originalLine !== modifiedLine) {
+                    // FIX 9: Word-level diff
+                    let originalWords = originalLine.split(/(\s+)/);
+                    let modifiedWords = modifiedLine.split(/(\s+)/);
+                    let diffLineHtml = `<div class="diff-line modified" style="padding: 2px 5px;">`;
+                    
+                    let maxWords = Math.max(originalWords.length, modifiedWords.length);
+                    for(let j=0; j<maxWords; j++) {
+                        let ow = originalWords[j] || "";
+                        let mw = modifiedWords[j] || "";
+                        if(ow === mw) {
+                            diffLineHtml += escapeHtmlCode(ow);
+                        } else {
+                            if(ow) diffLineHtml += `<span style="background:var(--diff-remove-bg); color:var(--diff-remove-text); text-decoration:line-through; padding: 0 2px;">${escapeHtmlCode(ow)}</span>`;
+                            if(mw) diffLineHtml += `<span style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold; padding: 0 2px;">${escapeHtmlCode(mw)}</span>`;
+                        }
+                    }
+                    htmlDiffStreamRows += diffLineHtml + `</div>`;
                 } else {
-                    // If sentences are different, try to find a match further down
-                    let foundMatch = false;
-                    // Look for newSentence in remaining oldSentences
-                    for (let k = i + 1; k < oldSentences.length; k++) {
-                        if (oldSentences[k] === newSentence) {
-                            // oldSentence(s) deleted
-                            for (let l = i; l < k; l++) {
-                                htmlDiffStreamRows += `<div class="diff-line removed" style="background:var(--diff-remove-bg); color:var(--diff-remove-text); text-decoration:line-through; padding: 2px 5px;">${escapeHtmlCode(oldSentences[l])}</div>`;
-                            }
-                            i = k;
-                            foundMatch = true;
-                            break;
-                        }
-                    }
-                    if (!foundMatch) {
-                        // Look for oldSentence in remaining newSentences
-                        for (let k = j + 1; k < newSentences.length; k++) {
-                            if (newSentences[k] === oldSentence) {
-                                // newSentence(s) added
-                                for (let l = j; l < k; l++) {
-                                    htmlDiffStreamRows += `<div class="diff-line added" style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold; padding: 2px 5px;">${escapeHtmlCode(newSentences[l])}</div>`;
-                                }
-                                j = k;
-                                foundMatch = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (!foundMatch) {
-                        // No direct match found, treat as modified or added/removed if one is empty
-                        if (oldSentence) {
-                            htmlDiffStreamRows += `<div class="diff-line removed" style="background:var(--diff-remove-bg); color:var(--diff-remove-text); text-decoration:line-through; padding: 2px 5px;">${escapeHtmlCode(oldSentence)}</div>`;
-                            i++;
-                        }
-                        if (newSentence) {
-                            htmlDiffStreamRows += `<div class="diff-line added" style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold; padding: 2px 5px;">${escapeHtmlCode(newSentence)}</div>`;
-                            j++;
-                        }
+                    if (oldTextLines[i] !== undefined) {
+                        htmlDiffStreamRows += `<div class="diff-line neutral" style="padding: 2px 5px;">${escapeHtmlCode(originalLine)}</div>`;
                     }
                 }
             }
             return htmlDiffStreamRows;
-        }
-
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(() => {
-                triggerToastBannerNotification('📋 Copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy: ', err);
-                triggerToastBannerNotification('⚠️ Failed to copy to clipboard.');
-            });
         }
 
         function renderSingleSummaryDiff(historyIndex) {
@@ -3447,8 +3374,8 @@
             }
 
             let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
-            let displayTargetBox = document.getElementById("wikiTabContentBody");
-            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab(\'history\')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
+            let displayTargetBox = document.getElementById('wikiTabContentBody');
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
 
             displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
         }
@@ -3541,36 +3468,41 @@
             triggerClientPreview();
         }
 
-        async function downloadAllArticles(customTitles = null) {
-            const statusSpan = document.getElementById('bulkLoadStatus') || { innerText: "" };
+        async function downloadAllArticles(format) {
+            const statusSpan = document.getElementById('bulkLoadStatus');
             
-            let titles = customTitles || Object.keys(orlePediaMemoryStore).filter(t => {
+            // Get sorted titles based on requirements
+            const titles = Object.keys(orlePediaMemoryStore).filter(t => {
                 const art = orlePediaMemoryStore[t];
+                // Avoid redirects and categories
                 if (art.content && art.content.startsWith('#REDIRECT')) return false;
                 if (t.startsWith('Category:')) return false;
                 return true;
-            });
+            }).sort((a, b) => {
+                // Special case: Orland is always first
+                if (a === 'Orland') return -1;
+                if (b === 'Orland') return 1;
 
-            if (!customTitles) {
-                titles.sort((a, b) => {
-                    if (a === 'Orland') return -1;
-                    if (b === 'Orland') return 1;
-                    const artA = orlePediaMemoryStore[a];
-                    const artB = orlePediaMemoryStore[b];
-                    const catA_first = (artA.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
-                    const catB_first = (artB.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
-                    const isUncategorizedA = catA_first === "General Indexes";
-                    const isUncategorizedB = catB_first === "General Indexes";
-                    if (isUncategorizedA && !isUncategorizedB) return 1;
-                    if (!isUncategorizedA && isUncategorizedB) return -1;
-                    if (catA_first !== catB_first) return catA_first.localeCompare(catB_first);
-                    return a.localeCompare(b);
-                });
-            }
+                const artA = orlePediaMemoryStore[a];
+                const artB = orlePediaMemoryStore[b];
+                
+                // Those without categories (General Indexes or empty) should be last
+                const catA_first = (artA.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
+                const catB_first = (artB.content.match(/\[\[Category:([^\]]+)\]\]/) || [])[1] || "General Indexes";
+                
+                const isUncategorizedA = catA_first === "General Indexes";
+                const isUncategorizedB = catB_first === "General Indexes";
+                
+                if (isUncategorizedA && !isUncategorizedB) return 1;
+                if (!isUncategorizedA && isUncategorizedB) return -1;
+                
+                if (catA_first !== catB_first) return catA_first.localeCompare(catB_first);
+                return a.localeCompare(b);
+            });
             
             if (titles.length === 0) return alert("No articles found in memory.");
 
-            const includeImages = customTitles ? true : confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
+            const includeImages = confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
             
             statusSpan.innerText = `Preparing ${titles.length} articles...`;
             
@@ -3632,79 +3564,25 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `OrlePedia_Archive_${new Date().toISOString().split('T')[0]}.html`;
+            a.download = `OrlePedia_Archive_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.html`;
             a.click();
             
-
+            if (format === 'pdf') {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(fullHtml);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => {
+                    printWindow.print();
+                    statusSpan.innerText = "Complete!";
+                }, 1000);
+            }
             
             statusSpan.innerText = "Download triggered!";
             setTimeout(() => { statusSpan.innerText = ""; }, 5000);
         }
 
-        async function downloadCategoryArticles() {
-            const categorySelect = document.getElementById("categorySelect");
-            const selectedCategory = categorySelect.value;
-            const statusSpan = document.getElementById("categoryLoadStatus") || { innerText: "" };
-
-            if (!selectedCategory) {
-                alert("Please select a category to download.");
-                return;
-            }
-
-            statusSpan.innerText = `Preparing articles in ${selectedCategory}...`;
-
-            const categoryArticles = Object.values(orlePediaMemoryStore).filter(art => 
-                art.content && art.content.includes(`[[Category:${selectedCategory}]]`)
-            ).map(art => art.title);
-
-            if (categoryArticles.length === 0) {
-                alert(`No articles found in category: ${selectedCategory}`);
-                statusSpan.innerText = "";
-                return;
-            }
-
-            await downloadAllArticles(categoryArticles);
-            statusSpan.innerText = "Download triggered!";
-            setTimeout(() => { statusSpan.innerText = ""; }, 5000);
-        }
-
-        function populateCategoryDropdown() {
-            const categorySelect = document.getElementById("categorySelect");
-            if (!categorySelect) return;
-
-            let categories = new Set();
-            for (const title in orlePediaMemoryStore) {
-                const article = orlePediaMemoryStore[title];
-                if (article.content) {
-                    const matches = article.content.match(/\[\[Category:([^\]]+)\]\]/g);
-                    if (matches) {
-                        matches.forEach(match => {
-                            const categoryName = match.match(/\[\[Category:([^\]]+)\]\]/)[1];
-                            categories.add(categoryName);
-                        });
-                    }
-                }
-            }
-
-            categorySelect.innerHTML = 
-                `<option value="">-- Select Category --</option>` +
-                Array.from(categories).sort().map(cat => 
-                    `<option value="${cat}">${cat}</option>`
-                ).join("");
-        }
-
-        // Call populateCategoryDropdown when the download dashboard is rendered
-        const originalRenderBulkDownloadDashboard = renderBulkDownloadDashboard;
-        renderBulkDownloadDashboard = function() {
-            originalRenderBulkDownloadDashboard();
-            populateCategoryDropdown();
-        };
-        }
-
-        async function downloadArticle() {
-            const statusSpan = document.getElementById("individualLoadStatus") || { innerText: "" };
-            statusSpan.innerText = "Preparing download...";
-
+        async function downloadArticle(format) {
             const title = currentActiveArticleKey;
             const article = orlePediaMemoryStore[title];
             
@@ -3748,77 +3626,27 @@
                 </html>
             `;
 
-            const blob = new Blob([htmlContent], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
+            if (format === 'pdf') {
+                const printWindow = window.open('', '_blank', 'width=800,height=600');
+                if (printWindow) {
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => printWindow.print(), 500);
+                }
+            } else {
+                const ext = format === 'docx' ? 'doc' : 'ppt';
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.html`;
-
+                a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.${ext}.html`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
             }
         }
-
-        async function downloadCategoryArticles() {
-            const categorySelect = document.getElementById("categorySelect");
-            const selectedCategory = categorySelect.value;
-            const statusSpan = document.getElementById("categoryLoadStatus") || { innerText: "" };
-
-            if (!selectedCategory) {
-                alert("Please select a category to download.");
-                return;
-            }
-
-            statusSpan.innerText = `Preparing articles in ${selectedCategory}...`;
-
-            const categoryArticles = Object.values(orlePediaMemoryStore).filter(art => 
-                art.content && art.content.includes(`[[Category:${selectedCategory}]]`)
-            ).map(art => art.title);
-
-            if (categoryArticles.length === 0) {
-                alert(`No articles found in category: ${selectedCategory}`);
-                statusSpan.innerText = "";
-                return;
-            }
-
-            await downloadAllArticles(categoryArticles);
-            statusSpan.innerText = "Download triggered!";
-            setTimeout(() => { statusSpan.innerText = ""; }, 5000);
-        }
-
-        function populateCategoryDropdown() {
-            const categorySelect = document.getElementById("categorySelect");
-            if (!categorySelect) return;
-
-            let categories = new Set();
-            for (const title in orlePediaMemoryStore) {
-                const article = orlePediaMemoryStore[title];
-                if (article.content) {
-                    const matches = article.content.match(/\[\[Category:([^\]]+)\]\]/g);
-                    if (matches) {
-                        matches.forEach(match => {
-                            const categoryName = match.match(/\[\[Category:([^\]]+)\]\]/)[1];
-                            categories.add(categoryName);
-                        });
-                    }
-                }
-            }
-
-            categorySelect.innerHTML = 
-                `<option value="">-- Select Category --</option>` +
-                Array.from(categories).sort().map(cat => 
-                    `<option value="${cat}">${cat}</option>`
-                ).join("");
-        }
-
-        // Call populateCategoryDropdown when the download dashboard is rendered
-        const originalRenderBulkDownloadDashboard = renderBulkDownloadDashboard;
-        renderBulkDownloadDashboard = function() {
-            originalRenderBulkDownloadDashboard();
-            populateCategoryDropdown();
-        };
 
         function executePermanentDeletion() {
             if (confirm("⚠️ WARNING: This will permanently delete the article and all its history from the database. This cannot be undone. Proceed?")) {
@@ -3836,29 +3664,13 @@
                 <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
                     <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
                         <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Bulk Encyclopedia Archive Download</h3>
-                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Compile and download the entire encyclopedia library.</p>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Compile and download the entire encyclopedia library. Note: Large databases may take a moment to process.</p>
                         <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
-                            <button class="action-btn" onclick="downloadAllArticles()" id="bulkDownHtml">Download All (HTML)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('pdf')" id="bulkDownPdf">Download All (PDF)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('docx')" id="bulkDownDocx">Download All (DOCX)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('pptx')" id="bulkDownPptx">Download All (PPTX)</button>
+                            <button class="action-btn" onclick="downloadAllArticles('txt')" id="bulkDownTxt">Download All (TXT)</button>
                             <span id="bulkLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
-                        </div>
-                    </section>
-
-                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
-                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Download by Category</h3>
-                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Select a category to download all articles within it.</p>
-                        <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
-                            <select id="categorySelect" style="padding:8px; border:1px solid #ccc; border-radius:4px;"></select>
-                            <button class="action-btn" onclick="downloadCategoryArticles()">Download Category (HTML)</button>
-                            <span id="categoryLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
-                        </div>
-                    </section>
-
-                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
-                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Download Individual Article</h3>
-                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Download the currently viewed article.</p>
-                        <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
-                            <button class="action-btn" onclick="downloadArticle()">Download Current Article (HTML)</button>
-                            <span id="individualLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
                         </div>
                     </section>
                 </div>
@@ -3869,44 +3681,37 @@
         function calculateVerifiabilityIndex(article) {
             if (!article) return { score: 0, label: "Unverifiable", color: "darkred" };
             
-            // Log base 10 helper
-            const log10 = (val) => val > 0 ? Math.log10(val) : 0;
-
-            // New Formula: 50% References, 30% Revisions, 10% Size, 2% Views, 8% Ratings
-
-            // 50% References (5 max)
-            const refCount = (article.content.match(/<ref/g) || []).length;
-            let refScore = Math.min(50, (refCount / 5) * 50);
-
-            // 30% Revisions (40 max, 1 min, use log)
-            const editCount = parseInt(article._rev_count) || (article.history ? article.history.length : 0);
-            let editScore = Math.min(30, (log10(Math.max(1, editCount)) / log10(40)) * 30);
-
-            // 10% Size (15000 max, 1000 min)
-            const byteSize = article.content ? new Blob([article.content]).size : 0;
-            let sizeScore = Math.min(10, (byteSize / 15000) * 10);
-
-            // 2% Views (80 max, 1 min, use log)
-            const views = article.views || 0;
-            let viewScore = Math.min(2, (log10(Math.max(1, views)) / log10(80)) * 2);
-
-            // 8% Rating (5.0 max)
+            // 50% Revisions
+            const editCount = article._rev_count || (article.history ? article.history.length : 0);
+            let editScore = Math.min(50, editCount * 5); 
+            
+            // 30% Rating
             let avgRating = 0;
-            if (article._avg_rating !== undefined && article._avg_rating !== null && article._avg_rating > 0) {
+            if (article._avg_rating !== undefined && article._avg_rating !== null) {
                 avgRating = parseFloat(article._avg_rating);
             } else if (article.ratings && article.ratings.length > 0) {
                 avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
             }
-            let ratingScore = (avgRating / 5) * 8;
-
-            const totalScore = (refScore + editScore + sizeScore + viewScore + ratingScore); 
-            const finalScore = totalScore / 10; // Scale 1-10
+            let ratingScore = (avgRating / 5) * 30;
             
-            if (finalScore >= 8) return { score: finalScore, label: "Highly Verifiable", color: "darkgreen" };
-            if (finalScore >= 6) return { score: finalScore, label: "Verifiable", color: "green" };
-            if (finalScore >= 4) return { score: finalScore, label: "Moderately Verifiable", color: "orange" };
-            return { score: finalScore, label: "Low Verifiability", color: "red" };
-        }
+            // 10% Page views
+            const views = article.views || 0;
+            let viewScore = Math.min(10, (views / 100) * 10);
+            
+            // 2% Ref tags
+            const refCount = (article.content.match(/<ref/g) || []).length;
+            let refScore = Math.min(2, refCount * 0.5);
+            
+            // 8% size (7000 bytes max)
+            const byteSize = article.content ? new Blob([article.content]).size : 0;
+            let sizeScore = Math.min(8, (byteSize / 7000) * 8);
+            
+            const totalScore = (editScore + ratingScore + viewScore + refScore + sizeScore) / 10; // Scale 1-10
+            
+            if (totalScore >= 8) return { score: totalScore, label: "Highly Verifiable", color: "darkgreen" };
+            if (totalScore >= 6) return { score: totalScore, label: "Verifiable", color: "green" };
+            if (totalScore >= 5) return { score: totalScore, label: "Normal", color: "lightgreen" };
+            if (totalScore >= 3.5) return { score: totalScore, label: "Low Verifiability", color: "orange" };
             if (totalScore >= 2) return { score: totalScore, label: "Very Low", color: "lightred" };
             return { score: totalScore, label: "Unverifiable", color: "darkred" };
         }
@@ -4037,19 +3842,6 @@
             let totalWords = 0;
             let pageStats = [];
 
-            // Check if background stats have been fetched
-            const statsLoaded = Object.values(orlePediaMemoryStore).some(article => article._rev_count !== undefined || article._avg_rating !== undefined);
-
-            if (!statsLoaded) {
-                document.getElementById('wikiTabContentBody').innerHTML = `
-                    <div style="text-align:center; padding:2rem; color:var(--text-muted);">
-                        <p>Loading statistics... Please wait a moment while we fetch the latest data.</p>
-                        <p>This may take a few seconds depending on the number of articles.</p>
-                    </div>
-                `;
-                return;
-            }
-
             const calculateLinksTo = (title) => {
                 let count = 0;
                 for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
@@ -4064,15 +3856,27 @@
             };
 
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                // Skip redirects from all counts
                 if (article.content && article.content.startsWith('#REDIRECT')) continue;
 
-                const editCount = parseInt(article._rev_count) || 0;
+                const editCount = parseInt(article._rev_count) || (article.history ? article.history.length : 0);
                 totalEdits += editCount;
                 const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
                 totalWords += wordCount;
                 const byteSize = article.content ? new Blob([article.content]).size : 0;
                 const linkedCount = calculateLinksTo(key);
-                const avgRating = parseFloat(article._avg_rating) || 0;
+                
+                // FIX: Pre-fetch real average from database if possible
+                let avgRating = 0;
+                if (article._avg_rating !== undefined && article._avg_rating !== null && article._avg_rating > 0) {
+                    avgRating = parseFloat(article._avg_rating);
+                } else if (article.ratings && article.ratings.length > 0) {
+                    avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
+                } else {
+                    // Final fallback: try to calculate from memory history if no avg exists
+                    avgRating = 0;
+                }
+                
                 const views = article.views || 0;
                 const vIndex = calculateVerifiabilityIndex(article);
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views, vScore: vIndex.score, vLabel: vIndex.label, vColor: vIndex.color });
@@ -4866,4 +4670,4 @@
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
-    </html>
+  </html>
