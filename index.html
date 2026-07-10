@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+             <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1514,6 +1514,8 @@
                 </div>
 
         <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
+        <a class="nav-link" onclick="switchSubTab('bulk')" title="Bulk Download"><i data-lucide="archive"></i></a>
+        <div style="border-top:1px solid var(--border-wiki); margin:0.5rem 0;"></div>
         <a class="nav-link" onclick="openProfileWindow()" title="My Profile"><i data-lucide="user"></i></a>
     </aside>
 
@@ -2545,26 +2547,56 @@
                 // RELATED ARTICLES LOGIC
                 let relatedArticles = [];
                 const currentCats = (targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
-                
+
+                // Extract all wiki-linked titles from current article
+                const currentLinkedTitles = new Set();
+                (targetArticle.content.match(/\[\[([^|\]#]+)/g) || []).forEach(m => {
+                    const t = m.replace('[[', '').trim();
+                    if (!t.startsWith('Category:') && !t.startsWith('File:')) currentLinkedTitles.add(t);
+                });
+
                 for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
                     if (title === currentActiveArticleKey) continue;
                     // Exclude redirects from See Also
                     if (art.content && art.content.startsWith('#REDIRECT')) continue;
+                    // Only consider articles in same categories
+                    const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                    const sharedCats = currentCats.filter(cat => artCats.includes(cat));
+                    if (sharedCats.length === 0) continue;
 
                     let score = 0;
-                    const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
-                    
-                // Match categories (20 points each)
-                currentCats.forEach(cat => { if (artCats.includes(cat)) score += 20; });
-                
-                // Count mentions of this article in the current article (10 points each)
-                const mentionRegex = new RegExp(`\\[\\[${title}(\\||\\]\\])`, 'g');
-                const matches = targetArticle.content.match(mentionRegex);
-                if (matches) score += (matches.length * 10);
-                    
+
+                    // Measure 1: Shared categories (20 points each)
+                    score += sharedCats.length * 20;
+
+                    // Measure 2: How many times current article links to this article
+                    const mentionRegex = new RegExp(`\\[\\[${title}(\\||\\]\\])`, 'g');
+                    const mentionsInCurrent = (targetArticle.content.match(mentionRegex) || []).length;
+                    score += mentionsInCurrent * 10;
+
+                    // Measure 3: How many times this article links back to the current article
+                    const backLinkRegex = new RegExp(`\\[\\[${currentActiveArticleKey}(\\||\\]\\])`, 'g');
+                    const backLinks = (art.content.match(backLinkRegex) || []).length;
+                    score += backLinks * 10;
+
+                    // Measure 4: Mutual linked titles (titles that both articles link to)
+                    const artLinkedTitles = new Set();
+                    (art.content.match(/\[\[([^|\]#]+)/g) || []).forEach(m => {
+                        const t = m.replace('[[', '').trim();
+                        if (!t.startsWith('Category:') && !t.startsWith('File:')) artLinkedTitles.add(t);
+                    });
+                    let mutualLinks = 0;
+                    currentLinkedTitles.forEach(t => { if (artLinkedTitles.has(t)) mutualLinks++; });
+                    score += mutualLinks * 5;
+
+                    // Measure 5: How many times this article's title is mentioned (plain text) in current article
+                    const plainMentionRegex = new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    const plainMentions = (targetArticle.content.match(plainMentionRegex) || []).length;
+                    score += plainMentions * 3;
+
                     if (score > 0) relatedArticles.push({ title, score, content: art.content });
                 }
-                
+
                 relatedArticles.sort((a, b) => b.score - a.score);
                 const displayRelated = relatedArticles.slice(0, 3);
                 
@@ -2683,7 +2715,9 @@
                 let listHtml = `<ul class="wiki-list">`;
                 content.split('\n').forEach(line => {
                     let trimmed = line.trim();
-                    if (trimmed.startsWith('*')) {
+                    if (trimmed.startsWith('**')) {
+                        listHtml += `<li style="margin-left:1.5rem; list-style-type:circle;">${trimmed.substring(2).trim()}</li>`;
+                    } else if (trimmed.startsWith('*')) {
                         listHtml += `<li>${trimmed.substring(1).trim()}</li>`;
                     }
                 });
@@ -2752,7 +2786,7 @@
                 const box = (src, cap, isFirst = false) => {
                     if (!src) return '';
                     return `<div style="padding:10px; border-radius:4px; display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; box-sizing:border-box;">
-                        <img src="${getImgSrcLocal(src)}" style="width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; display:block; object-fit:cover; border-radius:2px;">
+                        <img src="${getImgSrcLocal(src)}" style="max-width:100%; max-height:${isFirst ? '350px' : '300px'}; height:auto; width:auto; display:block; object-fit:contain; border-radius:2px;">
                         ${cap ? `<div style="font-size:0.75rem; color:#444; margin-top:8px; text-align:center; font-weight:500;">${cap}</div>` : ''}
                     </div>`;
                 };
@@ -2881,7 +2915,7 @@
                         if (keyPrefix === 'pc') {
                             cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
                         } else if (keyPrefix === 'imgc') {
-                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:120px; height:120px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
+                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
                         } else {
                             cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
                         }
@@ -2990,8 +3024,8 @@
                         </div>
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <div style="width: 100%; height: 300px; overflow: hidden; border-radius:4px; border: 1px solid #eee;">
-                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: cover;">
+                            <div style="width: 100%; overflow: hidden; border-radius:4px; border: 1px solid #eee; text-align:center;">
+                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="max-width: 100%; height: auto; display:block; margin:0 auto;">
                             </div>
                             ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
                             ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
@@ -3659,6 +3693,15 @@
         }
 
         function renderBulkDownloadDashboard() {
+            // Collect all unique categories from articles
+            const allCategorySet = new Set();
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                if (art.content && art.content.startsWith('#REDIRECT')) continue;
+                const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                artCats.forEach(c => allCategorySet.add(c));
+            }
+            const allCategories = Array.from(allCategorySet).sort();
+
             const container = document.getElementById('wikiTabContentBody');
             container.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
@@ -3673,47 +3716,168 @@
                             <span id="bulkLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
                         </div>
                     </section>
+
+                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Category Download</h3>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Select a category to preview and download all articles within it.</p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:1rem;">
+                            <select id="bulkCategorySelect" onchange="renderBulkCategoryPreview()" style="padding:0.4rem 0.6rem; border:1px solid var(--border-wiki); border-radius:4px; font-size:0.85rem; min-width:200px;">
+                                <option value="">-- Select a Category --</option>
+                                ${allCategories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                            </select>
+                            <button class="action-btn" onclick="downloadCategoryArticles('pdf')">Download Category (PDF)</button>
+                            <button class="action-btn" onclick="downloadCategoryArticles('docx')">Download Category (DOCX)</button>
+                            <span id="bulkCatStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
+                        </div>
+                        <div id="bulkCategoryPreview" style="border:1px solid #eee; border-radius:4px; background:#fff; padding:1rem; min-height:60px; font-size:0.85rem; color:var(--text-muted);">Select a category above to preview articles.</div>
+                    </section>
                 </div>
             `;
             lucide.createIcons();
         }
 
+        function renderBulkCategoryPreview() {
+            const cat = document.getElementById('bulkCategorySelect').value;
+            const previewDiv = document.getElementById('bulkCategoryPreview');
+            if (!cat) {
+                previewDiv.innerHTML = '<span style="color:var(--text-muted);">Select a category above to preview articles.</span>';
+                return;
+            }
+            const matched = [];
+            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                if (art.content && art.content.startsWith('#REDIRECT')) continue;
+                const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                if (artCats.includes(cat)) matched.push({ title, art });
+            }
+            if (matched.length === 0) {
+                previewDiv.innerHTML = '<span style="color:var(--text-muted);">No articles found in this category.</span>';
+                return;
+            }
+            matched.sort((a, b) => a.title.localeCompare(b.title));
+            let html = `<p style="margin-bottom:0.75rem; font-weight:bold; color:var(--text-dark);">${matched.length} article(s) in "${cat}":</p><div style="display:flex; flex-direction:column; gap:0.5rem;">`;
+            matched.forEach(({ title, art }) => {
+                const descMatch = art.content.match(/\{\{Description\|([^}]+)\}\}/);
+                let snippet = descMatch ? descMatch[1] : art.content.split('\n').find(l => l.trim() && !l.startsWith('=') && !l.startsWith('{') && !l.startsWith('[')) || '';
+                snippet = snippet.replace(/'''|''/g, '').replace(/\[\[([^|\]]+)\]\]/g, '$1').replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '$2');
+                if (snippet.length > 100) snippet = snippet.substring(0, 100) + '...';
+                html += `<div style="padding:0.5rem; border:1px solid #eee; border-radius:4px; background:#f8f9fa; display:flex; gap:0.5rem; align-items:flex-start;">
+                    <div style="flex:1;">
+                        <div style="font-weight:bold; color:var(--wiki-blue); cursor:pointer;" onclick="loadArticle('${title}')">${title}</div>
+                        <div style="font-size:0.8rem; color:#666; margin-top:2px;">${snippet}</div>
+                    </div>
+                </div>`;
+            });
+            html += '</div>';
+            previewDiv.innerHTML = html;
+        }
+
+        async function downloadCategoryArticles(format) {
+            const cat = document.getElementById('bulkCategorySelect').value;
+            const statusSpan = document.getElementById('bulkCatStatus');
+            if (!cat) { alert('Please select a category first.'); return; }
+
+            const titles = Object.keys(orlePediaMemoryStore).filter(t => {
+                const art = orlePediaMemoryStore[t];
+                if (art.content && art.content.startsWith('#REDIRECT')) return false;
+                const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                return artCats.includes(cat);
+            }).sort((a, b) => a.localeCompare(b));
+
+            if (titles.length === 0) return alert('No articles found in this category.');
+
+            const includeImages = confirm('📦 CATEGORY DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).');
+            statusSpan.innerText = `Preparing ${titles.length} articles in "${cat}"...`;
+
+            let fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OrlePedia — ${cat} Category Archive</title><style>body{font-family:Georgia,serif;padding:2rem;max-width:900px;margin:0 auto;line-height:1.6;color:#202122;}.article-break{page-break-after:always;border-bottom:2px solid #36b;margin-bottom:3rem;padding-bottom:1rem;}h1.archive-title{text-align:center;font-size:2.5rem;color:#36b;margin-bottom:5rem;}h1.article-title{font-size:2rem;border-bottom:1px solid #a2a9b1;padding-bottom:0.25rem;margin-top:2rem;}h2{font-size:1.4rem;border-bottom:1px solid #a2a9b1;margin-top:1.5rem;}p{margin:1rem 0;font-size:1rem;text-align:justify;}.portable-infobox{float:right;width:280px;background:#f8f9fa;border:1px solid #a2a9b1;padding:0.5rem;margin:0 0 1rem 1rem;font-size:0.8rem;}.wiki-table{width:100%;border-collapse:collapse;margin:1rem 0;border:1px solid #a2a9b1;font-size:0.9rem;}.wiki-table th,.wiki-table td{border:1px solid #a2a9b1;padding:0.4rem;}.wiki-table th{background:#f2f2f2;}.wiki-file-container{text-align:center;margin:1rem 0;}.wiki-file-img{max-width:100%;height:auto;border:1px solid #eee;}</style></head><body><h1 class="archive-title">OrlePedia — ${cat} Category Archive</h1><p style="text-align:center;">Total Articles: ${titles.length} | Generated: ${new Date().toLocaleString()}</p><hr style="margin:3rem 0;">`;
+
+            for (let i = 0; i < titles.length; i++) {
+                const t = titles[i];
+                const art = orlePediaMemoryStore[t];
+                statusSpan.innerText = `Processing (${i+1}/${titles.length}): ${t}`;
+                let rawContent = art.content || '';
+                if (!includeImages) rawContent = rawContent.replace(/\[\[File\|.*?\]\]/g, '');
+                rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, '');
+                const content = compileRawMarkupToHtml(rawContent);
+                fullHtml += `<div class="article-break"><h1 class="article-title">${t}</h1><p style="font-size:0.8rem;color:#666;">Category: ${cat} | Author: ${art.author}</p>${content}</div>`;
+            }
+
+            fullHtml += '</body></html>';
+            statusSpan.innerText = 'Finalizing file...';
+
+            const blob = new Blob([fullHtml], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `OrlePedia_${cat.replace(/[^a-z0-9]/gi,'_')}_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.html`;
+            a.click();
+
+            if (format === 'pdf') {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(fullHtml);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => { printWindow.print(); statusSpan.innerText = 'Complete!'; }, 1000);
+            }
+
+            statusSpan.innerText = 'Download triggered!';
+            setTimeout(() => { statusSpan.innerText = ''; }, 5000);
+        }
+
         function calculateVerifiabilityIndex(article) {
-            if (!article) return { score: 0, label: "Unverifiable", color: "darkred" };
-            
-            // 50% Revisions
+            if (!article) return { score: 0, label: "Unverifiable", color: "#c0392b", star: "red" };
+
+            const logScale = (value, min, max) => {
+                if (value <= min) return 0;
+                if (value >= max) return 1;
+                return Math.log(value - min + 1) / Math.log(max - min + 1);
+            };
+
+            // 40% — Number of Revisions (min 1, max 50) → max 5/5
             const editCount = article._rev_count || (article.history ? article.history.length : 0);
-            let editScore = Math.min(50, editCount * 5); 
-            
-            // 30% Rating
+            const editScore = logScale(editCount, 1, 50) * 5 * 0.40;
+
+            // 20% — Size in bytes (min 500, max 10000) → max 5/5
+            const byteSize = article.content ? new Blob([article.content]).size : 0;
+            const sizeScore = logScale(byteSize, 500, 10000) * 5 * 0.20;
+
+            // 10% — Number of sections (min 1, max 5) → max 5/5
+            const sectionCount = (article.content.match(/^== .+ ==$/gm) || []).length;
+            const sectionScore = logScale(sectionCount, 1, 5) * 5 * 0.10;
+
+            // 5% — Rating (max 5)
             let avgRating = 0;
             if (article._avg_rating !== undefined && article._avg_rating !== null) {
                 avgRating = parseFloat(article._avg_rating);
             } else if (article.ratings && article.ratings.length > 0) {
                 avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
             }
-            let ratingScore = (avgRating / 5) * 30;
-            
-            // 10% Page views
+            const ratingScore = (avgRating / 5) * 5 * 0.05;
+
+            // 5% — Page views (max 50)
             const views = article.views || 0;
-            let viewScore = Math.min(10, (views / 100) * 10);
-            
-            // 2% Ref tags
-            const refCount = (article.content.match(/<ref/g) || []).length;
-            let refScore = Math.min(2, refCount * 0.5);
-            
-            // 8% size (7000 bytes max)
-            const byteSize = article.content ? new Blob([article.content]).size : 0;
-            let sizeScore = Math.min(8, (byteSize / 7000) * 8);
-            
-            const totalScore = (editScore + ratingScore + viewScore + refScore + sizeScore) / 10; // Scale 1-10
-            
-            if (totalScore >= 8) return { score: totalScore, label: "Highly Verifiable", color: "darkgreen" };
-            if (totalScore >= 6) return { score: totalScore, label: "Verifiable", color: "green" };
-            if (totalScore >= 5) return { score: totalScore, label: "Normal", color: "lightgreen" };
-            if (totalScore >= 3.5) return { score: totalScore, label: "Low Verifiability", color: "orange" };
-            if (totalScore >= 2) return { score: totalScore, label: "Very Low", color: "lightred" };
-            return { score: totalScore, label: "Unverifiable", color: "darkred" };
+            const viewScore = logScale(views, 0, 50) * 5 * 0.05;
+
+            // 15% — Number of pages linking here (min 2, max 30) → max 5/5
+            let linksHereCount = 0;
+            for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
+                if (k === article.title) continue;
+                if (obj.content) {
+                    const linkRegex = new RegExp(`\\[\\[${article.title}(\\||\\]\\])`, 'g');
+                    if (linkRegex.test(obj.content)) linksHereCount++;
+                }
+            }
+            const linksScore = logScale(linksHereCount, 2, 30) * 5 * 0.15;
+
+            // 5% — Number of images (max 5)
+            const imageCount = (article.content.match(/\[\[File[|:]/g) || []).length + (article.content.match(/img\d+\s*=/g) || []).length;
+            const imageScore = logScale(imageCount, 0, 5) * 5 * 0.05;
+
+            const totalScore = editScore + sizeScore + sectionScore + ratingScore + viewScore + linksScore + imageScore;
+
+            if (totalScore >= 4) return { score: totalScore, label: "Verifiable", color: "#2471a3", star: "blue" };
+            if (totalScore >= 3) return { score: totalScore, label: "Moderate Verifiable", color: "#27ae60", star: "green" };
+            if (totalScore >= 2) return { score: totalScore, label: "Low Verifiable", color: "#d4ac0d", star: "yellow" };
+            return { score: totalScore, label: "Unverifiable", color: "#c0392b", star: "red" };
         }
 
         function loadGlobalSearchReplaceView() {
