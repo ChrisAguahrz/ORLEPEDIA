@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- 
-             <meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -344,7 +343,8 @@
             transition: all 0.2s;
         }
         .nav-sub-menu a:hover { background: rgba(51, 102, 187, 0.05); color: var(--wiki-blue); }
-        .nav-sub-menu a i { width: 14px; height: 14px; }
+        .nav-sub-menu a i { width: 12px; height: 12px; }
+        .nav-link i { width: 18px; height: 18px; }
         
         /* Main Workspace Window Layout */
         main { 
@@ -1958,7 +1958,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions&limit=1000');
+                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions,average_rating&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2027,38 +2027,32 @@
             }
             
             // Step 7: Build the memory store from whatever we got
-            // FIX 5: Revisions and ratings are deferred — articles load with stub history/ratings
-            // They will be fetched on-demand when the History tab or article ratings are accessed
-            updateLoadingProgress(95, 'Building encyclopedia...');
-            if (Array.isArray(articles) && articles.length > 0) {
-                articles.forEach(art => {
-                    // FIX 5: Store the article DB id so on-demand loaders can query by it
-                    orlePediaMemoryStore[art.title] = {
-                        title: art.title,
-                        _db_id: art.id,
-                        _rev_count: art.total_revisions || 1, // Store the count from the database
-                        views: art.views || 0,
-                        _revisions_loaded: false,
-                        _ratings_loaded: false,
-                        category: art.summary || "General Indexes",
-                        content: art.content || '',
-                        author: "ChrisAguahrz",
-                        talk: `== Talk Board for ${art.title} ==`,
-                        history: [
-                            { timestamp: Date.parse(art.created_at) || Date.now(), editor: "ChrisAguahrz", tag: "admin", summary: "Restored from database.", content: art.content || '' }
-                        ],
-                        ratings: [],
-                        createdTime: Date.parse(art.created_at) || Date.now()
-                    };
-                });
+                // FIX: Load pre-calculated stats directly from Supabase columns
+                updateLoadingProgress(95, 'Building encyclopedia...');
+                if (Array.isArray(articles) && articles.length > 0) {
+                    articles.forEach(art => {
+                        orlePediaMemoryStore[art.title] = {
+                            title: art.title,
+                            _db_id: art.id,
+                            total_revisions: art.total_revisions || 0,
+                            average_rating: art.average_rating || 0.0,
+                            views: art.views || 0,
+                            _revisions_loaded: false,
+                            _ratings_loaded: false,
+                            category: art.summary || "General Indexes",
+                            content: art.content || '',
+                            author: "ChrisAguahrz",
+                            talk: `== Talk Board for ${art.title} ==`,
+                            history: [
+                                { timestamp: Date.parse(art.created_at) || Date.now(), editor: "ChrisAguahrz", tag: "admin", summary: "Restored from database.", content: art.content || '' }
+                            ],
+                            ratings: [],
+                            createdTime: Date.parse(art.created_at) || Date.now()
+                        };
+                    });
                 
                 updateLoadingProgress(98, `Built encyclopedia with ${articles.length} articles`);
-                // FIX 3: Cache each article in localStorage for persistent access
-                articles.forEach(art => {
-                    try {
-                        localStorage.setItem('article_' + art.title, JSON.stringify(orlePediaMemoryStore[art.title]));
-                    } catch(e) { /* localStorage full or unavailable — skip silently */ }
-                });
+                // Storage removed as per user request to avoid LocalStorage usage across devices
             } else {
                 diagnosticsLog.push('❌ No articles to build encyclopedia');
                 showDetailedError('No Articles Found', 'The database query returned no articles. Check your Supabase table.', diagnosticsLog);
@@ -2476,24 +2470,17 @@
         }
 
         function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
-            // FIX 3: Check sessionStorage cache before using in-memory store
-            const _cached = sessionStorage.getItem('article_' + articleTitle);
-            if (_cached && !orlePediaMemoryStore[articleTitle]) {
-                try { orlePediaMemoryStore[articleTitle] = JSON.parse(_cached); } catch(e) {}
-            }
-            
             currentActiveArticleKey = articleTitle;
 
             // Handle Redirects
             if (!skipRedirect && orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
                 const match = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/);
-                if (match) return loadArticle(match[1], pushState);
+                if (match && match[1] !== articleTitle) return loadArticle(match[1], pushState);
             }
 
             // Page View Tracking
             if (orlePediaMemoryStore[articleTitle]) {
                 const art = orlePediaMemoryStore[articleTitle];
-                // Increment view only if it's not a fresh page load (check if app is already initialized)
                 if (window._appInitialized) {
                     art.views = (art.views || 0) + 1;
                     if (art._db_id) {
@@ -2522,21 +2509,39 @@
             document.getElementById('displayArticleTitle').innerText = articleTitle;
             
             const article = orlePediaMemoryStore[articleTitle];
-            const revisionCount = article.history.length;
+            const revisionCount = article.total_revisions || article.history.length;
             const viewCount = article.views || 0;
-            document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''}`;
+            const vIndex = calculateVerifiabilityIndex(article);
+            const verifiabilityStar = vIndex.score >= 3 ? `<span style="color:#f1c40f; margin-left:8px; cursor:help;" title="This article meets verifiability standards (${vIndex.label})">★</span>` : '';
+            document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''}${verifiabilityStar}`;
             
-            // FIX 5: Load ratings on-demand when article is opened
-            if (article && !article._ratings_loaded && article._db_id) {
-                supabaseRequest(`ratings?article_id=eq.${article._db_id}&select=score&limit=50`)
-                    .then(ratingRows => {
-                        if (Array.isArray(ratingRows) && ratingRows.length > 0) {
-                            article.ratings = ratingRows.map(r => r.score);
-                        }
-                        article._ratings_loaded = true;
-                        renderRatingStarsCluster();
-                    })
-                    .catch(() => { article._ratings_loaded = true; });
+            // Background Lazy Loading (Memory Only)
+            if (article && article._db_id) {
+                if (!article._ratings_loaded) {
+                    supabaseRequest(`ratings?article_id=eq.${article._db_id}&select=score&limit=50`)
+                        .then(ratingRows => {
+                            if (Array.isArray(ratingRows) && ratingRows.length > 0) {
+                                article.ratings = ratingRows.map(r => r.score);
+                            }
+                            article._ratings_loaded = true;
+                            renderRatingStarsCluster();
+                        }).catch(() => { article._ratings_loaded = true; });
+                }
+                
+                if (!article._revisions_loaded) {
+                    supabaseRequest(`revisions?article_id=eq.${article._db_id}&select=article_id,created_at,editor_name,edit_summary,new_content&order=created_at.desc&limit=50`)
+                        .then(revs => {
+                            if (Array.isArray(revs) && revs.length > 0) {
+                                article.history = revs.map(r => ({
+                                    timestamp: Date.parse(r.created_at) || Date.now(),
+                                    editor: r.editor_name || 'Anonymous',
+                                    summary: r.edit_summary || 'Update',
+                                    content: r.new_content
+                                }));
+                            }
+                            article._revisions_loaded = true;
+                        }).catch(() => { article._revisions_loaded = true; });
+                }
             }
 
             renderRatingStarsCluster();
@@ -2897,12 +2902,72 @@
 
             const infoboxRegex = /\{\{Infobox([\s\S]*?)\}\}/g;
             const electionRegex = /\{\{Election([\s\S]*?)\}\}/g;
+            const personRegex = /\{\{Person([\s\S]*?)\}\}/g;
             
             let infoboxMatch = infoboxRegex.exec(workingTextStr);
             let electionMatch = electionRegex.exec(workingTextStr);
+            let personMatch = personRegex.exec(workingTextStr);
             let compiledInfoboxHtmlString = "";
 
-            if (electionMatch) {
+            if (personMatch) {
+                let pContent = personMatch[1];
+                workingTextStr = workingTextStr.replace(personMatch[0], "");
+                let pData = {};
+                pContent.split('\n').forEach(ln => {
+                    if (ln.startsWith('|') && ln.includes('=')) {
+                        let eqIdx = ln.indexOf('=');
+                        pData[ln.substring(1, eqIdx).trim()] = ln.substring(eqIdx + 1).trim();
+                    }
+                });
+
+                const getImgSrc = (val) => {
+                    if (!val) return "";
+                    const trimmed = val.trim();
+                    if (trimmed.startsWith('http') || trimmed.startsWith('data:')) return trimmed;
+                    return orlePediaFileStore[trimmed] || trimmed;
+                };
+
+                const parseWiki = (txt) => {
+                    if (!txt) return "";
+                    return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
+                              .replace(/''(.*?)''/g, '<i>$1</i>')
+                              .replace(/\[\[([^|\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$1</span>')
+                              .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '<span class="wiki-link" onclick="loadArticle(\'$1\')">$2</span>');
+                };
+
+                const row = (label, key) => {
+                    if (!pData[key]) return "";
+                    return `<tr><th style="text-align:left; background:#f2f2f2; width:35%; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th><td style="padding:0.3rem; border-bottom:1px solid #ddd;">${parseWiki(pData[key])}</td></tr>`;
+                };
+
+                const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2" style="text-align:center; font-weight:bold; background:#eaecf0; padding:0.2rem; vertical-align:middle;">${label}</td></tr>`;
+
+                compiledInfoboxHtmlString = `
+                    <div class="portable-infobox person-infobox" style="float:right; width:280px; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem;">
+                        <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:var(--wiki-blue); color:white; margin-bottom:0.2rem;">${pData['name'] || currentActiveArticleKey}</div>
+                        ${pData['title'] ? `<div style="text-align:center; font-style:italic; margin-bottom:0.5rem;">${pData['title']}</div>` : ''}
+                        <div style="text-align:center; margin-bottom:0.8rem; border:1px solid #eee; background:#fff; padding:2px;">
+                            <img src="${getImgSrc(pData['image'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.style.display='none'">
+                        </div>
+                        <table style="width:100%; border-collapse:collapse;">
+                            ${row('Born', 'birth_year')}
+                            ${row('Birth Place', 'birth_place')}
+                            ${row('Died', 'death_year')}
+                            ${row('Nationality', 'nationality')}
+                            
+                            ${(pData['parents'] || pData['parent'] || pData['children'] || pData['spouse']) ? merged('Family') : ''}
+                            ${row('Parents', 'parents') || row('Parent', 'parent')}
+                            ${row('Spouse', 'spouse')}
+                            ${row('Children', 'children')}
+                            
+                            ${(pData['occupation'] || pData['work'] || pData['office']) ? merged('Work') : ''}
+                            ${row('Occupation', 'occupation')}
+                            ${row('Work', 'work')}
+                            ${row('Office', 'office')}
+                        </table>
+                    </div>
+                `;
+            } else if (electionMatch) {
                 let eContent = electionMatch[1];
                 workingTextStr = workingTextStr.replace(electionMatch[0], "");
                 let eData = {};
@@ -4049,27 +4114,21 @@
                 
                 // FIX: Pre-fetch real average from database if possible
                 let avgRating = 0;
-                if (article._avg_rating !== undefined && article._avg_rating !== null && article._avg_rating > 0) {
-                    avgRating = parseFloat(article._avg_rating);
-                } else if (article.ratings && article.ratings.length > 0) {
-                    avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
-                } else {
-                    // Final fallback: try to calculate from memory history if no avg exists
-                    avgRating = 0;
-                }
+                    avgRating = parseFloat(article.average_rating || calculatePageRatingAverage(article.ratings));
                 
                 const views = article.views || 0;
                 const vIndex = calculateVerifiabilityIndex(article);
                 pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views, vScore: vIndex.score, vLabel: vIndex.label, vColor: vIndex.color });
             }
 
-            const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
+                const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
             
-            // FIX: Sum up all revisions from memory store accurately
+            // Use Direct SQL Column Values for Stats
             totalEdits = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
                 if (art.content && art.content.startsWith('#REDIRECT')) return sum;
-                return sum + (art._rev_count || 0);
+                return sum + (art.total_revisions || 0);
             }, 0);
+
             const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
             const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
             const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
@@ -4311,7 +4370,7 @@
             exitEditorDashboard();
             switchSubTab('article');
             // FIX 3: Update sessionStorage cache after save
-            try { sessionStorage.setItem('article_' + currentActiveArticleKey, JSON.stringify(orlePediaMemoryStore[currentActiveArticleKey])); } catch(e) {}
+                // Storage update removed as per user request
             triggerToastBannerNotification("💾 Data securely locked down and dispatched to cloud vectors.");
 
             dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
@@ -4326,36 +4385,67 @@
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
 
-            let imagesMap = new Map(); // url -> usage count
-            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                const matches = art.content.match(/\[\[File[:|]([^|\]\n]+)/g) || [];
-                const templateMatches = art.content.match(/img\d+\s*=\s*(https?:\/\/[^\s\n]+)/g) || [];
-                
-                const processUrl = (url) => {
-                    if (url.startsWith('http')) {
-                        imagesMap.set(url, (imagesMap.get(url) || 0) + 1);
-                    }
-                };
-
-                matches.forEach(m => {
-                    const fileName = m.replace(/\[\[File[:|]/, '').trim();
-                    processUrl(orlePediaFileStore[fileName] || fileName);
+                let imagesMap = new Map(); 
+                for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
+                    const matches = art.content.match(/\[\[File[:|]([^|\]\n]+)/g) || [];
+                    const templateMatches = art.content.match(/img\d+\s*=\s*(https?:\/\/[^\s\n]+)/g) || [];
+                    
+                    const processUrl = (url, fileName) => {
+                        if (url && url.startsWith('http')) {
+                            const existing = imagesMap.get(url) || { count: 0, articles: [], name: fileName };
+                            existing.count++;
+                            if (!existing.articles.includes(title)) existing.articles.push(title);
+                            imagesMap.set(url, existing);
+                        }
+                    };
+    
+                    matches.forEach(m => {
+                        const fileName = m.replace(/\[\[File[:|]/, '').trim();
+                        processUrl(orlePediaFileStore[fileName] || fileName, fileName);
+                    });
+                    templateMatches.forEach(m => processUrl(m.split('=')[1].trim(), 'External URL'));
+                }
+    
+                let html = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; padding:10px;">`;
+                imagesMap.forEach((data, url) => {
+                    const articlesList = data.articles.join('|');
+                    html += `<div class="image-gallery-card" onclick="viewImageUsageDetails('${url}', '${data.name}', '${articlesList}')" style="border:1px solid #ddd; border-radius:4px; overflow:hidden; background:#f8f9fa; cursor:pointer; transition:transform 0.2s;">
+                        <img src="${url}" style="width:100%; height:120px; object-fit:cover;" onerror="this.parentElement.style.display='none'">
+                        <div style="padding:5px; font-size:0.7rem; color:#666; text-align:center; border-top:1px solid #eee;">Used in ${data.count} articles</div>
+                    </div>`;
                 });
-                templateMatches.forEach(m => processUrl(m.split('=')[1].trim()));
-            }
-
-            let html = `<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px; padding:10px;">`;
-            imagesMap.forEach((count, url) => {
-                html += `<div class="image-gallery-card" onclick="navigator.clipboard.writeText('${url}'); triggerToastBannerNotification('Link Copied');" style="border:1px solid #ddd; border-radius:4px; overflow:hidden; background:#f8f9fa; cursor:pointer; transition:transform 0.2s;">
-                    <img src="${url}" style="width:100%; height:120px; object-fit:cover;" onerror="this.parentElement.style.display='none'">
-                    <div style="padding:5px; font-size:0.7rem; color:#666; text-align:center; border-top:1px solid #eee;">Used in ${count} articles</div>
-                </div>`;
-            });
             html += `</div>`;
             document.getElementById('wikiTabContentBody').innerHTML = html;
         }
 
         // ============ CATEGORY EXPLORER VIEW MODULE ============
+        function viewImageUsageDetails(url, name, articlesStr) {
+            const articles = articlesStr.split('|').filter(a => a);
+            const contentBox = document.getElementById('wikiTabContentBody');
+            document.getElementById('displayArticleTitle').innerText = "File Details: " + name;
+            
+            contentBox.innerHTML = `
+                <div style="padding:1rem;">
+                    <button class="tool-btn" onclick="loadImagesGallery()" style="margin-bottom:1rem;">← Back to Gallery</button>
+                    <div style="display:flex; gap:20px; flex-wrap:wrap;">
+                        <div style="flex:1; min-width:300px; background:#fff; border:1px solid #ddd; padding:10px; text-align:center;">
+                            <img src="${url}" style="max-width:100%; height:auto; max-height:500px;">
+                        </div>
+                        <div style="flex:1; min-width:300px;">
+                            <h3>File Usage Information</h3>
+                            <p style="margin:1rem 0;">Direct URL: <a href="${url}" target="_blank" style="word-break:break-all;">${url}</a></p>
+                            <div style="margin-top:1.5rem;">
+                                <h4>Articles using this file:</h4>
+                                <ul style="margin-top:0.5rem; padding-left:1.5rem; line-height:1.8;">
+                                    ${articles.length > 0 ? articles.map(t => `<li><span class="wiki-link" onclick="loadArticle('${t}')">${t}</span></li>`).join('') : '<li>No articles found.</li>'}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function loadCategoryView(categoryName, isRedirectTab = false) {
             // FIX 7: Category editing
             if(categoryName.startsWith('EDIT:')) {
