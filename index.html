@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+                <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -4105,7 +4105,7 @@
                 // Skip redirects from all counts
                 if (article.content && article.content.startsWith('#REDIRECT')) continue;
 
-                const editCount = parseInt(article._rev_count) || (article.history ? article.history.length : 0);
+                const editCount = parseInt(article.total_revisions) || 0;
                 totalEdits += editCount;
                 const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
                 totalWords += wordCount;
@@ -4148,10 +4148,14 @@
                         <div class="stat-card-label">Total Pages</div>
                         <div class="stat-card-value">${totalPages}</div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-card-label">Total Edits</div>
-                        <div class="stat-card-value">${totalEdits}</div>
-                    </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">Total Edits</div>
+                            <div class="stat-card-value">${totalEdits}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-card-label">Avg Edits/Page</div>
+                            <div class="stat-card-value">${(totalEdits / (totalPages || 1)).toFixed(2)}</div>
+                        </div>
                     <div class="stat-card">
                         <div class="stat-card-label">Total Words</div>
                         <div class="stat-card-value">${totalWords}</div>
