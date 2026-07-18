@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+            <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2657,10 +2657,7 @@
                     }).join(' | ')}</div>`;
                 }
                 
-                const lastRev = targetArticle.history[targetArticle.history.length-1];
-                const lastEditedTime = lastRev ? lastRev.timestamp : targetArticle.createdTime;
-                const isRecent = (Date.now() - lastEditedTime) < (24 * 60 * 60 * 1000);
-                finalHtml += `<div class="article-footer-info" style="${isRecent ? 'color: blue;' : ''}">Last edited ${getRelativeTime(lastEditedTime)}</div>`;
+
 
                 contentBox.innerHTML = finalHtml;
                 updateArticleSidebar();
