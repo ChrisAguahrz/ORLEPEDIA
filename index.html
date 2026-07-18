@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-            <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2279,44 +2279,7 @@
             
             const vIndex = calculateVerifiabilityIndex(article);
             
-            pageInfoDiv.innerHTML = `
-                <div class="collapsible-panel">
-                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                        📄 Page Information
-                        <span class="collapsible-toggle">▼</span>
-                    </div>
-                    <div class="collapsible-content open">
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Author:</span>
-                            <span class="sidebar-stat-value">${authorName}</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Created:</span>
-                            <span class="sidebar-stat-value">${createdDate}</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Total Revisions:</span>
-                            <span class="sidebar-stat-value">${article.history.length}</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Quality:</span>
-                            <span class="sidebar-stat-value" style="color:${vIndex.color}; font-weight:bold;">${vIndex.label} (${vIndex.score.toFixed(1)})</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Category:</span>
-                            <span class="sidebar-stat-value">
-                                ${ (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).length > 0 
-                                    ? (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => {
-                                        const name = c.match(/\[\[Category:([^\]]+)\]\]/)[1];
-                                        return `<span class="wiki-link" onclick="loadCategoryView('${name}')">${name}</span>`;
-                                      }).join(', ')
-                                    : `<span style="color:grey; font-style:italic;">Uncategorized</span>`
-                                }
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            `;
+            pageInfoDiv.innerHTML = '';
 
             historyInfoDiv.innerHTML = '';
         }
@@ -2657,7 +2620,10 @@
                     }).join(' | ')}</div>`;
                 }
                 
-
+                const lastRev = targetArticle.history[targetArticle.history.length-1];
+                const lastEditedTime = lastRev ? lastRev.timestamp : targetArticle.createdTime;
+                const isRecent = (Date.now() - lastEditedTime) < (24 * 60 * 60 * 1000);
+                finalHtml += `<div class="article-footer-info" style="${isRecent ? 'color: blue;' : ''}">Last edited ${getRelativeTime(lastEditedTime)}</div>`;
 
                 contentBox.innerHTML = finalHtml;
                 updateArticleSidebar();
