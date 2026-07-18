@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-                <meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1958,7 +1958,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions,average_rating&limit=1000');
+                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions,average_rating,quality&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2036,6 +2036,7 @@
                             _db_id: art.id,
                             total_revisions: art.total_revisions || 0,
                             average_rating: art.average_rating || 0.0,
+                            quality: (art.quality !== undefined && art.quality !== null) ? parseFloat(art.quality) : null,
                             views: art.views || 0,
                             _revisions_loaded: false,
                             _ratings_loaded: false,
@@ -2298,7 +2299,7 @@
                             <span class="sidebar-stat-value">${article.history.length}</span>
                         </div>
                         <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Verifiability:</span>
+                            <span class="sidebar-stat-label">Quality:</span>
                             <span class="sidebar-stat-value" style="color:${vIndex.color}; font-weight:bold;">${vIndex.label} (${vIndex.score.toFixed(1)})</span>
                         </div>
                         <div class="sidebar-stat">
@@ -2317,28 +2318,7 @@
                 </div>
             `;
 
-            historyInfoDiv.innerHTML = `
-                <div class="collapsible-panel">
-                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                        📜 Recent Changes
-                        <span class="collapsible-toggle">▼</span>
-                    </div>
-                    <div class="collapsible-content open">
-                        ${article.history && article.history.length > 0 ? `
-                            <div style="font-size:0.85rem; line-height:1.6;">
-                                ${article.history.slice(-5).reverse().map((rev, idx) => {
-                                    const date = new Date(rev.timestamp).toLocaleString();
-                                    return `<div style="margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid #ddd;">
-                                        <div><strong>${rev.editor}</strong></div>
-                                        <div style="color:var(--text-muted); font-size:0.8rem;">${date}</div>
-                                        <div style="font-style:italic; color:#666;">"${rev.summary || 'No summary'}"</div>
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        ` : `<div style="color:var(--text-muted); font-size:0.85rem;">No revisions yet.</div>`}
-                    </div>
-                </div>
-            `;
+            historyInfoDiv.innerHTML = '';
         }
 
         function toggleCollapsible(headerElement) {
@@ -2359,16 +2339,42 @@
                 return;
             }
 
+            // Build a map of redirect targets: redirectTitle -> targetTitle
+            const redirectTargetMap = {};
+            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                if (article.content && article.content.startsWith('#REDIRECT')) {
+                    const match = article.content.match(/\[\[(.*?)\]\]/);
+                    if (match && match[1]) {
+                        redirectTargetMap[key.toLowerCase()] = match[1];
+                    }
+                }
+            }
+
             const titleResults = [];
             const contentResults = [];
-            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+            const addedTitles = new Set();
 
-                if (article.title.toLowerCase() === query) {
-                    titleResults.unshift(article); // Exact match first
-                } else if (article.title.toLowerCase().includes(query)) {
-                    titleResults.push(article);
+            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
+                // Skip redirect articles from appearing directly
+                if (article.content && article.content.startsWith('#REDIRECT')) continue;
+
+                const titleLower = article.title.toLowerCase();
+
+                // Check if any redirect pointing to this article matches the query
+                let matchedViaRedirect = false;
+                for (let [rKey, rTarget] of Object.entries(redirectTargetMap)) {
+                    if (rKey.includes(query) && rTarget.toLowerCase() === titleLower) {
+                        matchedViaRedirect = true;
+                        break;
+                    }
+                }
+
+                if (titleLower === query) {
+                    if (!addedTitles.has(article.title)) { titleResults.unshift(article); addedTitles.add(article.title); }
+                } else if (titleLower.includes(query) || matchedViaRedirect) {
+                    if (!addedTitles.has(article.title)) { titleResults.push(article); addedTitles.add(article.title); }
                 } else if (article.content && article.content.toLowerCase().includes(query)) {
-                    contentResults.push(article);
+                    if (!addedTitles.has(article.title)) { contentResults.push(article); addedTitles.add(article.title); }
                 }
             }
 
@@ -2382,8 +2388,7 @@
 
             dropdown.innerHTML = results.slice(0, 8).map(article => {
                 const isTitleMatch = article.title.toLowerCase().includes(query);
-                // FIX 8: Show "article key word found" if not title match
-                const matchNote = isTitleMatch ? "Article" : "Article key wird found";
+                const matchNote = isTitleMatch ? "Article" : "Article keyword found";
                 return `
                 <div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
@@ -2512,7 +2517,8 @@
             const revisionCount = article.total_revisions || article.history.length;
             const viewCount = article.views || 0;
             const vIndex = calculateVerifiabilityIndex(article);
-            const verifiabilityStar = vIndex.score >= 3 ? `<span style="color:#f1c40f; margin-left:8px; cursor:help;" title="This article meets verifiability standards (${vIndex.label})">★</span>` : '';
+            const qualityStarColor = vIndex.star === 'blue' ? '#2471a3' : vIndex.star === 'green' ? '#27ae60' : vIndex.star === 'yellow' ? '#d4ac0d' : vIndex.star === 'red' ? '#c0392b' : '#8b0000';
+            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span>`;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''}${verifiabilityStar}`;
             
             // Background Lazy Loading (Memory Only)
@@ -3384,35 +3390,37 @@
                 return;
             }
 
+            // Sort history newest first
+            const sortedHistory = [...articleObj.history].sort((a, b) => b.timestamp - a.timestamp);
+
             let logHistoryListHtml = `<div style="margin-bottom:1rem; font-size:0.9rem;">Revision History Tracking Stream:</div>`;
 
-            // FIX: Newest first (history is already ordered by created_at desc from Supabase)
-            for (let index = 0; index < articleObj.history.length; index++) {
-                let revision = articleObj.history[index];
+            for (let index = 0; index < sortedHistory.length; index++) {
+                let revision = sortedHistory[index];
                 let timeString = new Date(revision.timestamp).toLocaleString();
 
                 let undoOptionButtonMarkup = "";
-                // Undo button only on the CURRENT (newest) revision
-                if (index === 0 && articleObj.history.length > 1) {
-                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo('${index}')">Undo Change</button>`;
+                // Undo button only on the most recent (index 0) revision
+                if (index === 0 && sortedHistory.length > 1) {
+                    undoOptionButtonMarkup = `<button class="tool-btn" style="color:var(--wiki-red); padding:1px 4px; font-size:0.75rem; margin-left:10px;" onclick="executeRevisionRollbackUndo()">Undo Change</button>`;
                 }
 
                 let byteChange = 0;
-                if (index < articleObj.history.length - 1) {
-                    byteChange = calculateByteChange(articleObj.history[index + 1].content, revision.content);
+                if (index < sortedHistory.length - 1) {
+                    byteChange = calculateByteChange(sortedHistory[index + 1].content, revision.content);
                 }
 
                 const byteChangeClass = byteChange > 0 ? 'positive' : byteChange < 0 ? 'negative' : '';
                 const isBold = Math.abs(byteChange) > 500;
                 const byteChangeMarkup = `<span class="byte-change ${byteChangeClass} ${isBold ? 'large' : ''}">${formatByteChange(byteChange)}</span>`;
-                const tag = getRevisionTag(index > 0 ? articleObj.history[index-1].content : "", revision.content);
+                const tag = getRevisionTag(index < sortedHistory.length - 1 ? sortedHistory[index + 1].content : "", revision.content);
 
                 logHistoryListHtml += `
                     <div class="history-log-item">
                         • <span class="history-timestamp">${timeString}</span> ${byteChangeMarkup} — 
                         <strong>${revision.editor_name || revision.editor || "Unknown"}</strong> 
                         <span class="user-tag" style="font-size:0.7rem; padding:0 3px;">${revision.tag || 'User'}</span>: 
-                        <span class="history-summary" onclick="renderSingleSummaryDiff('${index}')">"${revision.summary || 'No edit description summary provided.'}"</span>${tag}
+                        <span class="history-summary" onclick="renderSingleSummaryDiff_byTimestamp(${revision.timestamp})">“${revision.summary || 'No edit description summary provided.'}”</span>${tag}
                         ${undoOptionButtonMarkup}
                     </div>
                 `;
@@ -3421,7 +3429,7 @@
             container.innerHTML = logHistoryListHtml;
         }
 
-        function executeRevisionRollbackUndo(currentIndex) {
+        function executeRevisionRollbackUndo() {
             if(!currentUserSessionProfile.username) {
                 alert("⛔ Action Blocked: You must create a profile signature identity prior to forcing database rollbacks.");
                 openProfileWindow();
@@ -3430,9 +3438,11 @@
 
             if(confirm("Are you sure you want to rollback the latest configuration update to its previous state?")) {
                 let article = orlePediaMemoryStore[currentActiveArticleKey];
-                article.history.pop();
+                // Sort to find the most recent, remove it
+                article.history.sort((a, b) => b.timestamp - a.timestamp);
+                article.history.shift();
 
-                let targetPrecedingState = article.history[article.history.length - 1];
+                let targetPrecedingState = article.history[0];
                 article.content = targetPrecedingState.content;
 
                 switchSubTab('history');
@@ -3440,6 +3450,34 @@
 
                 dispatchDataPayloadToRemoteDataNetworks("ARTICLE_COMMIT_SAVE", { title: currentActiveArticleKey, databaseNode: article });
             }
+        }
+
+        function generateSentenceByLineDiff(oldTextRaw, newTextRaw) {
+            // Split into sentences (by . ! ? or newline)
+            const splitSentences = (text) => text.split(/(?<=[.!?])\s+|\n/).filter(s => s.trim() !== '');
+            const oldSentences = splitSentences(oldTextRaw || '');
+            const newSentences = splitSentences(newTextRaw || '');
+
+            let htmlDiffStreamRows = '';
+            const maxLen = Math.max(oldSentences.length, newSentences.length);
+
+            for (let i = 0; i < maxLen; i++) {
+                const oldS = oldSentences[i] !== undefined ? oldSentences[i] : null;
+                const newS = newSentences[i] !== undefined ? newSentences[i] : null;
+
+                if (oldS !== null && newS !== null && oldS !== newS) {
+                    // Changed: show old line first (red), then new line below (green)
+                    htmlDiffStreamRows += `<div class="diff-line removed" style="padding:3px 8px;"><span class="diff-marker">−</span>${escapeHtmlCode(oldS)}</div>`;
+                    htmlDiffStreamRows += `<div class="diff-line added" style="padding:3px 8px; color:#0a3014; font-weight:bold;"><span class="diff-marker">+</span>${escapeHtmlCode(newS)}</div>`;
+                } else if (oldS !== null && newS === null) {
+                    htmlDiffStreamRows += `<div class="diff-line removed" style="padding:3px 8px;"><span class="diff-marker">−</span>${escapeHtmlCode(oldS)}</div>`;
+                } else if (oldS === null && newS !== null) {
+                    htmlDiffStreamRows += `<div class="diff-line added" style="padding:3px 8px; color:#0a3014; font-weight:bold;"><span class="diff-marker">+</span>${escapeHtmlCode(newS)}</div>`;
+                } else if (oldS !== null) {
+                    htmlDiffStreamRows += `<div class="diff-line neutral" style="padding:3px 8px;"><span class="diff-marker">&nbsp;</span>${escapeHtmlCode(oldS)}</div>`;
+                }
+            }
+            return htmlDiffStreamRows;
         }
 
         function generateLineByLineGithubStyleDiff(oldTextRaw, newTextRaw) {
@@ -3480,6 +3518,22 @@
             return htmlDiffStreamRows;
         }
 
+        function renderSingleSummaryDiff_byTimestamp(timestamp) {
+            let article = orlePediaMemoryStore[currentActiveArticleKey];
+            const sortedHistory = [...article.history].sort((a, b) => b.timestamp - a.timestamp);
+            const idx = sortedHistory.findIndex(r => r.timestamp === timestamp);
+            if (idx === -1) return;
+
+            let currentSelectedContent = sortedHistory[idx].content;
+            let baseContentStr = idx < sortedHistory.length - 1 ? sortedHistory[idx + 1].content : '';
+
+            let renderedDiffMarkup = generateSentenceByLineDiff(baseContentStr, currentSelectedContent);
+            let displayTargetBox = document.getElementById('wikiTabContentBody');
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison — Sentence by Sentence</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Red lines = old content &nbsp;|&nbsp; Green lines = new content</p>`;
+
+            displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
+        }
+
         function renderSingleSummaryDiff(historyIndex) {
             let article = orlePediaMemoryStore[currentActiveArticleKey];
             let currentSelectedContent = article.history[historyIndex].content;
@@ -3489,9 +3543,9 @@
                 baseContentStr = article.history[parseInt(historyIndex) + 1].content;
             }
 
-            let renderedDiffMarkup = generateLineByLineGithubStyleDiff(baseContentStr, currentSelectedContent);
+            let renderedDiffMarkup = generateSentenceByLineDiff(baseContentStr, currentSelectedContent);
             let displayTargetBox = document.getElementById('wikiTabContentBody');
-            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison Matrix View</h3>`;
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison — Sentence by Sentence</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Red lines = old content &nbsp;|&nbsp; Green lines = new content</p>`;
 
             displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
         }
@@ -3676,26 +3730,29 @@
             fullHtml += `</body></html>`;
             statusSpan.innerText = "Finalizing file...";
 
-            const blob = new Blob([fullHtml], { type: 'text/html' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `OrlePedia_Archive_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.html`;
-            a.click();
-            
             if (format === 'pdf') {
+                statusSpan.innerText = 'Opening print dialog for PDF...';
                 const printWindow = window.open('', '_blank');
-                printWindow.document.write(fullHtml);
-                printWindow.document.close();
-                printWindow.focus();
-                setTimeout(() => {
-                    printWindow.print();
-                    statusSpan.innerText = "Complete!";
-                }, 1000);
+                if (printWindow) {
+                    printWindow.document.write(fullHtml);
+                    printWindow.document.close();
+                    printWindow.focus();
+                    setTimeout(() => {
+                        printWindow.print();
+                        statusSpan.innerText = 'Complete! Use browser Print → Save as PDF.';
+                        setTimeout(() => { statusSpan.innerText = ''; }, 8000);
+                    }, 1000);
+                }
+            } else {
+                const blob = new Blob([fullHtml], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OrlePedia_Archive_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.html`;
+                a.click();
+                statusSpan.innerText = 'Download triggered!';
+                setTimeout(() => { statusSpan.innerText = ''; }, 5000);
             }
-            
-            statusSpan.innerText = "Download triggered!";
-            setTimeout(() => { statusSpan.innerText = ""; }, 5000);
         }
 
         async function downloadArticle(format) {
@@ -3906,60 +3963,17 @@
         }
 
         function calculateVerifiabilityIndex(article) {
-            if (!article) return { score: 0, label: "Unverifiable", color: "#c0392b", star: "red" };
+            if (!article) return { score: 0, label: "Unverifiable", color: "#8b0000", star: "darkred" };
 
-            const logScale = (value, min, max) => {
-                if (value <= min) return 0;
-                if (value >= max) return 1;
-                return Math.log(value - min + 1) / Math.log(max - min + 1);
-            };
+            // Quality is calculated in Supabase and stored in the quality column
+            // Read directly from the stored value; fall back to 0 if not set
+            const totalScore = (article.quality !== undefined && article.quality !== null) ? parseFloat(article.quality) : 0;
 
-            // 40% — Number of Revisions (min 1, max 50) → max 5/5
-            const editCount = article._rev_count || (article.history ? article.history.length : 0);
-            const editScore = logScale(editCount, 1, 50) * 5 * 0.40;
-
-            // 20% — Size in bytes (min 500, max 10000) → max 5/5
-            const byteSize = article.content ? new Blob([article.content]).size : 0;
-            const sizeScore = logScale(byteSize, 500, 10000) * 5 * 0.20;
-
-            // 10% — Number of sections (min 1, max 5) → max 5/5
-            const sectionCount = (article.content.match(/^== .+ ==$/gm) || []).length;
-            const sectionScore = logScale(sectionCount, 1, 5) * 5 * 0.10;
-
-            // 5% — Rating (max 5)
-            let avgRating = 0;
-            if (article._avg_rating !== undefined && article._avg_rating !== null) {
-                avgRating = parseFloat(article._avg_rating);
-            } else if (article.ratings && article.ratings.length > 0) {
-                avgRating = parseFloat(calculatePageRatingAverage(article.ratings));
-            }
-            const ratingScore = (avgRating / 5) * 5 * 0.05;
-
-            // 5% — Page views (max 50)
-            const views = article.views || 0;
-            const viewScore = logScale(views, 0, 50) * 5 * 0.05;
-
-            // 15% — Number of pages linking here (min 2, max 30) → max 5/5
-            let linksHereCount = 0;
-            for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
-                if (k === article.title) continue;
-                if (obj.content) {
-                    const linkRegex = new RegExp(`\\[\\[${article.title}(\\||\\]\\])`, 'g');
-                    if (linkRegex.test(obj.content)) linksHereCount++;
-                }
-            }
-            const linksScore = logScale(linksHereCount, 2, 30) * 5 * 0.15;
-
-            // 5% — Number of images (max 5)
-            const imageCount = (article.content.match(/\[\[File[|:]/g) || []).length + (article.content.match(/img\d+\s*=/g) || []).length;
-            const imageScore = logScale(imageCount, 0, 5) * 5 * 0.05;
-
-            const totalScore = editScore + sizeScore + sectionScore + ratingScore + viewScore + linksScore + imageScore;
-
-            if (totalScore >= 4) return { score: totalScore, label: "Verifiable", color: "#2471a3", star: "blue" };
-            if (totalScore >= 3) return { score: totalScore, label: "Moderate Verifiable", color: "#27ae60", star: "green" };
-            if (totalScore >= 2) return { score: totalScore, label: "Low Verifiable", color: "#d4ac0d", star: "yellow" };
-            return { score: totalScore, label: "Unverifiable", color: "#c0392b", star: "red" };
+            if (totalScore >= 4) return { score: totalScore, label: "High Quality", color: "#2471a3", star: "blue" };
+            if (totalScore >= 3) return { score: totalScore, label: "Good Quality", color: "#27ae60", star: "green" };
+            if (totalScore >= 2) return { score: totalScore, label: "Low Quality", color: "#d4ac0d", star: "yellow" };
+            if (totalScore >= 1) return { score: totalScore, label: "Poor Quality", color: "#c0392b", star: "red" };
+            return { score: totalScore, label: "Unrated", color: "#8b0000", star: "darkred" };
         }
 
         function loadGlobalSearchReplaceView() {
@@ -3973,11 +3987,11 @@
             container.innerHTML = `
                 <div style="padding:1.5rem;">
                     <h3>Global Word Replacement</h3>
-                    <p style="color:var(--text-muted); margin-bottom:1.5rem;">Search for a specific keyword and replace it across all encyclopedia articles.</p>
+                    <p style="color:var(--text-muted); margin-bottom:1.5rem;">Search for a specific keyword and replace it across all encyclopedia articles. Exact word match only.</p>
                     
                     <div style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; margin-bottom:1.5rem;">
                         <div style="display:flex; gap:10px; margin-bottom:1rem;">
-                            <input type="text" id="globalReplaceSearch" placeholder="Find word..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
+                            <input type="text" id="globalReplaceSearch" placeholder="Find word (exact match)..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
                             <input type="text" id="globalReplaceTarget" placeholder="Replace with..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
                         </div>
                         <button class="action-btn success" onclick="performGlobalReplaceSearch()">Search & List Articles</button>
@@ -3990,52 +4004,88 @@
         }
 
         function performGlobalReplaceSearch() {
-            const findText = document.getElementById('globalReplaceSearch').value.trim();
+            const findText = document.getElementById('globalReplaceSearch').value;
             if (!findText) return alert("Please enter a word to find.");
+            
+            // Exact word match: word boundaries
+            const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
             
             const results = [];
             for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                if (art.content && art.content.includes(findText)) {
-                    const count = (art.content.match(new RegExp(findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-                    results.push({ title, count });
+                if (art.content) {
+                    const matches = art.content.match(exactWordRegex);
+                    if (matches && matches.length > 0) {
+                        results.push({ title, count: matches.length });
+                    }
                 }
             }
             
             const resultsContainer = document.getElementById('globalReplaceResults');
             if (results.length === 0) {
-                resultsContainer.innerHTML = `<p style="color:grey;">No articles found containing "${findText}".</p>`;
+                resultsContainer.innerHTML = `<p style="color:grey;">No articles found containing exact word "${findText}".</p>`;
                 return;
             }
             
             resultsContainer.innerHTML = `
-                <p style="margin-bottom:1rem;">Found <b>${results.length}</b> articles containing "${findText}":</p>
-                <table class="stat-table" style="margin-bottom:1.5rem;">
-                    <thead><tr><th>Article</th><th>Occurrences</th></tr></thead>
+                <p style="margin-bottom:1rem;">Found <b>${results.length}</b> articles containing "${findText}" (exact word). Uncheck articles to exclude them:</p>
+                <table class="stat-table" style="margin-bottom:1.5rem;" id="globalReplaceTable">
+                    <thead><tr><th style="width:30px;"><input type="checkbox" id="globalReplaceSelectAll" checked onchange="document.querySelectorAll('.gr-article-chk').forEach(c => c.checked = this.checked)"></th><th>Article</th><th>Occurrences</th></tr></thead>
                     <tbody>
-                        ${results.map(r => `<tr><td>${r.title}</td><td>${r.count}</td></tr>`).join('')}
+                        ${results.map(r => `<tr>
+                            <td><input type="checkbox" class="gr-article-chk" data-title="${r.title.replace(/"/g,'&quot;')}" checked></td>
+                            <td><span class="wiki-link" onclick="showGlobalReplaceLines('${r.title.replace(/'/g, "\\'")}',' ${findText.replace(/'/g, "\\'")}')"> ${r.title}</span></td>
+                            <td>${r.count}</td>
+                        </tr>`).join('')}
                     </tbody>
                 </table>
-                <button class="action-btn danger" onclick="commitGlobalReplace()">Commit Changes Across ${results.length} Articles</button>
+                <div id="globalReplaceLinePreview" style="margin-bottom:1rem;"></div>
+                <button class="action-btn danger" onclick="commitGlobalReplace()">Commit Changes to Checked Articles</button>
             `;
         }
 
+        function showGlobalReplaceLines(title, findText) {
+            const art = orlePediaMemoryStore[title];
+            if (!art || !art.content) return;
+            const escapedFind = findText.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'gi');
+            const lines = art.content.split('\n');
+            const matchedLines = lines.filter(line => exactWordRegex.test(line));
+            const preview = document.getElementById('globalReplaceLinePreview');
+            if (!preview) return;
+            if (matchedLines.length === 0) { preview.innerHTML = ''; return; }
+            preview.innerHTML = `<div style="background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:0.75rem; margin-bottom:0.5rem;"><strong>Lines in "${title}" containing "${findText.trim()}":</strong><ul style="margin:0.5rem 0 0 1rem; font-size:0.85rem;">` +
+                matchedLines.map(l => `<li style="margin-bottom:3px;">${escapeHtmlCode(l)}</li>`).join('') +
+                `</ul></div>`;
+        }
+
         async function commitGlobalReplace() {
-            const findText = document.getElementById('globalReplaceSearch').value.trim();
+            const findText = document.getElementById('globalReplaceSearch').value;
             const replaceText = document.getElementById('globalReplaceTarget').value;
             
-            if (!confirm(`Are you sure you want to replace "${findText}" with "${replaceText}" across all listed articles? This cannot be undone.`)) return;
+            // Collect only checked articles
+            const checkedBoxes = document.querySelectorAll('.gr-article-chk:checked');
+            const includedTitles = new Set(Array.from(checkedBoxes).map(cb => cb.getAttribute('data-title')));
+
+            if (includedTitles.size === 0) return alert('No articles selected.');
+            if (!confirm(`Are you sure you want to replace "${findText}" with "${replaceText}" across ${includedTitles.size} selected articles? This cannot be undone.`)) return;
             
+            const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
+
             let updatedCount = 0;
             for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                if (art.content && art.content.includes(findText)) {
-                    const newContent = art.content.split(findText).join(replaceText);
-                    art.content = newContent;
-                    
-                    // Persist to Supabase
-                    if (art._db_id) {
-                        await supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { content: newContent });
+                if (!includedTitles.has(title)) continue;
+                if (art.content) {
+                    const newContent = art.content.replace(exactWordRegex, replaceText);
+                    if (newContent !== art.content) {
+                        art.content = newContent;
+                        // Persist to Supabase
+                        if (art._db_id) {
+                            await supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { content: newContent });
+                        }
+                        updatedCount++;
                     }
-                    updatedCount++;
                 }
             }
             
@@ -4142,6 +4192,11 @@
             const topVerifiable = [...validStats].sort((a, b) => b.vScore - a.vScore).slice(0, 5);
             const bottomVerifiable = [...validStats].sort((a, b) => a.vScore - b.vScore).slice(0, 5);
 
+            const totalViews = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
+                if (art.content && art.content.startsWith('#REDIRECT')) return sum;
+                return sum + (art.views || 0);
+            }, 0);
+
             let statsHtml = `
                 <div class="statistics-grid">
                     <div class="stat-card">
@@ -4159,6 +4214,10 @@
                     <div class="stat-card">
                         <div class="stat-card-label">Total Words</div>
                         <div class="stat-card-value">${totalWords}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-label">Total Views</div>
+                        <div class="stat-card-value">${totalViews}</div>
                     </div>
                 </div>
 
@@ -4242,17 +4301,17 @@
                     </tbody>
                 </table>
 
-                <h3>Top 5 Highly Verifiable Articles</h3>
+                <h3>Top 5 Highest Quality Articles</h3>
                 <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Index</th></tr></thead>
+                    <thead><tr><th>Article</th><th>Quality</th></tr></thead>
                     <tbody>
                         ${topVerifiable.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td style="color:${art.vColor}; font-weight:bold;">${art.vLabel} (${art.vScore.toFixed(1)})</td></tr>`).join('')}
                     </tbody>
                 </table>
 
-                <h3>Bottom 5 Least Verifiable Articles</h3>
+                <h3>Bottom 5 Lowest Quality Articles</h3>
                 <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Index</th></tr></thead>
+                    <thead><tr><th>Article</th><th>Quality</th></tr></thead>
                     <tbody>
                         ${bottomVerifiable.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td style="color:${art.vColor}; font-weight:bold;">${art.vLabel} (${art.vScore.toFixed(1)})</td></tr>`).join('')}
                     </tbody>
