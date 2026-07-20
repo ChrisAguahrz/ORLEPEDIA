@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+                 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2279,7 +2279,44 @@
             
             const vIndex = calculateVerifiabilityIndex(article);
             
-            pageInfoDiv.innerHTML = '';
+            pageInfoDiv.innerHTML = `
+                <div class="collapsible-panel">
+                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                        📄 Page Information
+                        <span class="collapsible-toggle">▼</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Author:</span>
+                            <span class="sidebar-stat-value">${authorName}</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Created:</span>
+                            <span class="sidebar-stat-value">${createdDate}</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Total Revisions:</span>
+                            <span class="sidebar-stat-value">${article.history.length}</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Quality:</span>
+                            <span class="sidebar-stat-value" style="color:${vIndex.color}; font-weight:bold;">${vIndex.label} (${vIndex.score.toFixed(1)})</span>
+                        </div>
+                        <div class="sidebar-stat">
+                            <span class="sidebar-stat-label">Category:</span>
+                            <span class="sidebar-stat-value">
+                                ${ (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).length > 0 
+                                    ? (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => {
+                                        const name = c.match(/\[\[Category:([^\]]+)\]\]/)[1];
+                                        return `<span class="wiki-link" onclick="loadCategoryView('${name}')">${name}</span>`;
+                                      }).join(', ')
+                                    : `<span style="color:grey; font-style:italic;">Uncategorized</span>`
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             historyInfoDiv.innerHTML = '';
         }
@@ -2623,7 +2660,7 @@
                 const lastRev = targetArticle.history[targetArticle.history.length-1];
                 const lastEditedTime = lastRev ? lastRev.timestamp : targetArticle.createdTime;
                 const isRecent = (Date.now() - lastEditedTime) < (24 * 60 * 60 * 1000);
-                finalHtml += `<div class="article-footer-info" style="${isRecent ? 'color: blue;' : ''}">Last edited ${getRelativeTime(lastEditedTime)}</div>`;
+                finalHtml += `<div class="article-footer-info" style="background:#1a73e8; color:white; font-style:italic; font-weight:bold; padding:4px 8px; border-radius:4px; display:inline-block; margin-top:10px;">Last edited ${getRelativeTime(lastEditedTime)}</div>`;
 
                 contentBox.innerHTML = finalHtml;
                 updateArticleSidebar();
@@ -3080,6 +3117,7 @@
                         ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${compileRawMarkupToHtml(infoboxDataRecords['images'])}</div>` : ''}
                         <table class="infobox-data-table">
                             ${row('Country', 'country')}
+                            ${row('Region', 'region')}
                             ${row('State', 'state')}
                             ${row('County', 'county')}
                             <tr><th style="padding-left:1rem;">Capital</th><td>${parseWiki(infoboxDataRecords['capital'] || '')}</td></tr>
@@ -3105,7 +3143,7 @@
                             ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
                 `;
 
-                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'country', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'country', 'region', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
                     if (handled.includes(k)) continue;
                     compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${parseWiki(v)}</td></tr>`;
