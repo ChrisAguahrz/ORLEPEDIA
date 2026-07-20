@@ -2481,7 +2481,7 @@
             const viewCount = article.views || 0;
             const vIndex = calculateVerifiabilityIndex(article);
             const qualityStarColor = vIndex.star === 'blue' ? '#2471a3' : vIndex.star === 'green' ? '#27ae60' : vIndex.star === 'yellow' ? '#d4ac0d' : vIndex.star === 'red' ? '#c0392b' : '#8b0000';
-            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help; font-size:1.4rem; vertical-align:middle;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span><span style="color:${qualityStarColor}; font-weight:bold; font-size:1.1rem; vertical-align:middle; margin-left:4px;">${vIndex.score.toFixed(1)}</span>`;
+            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help; font-size:1.25rem; vertical-align:middle;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span><span style="color:${qualityStarColor}; font-weight:bold; font-size:1.1rem; vertical-align:middle; margin-left:4px;">${vIndex.score.toFixed(1)}</span>`;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''} ${verifiabilityStar}`;
             
             // Background Lazy Loading (Memory Only)
