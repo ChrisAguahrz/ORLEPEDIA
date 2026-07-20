@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-               <meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2584,7 +2584,7 @@
                 finalHtml += `<div class="article-footer-info" style="background:#1a73e8; color:white; font-style:italic; font-weight:bold; padding:4px 8px; border-radius:4px; display:inline-block; margin-top:10px;">Last edited ${getRelativeTime(lastEditedTime)}</div>`;
 
                 contentBox.innerHTML = finalHtml;
-                updateArticleSidebar();
+
                 lucide.createIcons();
             } 
             else if (targetTab === 'talk') {
@@ -3900,7 +3900,7 @@
 
         function loadGlobalSearchReplaceView() {
             exitEditorDashboard();
-            closeArticleSidebar();
+
             document.getElementById('displayArticleTitle').innerText = "Special: Global Search & Replace";
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
@@ -4050,7 +4050,7 @@
         // ============ STATISTICS VIEW ============
         function loadStatisticsView() {
             exitEditorDashboard();
-            closeArticleSidebar();
+
             document.getElementById('displayArticleTitle').innerText = "Special: Statistics";
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
@@ -4365,7 +4365,7 @@
         let _imagesCache = null;
         function loadImagesGallery() {
             exitEditorDashboard();
-            closeArticleSidebar();
+
             document.getElementById('displayArticleTitle').innerText = 'Images Gallery';
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
@@ -4448,7 +4448,7 @@
                 return;
             }
             exitEditorDashboard();
-            closeArticleSidebar();
+
             document.getElementById('displayArticleTitle').innerText = categoryName === 'Article' ? 'All Articles' : `Category: ${categoryName}`;
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
@@ -4567,7 +4567,7 @@
         // ============ RECENT CHANGES LOG FEED GENERATOR ============
         function loadRecentChangesView() {
             exitEditorDashboard();
-            closeArticleSidebar();
+
             document.getElementById('displayArticleTitle').innerText = "Special: Recent Changes";
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
@@ -4933,4 +4933,4 @@
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
-                  </html>
+      </html>
