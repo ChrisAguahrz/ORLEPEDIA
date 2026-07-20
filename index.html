@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+               <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1598,13 +1598,7 @@
         </div>
     </main>
 
-    <!-- Article Right Sidebar -->
-    <div class="article-sidebar" id="articleSidebar">
-        <button class="sidebar-close-btn" onclick="closeArticleSidebar()">✕</button>
-        
-        <div id="sidebarPageInfo"></div>
-        <div id="sidebarHistoryInfo"></div>
-    </div>
+
 
     <!-- Profile Modal -->
     <div class="modal-overlay" id="profileModal">
@@ -2256,42 +2250,7 @@
             sidebar.classList.toggle('collapsed');
         }
 
-        // ============ ARTICLE SIDEBAR MANAGEMENT ============
-        function openArticleSidebar() {
-            document.getElementById('articleSidebar').classList.add('visible');
-            updateArticleSidebar();
-        }
-
-        function closeArticleSidebar() {
-            document.getElementById('articleSidebar').classList.remove('visible');
-        }
-
-        function updateArticleSidebar() {
-            const article = orlePediaMemoryStore[currentActiveArticleKey];
-            if (!article) return;
-
-            const pageInfoDiv = document.getElementById('sidebarPageInfo');
-            const historyInfoDiv = document.getElementById('sidebarHistoryInfo');
-
-            const createdDate = new Date(article.createdTime).toLocaleString();
-
-            const authorName = article.history[0]?.editor_name || article.history[0]?.editor || article.author;
-            
-            const vIndex = calculateVerifiabilityIndex(article);
-            
-            pageInfoDiv.innerHTML = '';
-
-            historyInfoDiv.innerHTML = '';
-        }
-
-        function toggleCollapsible(headerElement) {
-            const content = headerElement.nextElementSibling;
-            const toggle = headerElement.querySelector('.collapsible-toggle');
-            
-            content.classList.toggle('open');
-            toggle.classList.toggle('open');
-        }
-
+        // ============ ARTICLE SIDEBAR MANAGEMENT ============    
         // ============ GLOBAL SEARCH FUNCTIONALITY ============
         function performGlobalSearch(event) {
             const query = event.target.value.toLowerCase().trim();
@@ -2515,7 +2474,6 @@
 
             renderRatingStarsCluster();
             switchSubTab(activeSubTabState);
-            openArticleSidebar();
         }
 
         function switchSubTab(targetTab) {
@@ -4975,4 +4933,4 @@
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
-  </html>
+                  </html>
