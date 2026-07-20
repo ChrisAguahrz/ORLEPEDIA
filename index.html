@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-                 <meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2279,44 +2279,7 @@
             
             const vIndex = calculateVerifiabilityIndex(article);
             
-            pageInfoDiv.innerHTML = `
-                <div class="collapsible-panel">
-                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                        📄 Page Information
-                        <span class="collapsible-toggle">▼</span>
-                    </div>
-                    <div class="collapsible-content">
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Author:</span>
-                            <span class="sidebar-stat-value">${authorName}</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Created:</span>
-                            <span class="sidebar-stat-value">${createdDate}</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Total Revisions:</span>
-                            <span class="sidebar-stat-value">${article.history.length}</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Quality:</span>
-                            <span class="sidebar-stat-value" style="color:${vIndex.color}; font-weight:bold;">${vIndex.label} (${vIndex.score.toFixed(1)})</span>
-                        </div>
-                        <div class="sidebar-stat">
-                            <span class="sidebar-stat-label">Category:</span>
-                            <span class="sidebar-stat-value">
-                                ${ (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).length > 0 
-                                    ? (article.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => {
-                                        const name = c.match(/\[\[Category:([^\]]+)\]\]/)[1];
-                                        return `<span class="wiki-link" onclick="loadCategoryView('${name}')">${name}</span>`;
-                                      }).join(', ')
-                                    : `<span style="color:grey; font-style:italic;">Uncategorized</span>`
-                                }
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            `;
+            pageInfoDiv.innerHTML = '';
 
             historyInfoDiv.innerHTML = '';
         }
@@ -2518,8 +2481,8 @@
             const viewCount = article.views || 0;
             const vIndex = calculateVerifiabilityIndex(article);
             const qualityStarColor = vIndex.star === 'blue' ? '#2471a3' : vIndex.star === 'green' ? '#27ae60' : vIndex.star === 'yellow' ? '#d4ac0d' : vIndex.star === 'red' ? '#c0392b' : '#8b0000';
-            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span>`;
-            document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''}${verifiabilityStar}`;
+            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help; font-size:1.4rem; vertical-align:middle;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span><span style="color:${qualityStarColor}; font-weight:bold; font-size:1.1rem; vertical-align:middle; margin-left:4px;">${vIndex.score.toFixed(1)}</span>`;
+            document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''} ${verifiabilityStar}`;
             
             // Background Lazy Loading (Memory Only)
             if (article && article._db_id) {
