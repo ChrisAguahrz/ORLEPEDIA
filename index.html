@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-               <meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1598,7 +1598,13 @@
         </div>
     </main>
 
-
+    <!-- Article Right Sidebar -->
+    <div class="article-sidebar" id="articleSidebar">
+        <button class="sidebar-close-btn" onclick="closeArticleSidebar()">✕</button>
+        
+        <div id="sidebarPageInfo"></div>
+        <div id="sidebarHistoryInfo"></div>
+    </div>
 
     <!-- Profile Modal -->
     <div class="modal-overlay" id="profileModal">
@@ -2509,6 +2515,7 @@
 
             renderRatingStarsCluster();
             switchSubTab(activeSubTabState);
+            openArticleSidebar();
         }
 
         function switchSubTab(targetTab) {
