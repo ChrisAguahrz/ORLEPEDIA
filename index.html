@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1598,7 +1598,13 @@
         </div>
     </main>
 
-
+    <!-- Article Right Sidebar -->
+    <div class="article-sidebar" id="articleSidebar">
+        <button class="sidebar-close-btn" onclick="closeArticleSidebar()">✕</button>
+        
+        <div id="sidebarPageInfo"></div>
+        <div id="sidebarHistoryInfo"></div>
+    </div>
 
     <!-- Profile Modal -->
     <div class="modal-overlay" id="profileModal">
@@ -2475,7 +2481,7 @@
             const viewCount = article.views || 0;
             const vIndex = calculateVerifiabilityIndex(article);
             const qualityStarColor = vIndex.star === 'blue' ? '#2471a3' : vIndex.star === 'green' ? '#27ae60' : vIndex.star === 'yellow' ? '#d4ac0d' : vIndex.star === 'red' ? '#c0392b' : '#8b0000';
-            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help; font-size:1.25rem; vertical-align:middle;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span><span style="color:${qualityStarColor}; font-weight:bold; font-size:1.1rem; vertical-align:middle; margin-left:4px;">${vIndex.score.toFixed(1)}</span>`;
+            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help; font-size:1.4rem; vertical-align:middle;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span><span style="color:${qualityStarColor}; font-weight:bold; font-size:1.1rem; vertical-align:middle; margin-left:4px;">${vIndex.score.toFixed(1)}</span>`;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''} ${verifiabilityStar}`;
             
             // Background Lazy Loading (Memory Only)
@@ -2509,6 +2515,7 @@
 
             renderRatingStarsCluster();
             switchSubTab(activeSubTabState);
+            openArticleSidebar();
         }
 
         function switchSubTab(targetTab) {
@@ -4968,4 +4975,4 @@
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
     </script>
 </body>
-  </html>
+                                                                                    </html>
