@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -3521,6 +3521,7 @@
                             <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
                             <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
                             <button class="action-btn" onclick="downloadArticle('pptx')">Download PPTX</button>
+                            <button class="action-btn" onclick="downloadArticle('txt')">Download TXT</button>
                             <button class="action-btn danger" onclick="executePermanentDeletion()">⚠️ Permanently Delete Article</button>
                         </div>
                     </section>
@@ -3597,6 +3598,32 @@
             const includeImages = confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
             
             statusSpan.innerText = `Preparing ${titles.length} articles...`;
+
+            if (format === 'txt') {
+                let fullTxt = `OrlePedia Encyclopedia Archive\nTotal Articles: ${titles.length}\nGenerated: ${new Date().toLocaleString()}\n\n` + "=".repeat(50) + "\n\n";
+                for (let i = 0; i < titles.length; i++) {
+                    const t = titles[i];
+                    const art = orlePediaMemoryStore[t];
+                    statusSpan.innerText = `Processing (${i+1}/${titles.length}): ${t}`;
+                    let rawContent = art.content || "";
+                    if (!includeImages) rawContent = rawContent.replace(/\[\[File\|.*?\]\]/g, "");
+                    rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, "");
+                    const htmlContent = compileRawMarkupToHtml(rawContent);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlContent;
+                    const plainText = tempDiv.innerText || tempDiv.textContent || "";
+                    fullTxt += `TITLE: ${t}\nCATEGORY: ${art.category}\nAUTHOR: ${art.author}\n\n${plainText}\n\n` + "-".repeat(30) + "\n\n";
+                }
+                const blob = new Blob([fullTxt], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `OrlePedia_Archive_TXT_${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                statusSpan.innerText = 'Download triggered!';
+                setTimeout(() => { statusSpan.innerText = ''; }, 5000);
+                return;
+            }
             
             let fullHtml = `
                 <!DOCTYPE html>
@@ -3687,6 +3714,23 @@
             }
             
             const renderedContent = compileRawMarkupToHtml(article.content);
+            if (format === 'txt') {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = renderedContent;
+                const plainText = tempDiv.innerText || tempDiv.textContent || "";
+                const fullTxt = `TITLE: ${title}\nCATEGORY: ${article.category}\nAUTHOR: ${article.author}\n\n${plainText}\n\nDownloaded from OrlePedia — ${new Date().toLocaleDateString()}`;
+                const blob = new Blob([fullTxt], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                return;
+            }
+
             const htmlContent = `
                 <!DOCTYPE html>
                 <html>
