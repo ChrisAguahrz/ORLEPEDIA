@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -3612,7 +3612,7 @@
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = htmlContent;
                     const plainText = tempDiv.innerText || tempDiv.textContent || "";
-                    fullTxt += `TITLE: ${t}\nCATEGORY: ${art.category}\nAUTHOR: ${art.author}\n\n${plainText}\n\n` + "-".repeat(30) + "\n\n";
+                    fullTxt += `${t.toUpperCase()}\n${"=".repeat(t.length)}\nCATEGORY: ${art.category}\nAUTHOR: ${art.author}\n\n${plainText}\n\n` + "=".repeat(50) + "\n\n";
                 }
                 const blob = new Blob([fullTxt], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
@@ -3697,7 +3697,8 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `OrlePedia_Archive_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.html`;
+                const fileExt = format === 'docx' ? 'docx' : 'html';
+                a.download = `OrlePedia_Archive_${format.toUpperCase()}_${new Date().toISOString().split('T')[0]}.${fileExt}`;
                 a.click();
                 statusSpan.innerText = 'Download triggered!';
                 setTimeout(() => { statusSpan.innerText = ''; }, 5000);
@@ -3718,7 +3719,7 @@
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = renderedContent;
                 const plainText = tempDiv.innerText || tempDiv.textContent || "";
-                const fullTxt = `TITLE: ${title}\nCATEGORY: ${article.category}\nAUTHOR: ${article.author}\n\n${plainText}\n\nDownloaded from OrlePedia — ${new Date().toLocaleDateString()}`;
+                const fullTxt = `${title.toUpperCase()}\n${"=".repeat(title.length)}\nCATEGORY: ${article.category}\nAUTHOR: ${article.author}\n\n${plainText}\n\nDownloaded from OrlePedia — ${new Date().toLocaleDateString()}`;
                 const blob = new Blob([fullTxt], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -3774,12 +3775,13 @@
                     setTimeout(() => printWindow.print(), 500);
                 }
             } else {
-                const ext = format === 'docx' ? 'doc' : 'ppt';
-                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const ext = format === 'docx' ? 'docx' : (format === 'pptx' ? 'pptx' : 'html');
+                const mimeType = format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'text/html';
+                const blob = new Blob([htmlContent], { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.${ext}.html`;
+                a.download = `${title.replace(/[^a-z0-9]/gi, '_')}.${ext}`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
