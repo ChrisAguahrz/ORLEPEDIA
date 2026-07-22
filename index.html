@@ -2695,7 +2695,7 @@
                     params.forEach((p, i) => {
                         processed = processed.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), p.trim());
                     });
-                    processed = processed.replace(new RegExp(`\\{\\{\\{${i + 1}\\}\\}\\}`, 'g'), p.trim());
+                    processed = processed.replace(/\{\{text\}\}/g, params[0].trim());
                     return parseGlobalWiki(processed);
                 });
             }
