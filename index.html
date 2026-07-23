@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+           <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -35,14 +35,56 @@
         
         /* Mobile Sidebar Adjustments */
         @media (max-width: 768px) {
-            body { display: block; }
-            aside { position: fixed; left: -250px; top: 0; height: 100vh; z-index: 10002; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; background: var(--bg-canvas); width: 220px !important; display: flex !important; flex-direction: column !important; }
+            body { display: block; overflow-x: hidden; }
+            aside { 
+                position: fixed !important; 
+                left: -280px; 
+                top: 0; 
+                height: 100vh; 
+                z-index: 10002; 
+                box-shadow: 2px 0 10px rgba(0,0,0,0.2); 
+                transition: left 0.3s ease; 
+                background: var(--bg-canvas); 
+                width: 250px !important; 
+                display: flex !important; 
+                flex-direction: column !important;
+                margin: 0 !important;
+            }
             aside.mobile-active { left: 0 !important; }
-            main { padding: 1rem; width: 100% !important; margin-left: 0 !important; margin-top: 0 !important; padding-top: 0 !important; }
-            #userHeaderBanner { margin-top: 0; }
-            .firstHeading { font-size: 1.5rem; }
+            main { 
+                padding: 0.5rem 1rem !important; 
+                width: 100% !important; 
+                margin: 0 !important; 
+                display: block !important;
+            }
+            #userHeaderBanner { 
+                margin-top: 0; 
+                padding-left: 45px; /* Align with hamburger */
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                min-height: 50px;
+            }
+            #identityGreeting { display: none; } /* Hide greeting on mobile to save space for search bar */
+            .modern-search-container { flex: 1; margin: 0; }
+            .firstHeading { font-size: 1.5rem; margin-top: 10px; }
             .sidebar-toggle-btn { display: none; }
-            #mobileHamburgerBtn { display: flex !important; position: fixed; top: 0.5rem; left: 0.5rem; z-index: 10001; background: var(--wiki-blue); color: white; border: none; width: 36px; height: 36px; border-radius: 4px; cursor: pointer; align-items: center; justify-content: center; }
+            #mobileHamburgerBtn { 
+                display: flex !important; 
+                position: fixed; 
+                top: 10px; 
+                left: 10px; 
+                z-index: 10001; 
+                background: var(--wiki-blue); 
+                color: white; 
+                border: none; 
+                width: 36px; 
+                height: 36px; 
+                border-radius: 4px; 
+                cursor: pointer; 
+                align-items: center; 
+                justify-content: center; 
+            }
             .nav-link span { display: inline !important; }
             .nav-link { justify-content: flex-start !important; padding: 0.8rem 1rem !important; width: 100% !important; }
         }
@@ -60,7 +102,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
+            z-index: 20000; /* Increased to be above everything */
             transition: opacity 0.5s ease, visibility 0.5s ease;
             font-family: Georgia, serif;
         }
