@@ -35,10 +35,10 @@
         
         /* Mobile Sidebar Adjustments */
         @media (max-width: 768px) {
-            body { flex-direction: column; }
-            aside { position: fixed; left: -250px; top: 0; height: 100vh; z-index: 10000; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; background: var(--bg-canvas); width: 220px !important; display: flex !important; flex-direction: column !important; }
+            body { display: block; }
+            aside { position: fixed; left: -250px; top: 0; height: 100vh; z-index: 10002; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; background: var(--bg-canvas); width: 220px !important; display: flex !important; flex-direction: column !important; }
             aside.mobile-active { left: 0 !important; }
-            main { padding: 1rem; width: 100% !important; margin-left: 0 !important; margin-top: 50px; }
+            main { padding: 1rem; width: 100% !important; margin-left: 0 !important; margin-top: 0 !important; padding-top: 3.5rem !important; }
             .firstHeading { font-size: 1.5rem; }
             .sidebar-toggle-btn { display: none; }
             #mobileHamburgerBtn { display: flex !important; position: fixed; top: 0.5rem; left: 0.5rem; z-index: 10001; background: var(--wiki-blue); color: white; border: none; width: 36px; height: 36px; border-radius: 4px; cursor: pointer; align-items: center; justify-content: center; }
@@ -2273,6 +2273,18 @@
             const aside = document.getElementById('mainSidebar');
             aside.classList.toggle('mobile-active');
         }
+        
+        // Auto-collapse sidebar on mobile when a link is clicked
+        document.addEventListener('click', function(e) {
+            if (window.innerWidth <= 768) {
+                const aside = document.getElementById('mainSidebar');
+                if (aside.classList.contains('mobile-active')) {
+                    if (e.target.closest('.nav-link') || e.target.closest('.nav-sub-menu a')) {
+                        aside.classList.remove('mobile-active');
+                    }
+                }
+            }
+        });
 
         // ============ ARTICLE SIDEBAR MANAGEMENT ============    
         // ============ GLOBAL SEARCH FUNCTIONALITY ============
