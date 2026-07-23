@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-           <meta charset="UTF-8">
+             <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -35,20 +35,21 @@
         
         /* Mobile Sidebar Adjustments */
         @media (max-width: 768px) {
-            body { display: block; overflow-x: hidden; }
+            body { display: block !important; overflow-x: hidden; }
             aside { 
                 position: fixed !important; 
-                left: -280px; 
-                top: 0; 
-                height: 100vh; 
-                z-index: 10002; 
+                left: -280px !important; 
+                top: 0 !important; 
+                height: 100vh !important; 
+                z-index: 10002 !important; 
                 box-shadow: 2px 0 10px rgba(0,0,0,0.2); 
                 transition: left 0.3s ease; 
-                background: var(--bg-canvas); 
+                background: var(--bg-canvas) !important; 
                 width: 250px !important; 
                 display: flex !important; 
                 flex-direction: column !important;
                 margin: 0 !important;
+                float: none !important;
             }
             aside.mobile-active { left: 0 !important; }
             main { 
@@ -56,34 +57,36 @@
                 width: 100% !important; 
                 margin: 0 !important; 
                 display: block !important;
+                position: relative !important;
+                top: 0 !important;
             }
             #userHeaderBanner { 
-                margin-top: 0; 
-                padding-left: 45px; /* Align with hamburger */
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                min-height: 50px;
+                margin-top: 0 !important; 
+                padding-left: 45px !important; /* Align with hamburger */
+                display: flex !important;
+                align-items: center !important;
+                gap: 10px !important;
+                min-height: 50px !important;
             }
-            #identityGreeting { display: none; } /* Hide greeting on mobile to save space for search bar */
-            .modern-search-container { flex: 1; margin: 0; }
-            .firstHeading { font-size: 1.5rem; margin-top: 10px; }
-            .sidebar-toggle-btn { display: none; }
+            #identityGreeting { display: none !important; } /* Hide greeting on mobile to save space for search bar */
+            .modern-search-container { flex: 1 !important; margin: 0 !important; }
+            .firstHeading { font-size: 1.5rem !important; margin-top: 10px !important; }
+            .sidebar-toggle-btn { display: none !important; }
             #mobileHamburgerBtn { 
                 display: flex !important; 
-                position: fixed; 
-                top: 10px; 
-                left: 10px; 
-                z-index: 10001; 
-                background: var(--wiki-blue); 
-                color: white; 
-                border: none; 
-                width: 36px; 
-                height: 36px; 
-                border-radius: 4px; 
-                cursor: pointer; 
-                align-items: center; 
-                justify-content: center; 
+                position: fixed !important; 
+                top: 10px !important; 
+                left: 10px !important; 
+                z-index: 10001 !important; 
+                background: var(--wiki-blue) !important; 
+                color: white !important; 
+                border: none !important; 
+                width: 36px !important; 
+                height: 36px !important; 
+                border-radius: 4px !important; 
+                cursor: pointer !important; 
+                align-items: center !important; 
+                justify-content: center !important; 
             }
             .nav-link span { display: inline !important; }
             .nav-link { justify-content: flex-start !important; padding: 0.8rem 1rem !important; width: 100% !important; }
