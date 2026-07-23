@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+         <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -32,6 +32,16 @@
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
+        
+        /* Mobile Hamburger Menu */
+        #mobileHamburgerBtn { display: none; position: fixed; top: 0.5rem; right: 1rem; z-index: 10001; background: var(--wiki-blue); color: white; border: none; width: 40px; height: 40px; border-radius: 4px; cursor: pointer; align-items: center; justify-content: center; }
+        @media (max-width: 768px) {
+            #mobileHamburgerBtn { display: flex; }
+            aside { position: fixed; left: -180px; top: 0; height: 100vh; z-index: 10000; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; }
+            aside.mobile-active { left: 0; }
+            main { padding: 1rem; margin-top: 50px; }
+            .firstHeading { font-size: 1.5rem; }
+        }
 
         /* ============ MODERN LOADING SCREEN ============ */
         #globalLoadingOverlay {
@@ -1455,6 +1465,7 @@
 <body>
 
     <!-- ============ MODERN LOADING SCREEN WITH DIAGNOSTICS ============ -->
+    <button id="mobileHamburgerBtn" onclick="toggleMobileSidebar()"><i data-lucide="menu"></i></button>
     <div id="globalLoadingOverlay">
         <div class="loading-logo-container">
             <img src="https://i.postimg.cc/V6m4ZCyX/dffa1d80-60d4-11f1-baa4-19927f988a0a.png" class="loading-logo-img" onerror="this.style.display='none'">
@@ -2248,6 +2259,10 @@
         function toggleSidebar() {
             const sidebar = document.getElementById('mainSidebar');
             sidebar.classList.toggle('collapsed');
+        }
+        function toggleMobileSidebar() {
+            const aside = document.querySelector('aside');
+            aside.classList.toggle('mobile-active');
         }
 
         // ============ ARTICLE SIDEBAR MANAGEMENT ============    
@@ -3527,14 +3542,12 @@
                     </section>
 
                     <section style="border-top: 1px solid #eee; padding-top: 1.5rem;">
-                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Bulk Operations</h3>
-                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Compile and download the entire encyclopedia library. Note: Large databases may take a moment to process.</p>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Article Export</h3>
+                        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Download this article in your preferred format.</p>
                         <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
-                            <button class="action-btn" onclick="downloadAllArticles('pdf')" id="bulkDownPdf">Download All (PDF)</button>
-                            <button class="action-btn" onclick="downloadAllArticles('docx')" id="bulkDownDocx">Download All (DOCX)</button>
-                            <button class="action-btn" onclick="downloadAllArticles('pptx')" id="bulkDownPptx">Download All (PPTX)</button>
-                            <button class="action-btn" onclick="downloadAllArticles('txt')" id="bulkDownTxt">Download All (TXT)</button>
-                            <span id="bulkLoadStatus" style="font-size:0.8rem; color:var(--wiki-blue); font-weight:bold;"></span>
+                            <button class="action-btn" onclick="downloadArticle('pdf')">Download PDF</button>
+                            <button class="action-btn" onclick="downloadArticle('docx')">Download DOCX</button>
+                            <button class="action-btn" onclick="downloadArticle('txt')">Download TXT</button>
                         </div>
                     </section>
                 </div>
@@ -3633,7 +3646,7 @@
                     <title>OrlePedia Full Archive</title>
                     <style>
                         body { font-family: Georgia, serif; padding: 2rem; max-width: 900px; margin: 0 auto; line-height: 1.6; color: #202122; }
-                        .article-break { page-break-after: always; border-bottom: 2px solid #36b; margin-bottom: 3rem; padding-bottom: 1rem; }
+                        .article-break { page-break-after: always; border-bottom: 1px solid #eee; margin-bottom: 0.5rem; padding-bottom: 0.5rem; }
                         h1.archive-title { text-align: center; font-size: 2.5rem; color: #36b; margin-bottom: 5rem; }
                         h1.article-title { font-size: 2rem; border-bottom: 1px solid #a2a9b1; padding-bottom: 0.25rem; margin-top: 2rem; }
                         h2 { font-size: 1.4rem; border-bottom: 1px solid #a2a9b1; margin-top: 1.5rem; }
