@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-         <meta charset="UTF-8">
+            <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -33,15 +33,17 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background-color: var(--bg-canvas); color: var(--text-dark); display: flex; min-height: 100vh; }
         
-        /* Mobile Hamburger Menu */
-        #mobileHamburgerBtn { display: none; position: fixed; top: 0.5rem; right: 1rem; z-index: 10001; background: var(--wiki-blue); color: white; border: none; width: 40px; height: 40px; border-radius: 4px; cursor: pointer; align-items: center; justify-content: center; }
+        /* Mobile Sidebar Adjustments */
         @media (max-width: 768px) {
-            #mobileHamburgerBtn { display: flex; }
-            aside { position: fixed; left: -180px; top: 0; height: 100vh; z-index: 10000; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; }
-            aside.mobile-active { left: 0; }
+            aside { position: fixed; left: -180px; top: 0; height: 100vh; z-index: 10000; box-shadow: 2px 0 10px rgba(0,0,0,0.1); transition: left 0.3s ease; background: var(--bg-canvas); width: 180px !important; }
+            aside.mobile-active { left: 0 !important; }
+            aside.collapsed { left: -180px !important; }
             main { padding: 1rem; margin-top: 50px; }
             .firstHeading { font-size: 1.5rem; }
+            .sidebar-toggle-btn { display: none; } /* Hide the small toggle on mobile */
+            #mobileHamburgerBtn { display: flex !important; position: fixed; top: 0.5rem; left: 0.5rem; z-index: 10001; background: var(--wiki-blue); color: white; border: none; width: 36px; height: 36px; border-radius: 4px; cursor: pointer; align-items: center; justify-content: center; }
         }
+        #mobileHamburgerBtn { display: none; }
 
         /* ============ MODERN LOADING SCREEN ============ */
         #globalLoadingOverlay {
@@ -1465,7 +1467,7 @@
 <body>
 
     <!-- ============ MODERN LOADING SCREEN WITH DIAGNOSTICS ============ -->
-    <button id="mobileHamburgerBtn" onclick="toggleMobileSidebar()"><i data-lucide="menu"></i></button>
+    <button id="mobileHamburgerBtn" onclick="toggleMobileSidebar()" title="Menu"><i data-lucide="menu"></i></button>
     <div id="globalLoadingOverlay">
         <div class="loading-logo-container">
             <img src="https://i.postimg.cc/V6m4ZCyX/dffa1d80-60d4-11f1-baa4-19927f988a0a.png" class="loading-logo-img" onerror="this.style.display='none'">
@@ -2261,7 +2263,7 @@
             sidebar.classList.toggle('collapsed');
         }
         function toggleMobileSidebar() {
-            const aside = document.querySelector('aside');
+            const aside = document.getElementById('mainSidebar');
             aside.classList.toggle('mobile-active');
         }
 
