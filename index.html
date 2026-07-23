@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-             <meta charset="UTF-8">
+   <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -52,6 +52,7 @@
                 float: none !important;
             }
             aside.mobile-active { left: 0 !important; }
+            aside.mobile-active #mobileHamburgerBtn { display: flex !important; } /* Ensure it stays visible */
             main { 
                 padding: 0.5rem 1rem !important; 
                 width: 100% !important; 
@@ -1617,7 +1618,7 @@
                         <div id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
                         <div id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
                         <div id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
-                        <div id="tabBulk" onclick="switchSubTab('bulk')">Bulk Download</div>
+                        <div id="tabBulk" onclick="switchSubTab('bulk')">Article Download</div>
                     </div>
                 </div>
             </div>
@@ -3773,7 +3774,8 @@
                     }, 1000);
                 }
             } else {
-                const blob = new Blob([fullHtml], { type: 'text/html' });
+                const mimeType = format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'text/html';
+                const blob = new Blob([fullHtml], { type: mimeType });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -3893,7 +3895,7 @@
             container.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
                     <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
-                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Bulk Encyclopedia Archive Download</h3>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Encyclopedia Archive Download</h3>
                         <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Compile and download the entire encyclopedia library. Note: Large databases may take a moment to process.</p>
                         <div style="display:flex; gap:10px; flex-wrap: wrap; align-items:center;">
                             <button class="action-btn" onclick="downloadAllArticles('pdf')" id="bulkDownPdf">Download All (PDF)</button>
