@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-        <meta charset="UTF-8">
+             <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2558,6 +2558,19 @@
                     if (art._db_id) {
                         supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { views: art.views });
                     }
+                    // Country View Tracking
+                    fetch('https://ipapi.co/json/')
+                        .then(r => r.json())
+                        .then(geo => {
+                            if (geo && geo.country_code) {
+                                const country = geo.country_code;
+                                art.country_views = art.country_views || {};
+                                art.country_views[country] = (art.country_views[country] || 0) + 1;
+                                if (art._db_id) {
+                                    supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { country_views: art.country_views });
+                                }
+                            }
+                        }).catch(() => {});
                 }
             }
             if (pushState) {
