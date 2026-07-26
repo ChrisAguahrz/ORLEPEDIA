@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-             <meta charset="UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2080,7 +2080,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality&limit=1000');
+                articles = await supabaseRequest('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2161,6 +2161,7 @@
                             average_rating: art.average_rating || 0.0,
                             quality: (art.quality !== undefined && art.quality !== null) ? parseFloat(art.quality) : null,
                             views: art.views || 0,
+                            country_views: art.country_views || {},
                             _revisions_loaded: false,
                             _ratings_loaded: false,
                             category: art.summary || "General Indexes",
@@ -2567,7 +2568,7 @@
                                 art.country_views = art.country_views || {};
                                 art.country_views[country] = (art.country_views[country] || 0) + 1;
                                 if (art._db_id) {
-                                    supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { country_views: art.country_views });
+                                    supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { country_views: JSON.stringify(art.country_views) });
                                 }
                             }
                         }).catch(() => {});
