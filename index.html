@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+        <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1150,6 +1150,57 @@
             font-size: 0.85rem; 
         }
 
+        /* Template Namespace Styling */
+        .template-namespace-content {
+            background: #f5f5f5;
+            border: 1px solid #d4d4d4;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        .template-namespace-wrapper {
+            background: linear-gradient(135deg, #f8f8f8 0%, #eee 100%);
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #333;
+            opacity: 0.85;
+        }
+        .template-namespace-wrapper h2,
+        .template-namespace-wrapper h3,
+        .template-namespace-wrapper h4 {
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+            color: #555;
+        }
+        .template-namespace-wrapper p {
+            font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        /* Archive Namespace Styling */
+        .archive-namespace-content {
+            border-left: 4px solid var(--border-wiki);
+            padding-left: 1rem;
+            margin: 1rem 0;
+        }
+        .archive-blockquote {
+            border-left: 4px solid #999;
+            margin: 0;
+            padding: 1rem 1.5rem;
+            background: #fafafa;
+            font-style: italic;
+            color: #444;
+        }
+        .archive-namespace-wrapper {
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+            background: linear-gradient(to bottom, #fafafa, #f0f0f0);
+        }
+        
         /* Rating Module Style */
         .star-rating-cluster { 
             display: inline-flex; 
@@ -1601,6 +1652,7 @@
             <div class="firstHeading">
                 <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
                     <span id="displayArticleTitle">Main Page</span>
+                    <span id="articleNamespaceBadge" style="font-size:0.8rem; padding:2px 8px; border-radius:4px; background:#eaecf0; color:var(--wiki-blue); font-weight:bold; margin-left:8px; display:none;"></span>
                     <div class="star-rating-cluster" id="articleStarsContainer"></div>
                 </div>
                 <button class="tool-btn" id="editToggleGlobalBtn" onclick="toggleEditMode()" style="font-size:0.8rem; display:flex; align-items:center; gap:4px;"><i data-lucide="edit-3"></i> Edit</button>
@@ -1611,6 +1663,7 @@
 
             <div class="wiki-tabs">
                 <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
+                <span id="articleNamespaceTabBadge" style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:#eaecf0; color:var(--wiki-blue); margin-left:4px; display:none;"></span>
                 <div style="flex:1"></div>
                 <div class="more-tabs-dropdown">
                     <button class="tool-btn" style="border:none; background:none; font-size:1.2rem;">⋮</button>
@@ -1746,10 +1799,9 @@
                 <label>Namespace</label>
                 <select id="newArticleNamespaceSelect">
                     <option value="Article">Article</option>
-                    <option value="OrlePedia">OrlePedia</option>
-                    <option value="File">File</option>
-                    <option value="Category">Category</option>
-                    <option value="SpecialPages">Special Pages</option>
+                    <option value="Archive">Archive</option>
+                    <option value="Template">Template</option>
+                    <option value="Files">Files</option>
                 </select>
             </div>
             <div class="modal-row">
@@ -1824,6 +1876,15 @@
             <div class="modal-row">
                 <label>New Title</label>
                 <input type="text" id="movePageNewTitle" placeholder="Enter new article title">
+            </div>
+            <div class="modal-row">
+                <label>Namespace</label>
+                <select id="movePageNamespaceSelect">
+                    <option value="Article">Article</option>
+                    <option value="Archive">Archive</option>
+                    <option value="Template">Template</option>
+                    <option value="Files">Files</option>
+                </select>
             </div>
             <div class="modal-row">
                 <label>Reason / Summary</label>
@@ -2019,7 +2080,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,created_at,id,views,total_revisions,average_rating,quality&limit=1000');
+                articles = await supabaseRequest('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2095,6 +2156,7 @@
                         orlePediaMemoryStore[art.title] = {
                             title: art.title,
                             _db_id: art.id,
+                            namespace: art.namespace || 'Article',
                             total_revisions: art.total_revisions || 0,
                             average_rating: art.average_rating || 0.0,
                             quality: (art.quality !== undefined && art.quality !== null) ? parseFloat(art.quality) : null,
@@ -2116,7 +2178,6 @@
                 updateLoadingProgress(98, `Built encyclopedia with ${articles.length} articles`);
                 // Storage removed as per user request to avoid LocalStorage usage across devices
             } else {
-                diagnosticsLog.push('❌ No articles to build encyclopedia');
                 showDetailedError('No Articles Found', 'The database query returned no articles. Check your Supabase table.', diagnosticsLog);
                 return false;
             }
@@ -2257,6 +2318,7 @@
                         title: title,
                         content: content,
                         summary: category,
+                        namespace: payloadData.databaseNode?.namespace || 'Article',
                         total_revisions: totalRevs
                     };
 
@@ -2516,7 +2578,51 @@
                 };
             }
 
-            document.getElementById('displayArticleTitle').innerText = articleTitle;
+            const art = orlePediaMemoryStore[articleTitle];
+            const isArticleNS = !art || art.namespace === 'Article';
+            
+            // Show namespace badge
+            const nsBadge = document.getElementById('articleNamespaceBadge');
+            const nsTabBadge = document.getElementById('articleNamespaceTabBadge');
+            const ns = art?.namespace || 'Article';
+            if (ns && ns !== 'Article') {
+                nsBadge.style.display = 'inline';
+                nsBadge.textContent = ns;
+                nsTabBadge.style.display = 'inline';
+                nsTabBadge.textContent = ns;
+                // Show namespace prefix in title for non-Article
+                if (ns !== 'Article') {
+                    document.getElementById('displayArticleTitle').innerHTML = `<span style="font-style:italic; color:var(--text-muted);">${ns}:</span> ${escapeHtmlCode(articleTitle)}`;
+                } else {
+                    document.getElementById('displayArticleTitle').innerText = articleTitle;
+                }
+            } else {
+                nsBadge.style.display = 'none';
+                nsTabBadge.style.display = 'none';
+                document.getElementById('displayArticleTitle').innerText = articleTitle;
+            }
+            
+            // Show/hide See Also & Ratings for Article namespace only
+            const starsContainer = document.getElementById('articleStarsContainer');
+            const editBtn = document.getElementById('editToggleGlobalBtn');
+            if (!isArticleNS) {
+                starsContainer.style.display = 'none';
+            } else {
+                starsContainer.style.display = '';
+            }
+            
+            // Apply namespace-specific styling to content body
+            const contentBody = document.getElementById('wikiTabContentBody');
+            if (ns === 'Template') {
+                contentBody.classList.add('template-namespace-content');
+            } else {
+                contentBody.classList.remove('template-namespace-content');
+            }
+            if (ns === 'Archive') {
+                contentBody.classList.add('archive-namespace-content');
+            } else {
+                contentBody.classList.remove('archive-namespace-content');
+            }
             
             const article = orlePediaMemoryStore[articleTitle];
             const revisionCount = article.total_revisions || article.history.length;
@@ -2566,12 +2672,22 @@
             const contentBox = document.getElementById('wikiTabContentBody');
             const targetArticle = orlePediaMemoryStore[currentActiveArticleKey];
 
-            if (targetTab === 'article') {
+                if (targetTab === 'article') {
                 document.getElementById('tabArticle').classList.add('active');
                 let finalHtml = compileRawMarkupToHtml(targetArticle.content);
                 
-                // RELATED ARTICLES LOGIC
+                // Namespace-specific rendering
+                const currentNS = targetArticle.namespace || 'Article';
+                if (currentNS === 'Template') {
+                    finalHtml = `<div class="template-namespace-wrapper">${finalHtml}</div>`;
+                } else if (currentNS === 'Archive') {
+                    finalHtml = `<div class="archive-namespace-wrapper"><blockquote class="archive-blockquote">${finalHtml}</blockquote></div>`;
+                }
+                
+                // RELATED ARTICLES LOGIC (Article namespace only)
                 let relatedArticles = [];
+                const nsForSeeAlso = targetArticle.namespace || 'Article';
+                const showSeeAlso = nsForSeeAlso === 'Article';
                 const currentCats = (targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
 
                 // Extract all wiki-linked titles from current article
@@ -2626,7 +2742,7 @@
                 relatedArticles.sort((a, b) => b.score - a.score);
                 const displayRelated = relatedArticles.slice(0, 3);
                 
-                if (displayRelated.length > 0) {
+                if (showSeeAlso && displayRelated.length > 0) {
                     finalHtml += `<div style="margin-top:2rem; border-top:2px solid var(--wiki-blue); padding-top:1rem;"><h3>See Also</h3><div style="display:flex; gap:15px; flex-wrap:wrap;">`;
                     displayRelated.forEach(rel => {
                         const imgMatch = rel.content.match(/\[\[File\|([^|]+)\|/);
@@ -2653,6 +2769,7 @@
                     finalHtml += `</div></div>`;
                 }
 
+                if (showSeeAlso) {
                 const cats = targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g);
                 if (cats) {
                     finalHtml += `<div style="margin-top:1.5rem;">Categories: ${cats.map(c => {
@@ -2665,6 +2782,7 @@
                 const lastEditedTime = lastRev ? lastRev.timestamp : targetArticle.createdTime;
                 const isRecent = (Date.now() - lastEditedTime) < (24 * 60 * 60 * 1000);
                 finalHtml += `<div class="article-footer-info" style="background:#1a73e8; color:white; font-style:italic; font-weight:bold; padding:4px 8px; border-radius:4px; display:inline-block; margin-top:10px;">Last edited ${getRelativeTime(lastEditedTime)}</div>`;
+                } // end showSeeAlso
 
                 contentBox.innerHTML = finalHtml;
 
@@ -4147,6 +4265,12 @@
         function renderRatingStarsCluster() {
             const container = document.getElementById('articleStarsContainer');
             let article = orlePediaMemoryStore[currentActiveArticleKey];
+            // Only show ratings for Article namespace
+            if (article && article.namespace && article.namespace !== 'Article') {
+                container.innerHTML = '';
+                container.style.display = 'none';
+                return;
+            }
             let averageNum = parseFloat(calculatePageRatingAverage(article.ratings));
 
             let starClusterMarkup = "";
@@ -4166,6 +4290,7 @@
 
         function submitPageUserRatingMetric(selectedScoreValue) {
             let article = orlePediaMemoryStore[currentActiveArticleKey];
+            if (article.namespace && article.namespace !== 'Article') return;
             if(!article.ratings) article.ratings = [];
 
             article.ratings.push(selectedScoreValue);
@@ -4183,7 +4308,8 @@
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
 
-            let totalPages = Object.keys(orlePediaMemoryStore).filter(k => !orlePediaMemoryStore[k].content?.startsWith('#REDIRECT')).length;
+            // Statistics: only count Article namespace
+            let totalPages = Object.keys(orlePediaMemoryStore).filter(k => !orlePediaMemoryStore[k].content?.startsWith('#REDIRECT') && orlePediaMemoryStore[k].namespace === 'Article').length;
             let totalEdits = 0;
             let totalWords = 0;
             let pageStats = [];
@@ -4204,6 +4330,8 @@
             for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
                 // Skip redirects from all counts
                 if (article.content && article.content.startsWith('#REDIRECT')) continue;
+                // Statistics: only include Article namespace
+                if (article.namespace && article.namespace !== 'Article') continue;
 
                 const editCount = parseInt(article.total_revisions) || 0;
                 totalEdits += editCount;
@@ -4223,9 +4351,10 @@
 
                 const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
             
-            // Use Direct SQL Column Values for Stats
+            // Use Direct SQL Column Values for Stats (Article namespace only)
             totalEdits = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
                 if (art.content && art.content.startsWith('#REDIRECT')) return sum;
+                if (art.namespace && art.namespace !== 'Article') return sum;
                 return sum + (art.total_revisions || 0);
             }, 0);
 
@@ -4244,6 +4373,7 @@
 
             const totalViews = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
                 if (art.content && art.content.startsWith('#REDIRECT')) return sum;
+                if (art.namespace && art.namespace !== 'Article') return sum;
                 return sum + (art.views || 0);
             }, 0);
 
@@ -4670,6 +4800,7 @@
 
             orlePediaMemoryStore[targetTitleStr] = {
                 title: targetTitleStr,
+                namespace: selectedNamespaceStr,
                 category: "General Indexes",
                 content: `{{Description|${selectedCategoryStr}}}\n\n`,
                 talk: `== Talk Board for ${targetTitleStr} ==`,
@@ -4907,6 +5038,7 @@
         async function executePageMove() {
             const oldTitle = currentActiveArticleKey;
             const newTitle = document.getElementById('movePageNewTitle').value.trim();
+            const newNamespace = document.getElementById('movePageNamespaceSelect')?.value || 'Article';
             const summary = document.getElementById('movePageSummaryInput')?.value || "";
             if (!newTitle || newTitle === oldTitle) return;
 
@@ -4918,6 +5050,7 @@
                                 orlePediaMemoryStore[newTitle] = { 
                     ...art, 
                     title: newTitle, 
+                    namespace: newNamespace,
                     history: [...art.history, { timestamp: Date.now(), editor: currentUserSessionProfile.username, summary: moveSummary, content: art.content }] 
                 };
                 
