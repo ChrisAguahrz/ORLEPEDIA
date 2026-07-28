@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+        <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -832,7 +832,7 @@
         .infobox-map img { 
             max-width: 100%; 
             height: auto; 
-            max-height: 250px; 
+            max-height: 150px; 
         }
         
         .infobox-data-table { 
@@ -2891,12 +2891,23 @@
                 if (!txt) return "";
                 return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
                           .replace(/''(.*?)''/g, '<i>$1</i>')
+                          .replace(/\[\[File:([^|\]]+)\]\]/g, function(m, fname) {
+                              let src = fname.trim();
+                              // Try to get size from filename like "200px"
+                              let w = "200";
+                              return `<img src="${src}" style="max-width:${w}px; max-height:300px; display:inline-block; vertical-align:middle;" onerror="this.src='${src}'; this.style.display='none';" loading="lazy">`;
+                          })
+                          .replace(/\[\[File:([^|\]]+)\|([^\]]+)\]\]/g, function(m, fname, opts) {
+                              let src = fname.trim();
+                              // Parse options like 200px or 300px
+                              let w = opts.match(/(\d+)px/);
+                              w = w ? w[1] : '200';
+                              return `<img src="${src}" style="max-width:${w}px; max-height:300px; display:inline-block; vertical-align:middle;" onerror="this.src='${src}'; this.style.display='none';" loading="lazy">`;
+                          })
                           .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
-                              if (p1.startsWith('File:')) return m;
                               return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
                           })
                           .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
-                              if (p1 === 'File') return m;
                               return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
                           });
             };
@@ -3407,7 +3418,7 @@
                         }
                         let finalStyle = style;
                         if (colspan > 1 || rowspan > 1) {
-                            finalStyle = (finalStyle ? finalStyle + ';' : '') + 'vertical-align: middle; text-align: center;';
+                            finalStyle = (finalStyle ? finalStyle + ';' : '') + 'vertical-align: baseline; text-align: center; padding: 0;';
                         }
                         html += `<td colspan="${colspan}" rowspan="${rowspan}" style="${finalStyle}">${parseGlobalWiki(cellContent)}</td>`;
                         if (rowspan > 1) {
