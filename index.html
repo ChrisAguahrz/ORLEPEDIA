@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+          <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2890,29 +2890,27 @@
 
             const parseGlobalWiki = (txt) => {
                 if (!txt) return "";
-                // Inline [[File|url|size]] rendering (for tables and inline use)
-                txt = txt.replace(/\[\[File\|([^\]]+)\]\]/g, function(m, rest) {
+                // TFile: inline [[TFile|url|size]] rendering (for tables — no container, no caption)
+                txt = txt.replace(/\[\[TFile\|([^\]]+)\]\]/g, function(m, rest) {
                     const parts = rest.split('|');
                     const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
-                    const sizeMatch = parts[1] ? parts[1].match(/(\d+)px/) : null;
-                    const w = sizeMatch ? sizeMatch[1] : '40';
-                    return `<img src="${url}" style="max-width:${w}px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy">`;
+                    return `<img src="${url}" style="max-width:40px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy">`;
                 });
-                txt = txt.replace(/\[\[File\|([^\]]+)\|([^\]]+)\]\]/g, function(m, rest, opts) {
+                txt = txt.replace(/\[\[TFile\|([^\]]+)\|([^\]]+)\]\]/g, function(m, rest, opts) {
                     const parts = rest.split('|');
                     const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
                     const sizeMatch = opts.match(/(\d+)px/);
                     const w = sizeMatch ? sizeMatch[1] : '40';
-                    return `<img src="${url}" style="max-width:${w}px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy">`;
+                    return `<img src="${url}" style="max-width:${w}px;max-height:${w}px;display:inline-block;vertical-align:middle;" loading="lazy">`;
                 });
                 return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
                           .replace(/''(.*?)''/g, '<i>$1</i>')
                           .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
-                              if (p1.startsWith('File:')) return m;
+                              if (p1.startsWith('File:') || p1.startsWith('TFile')) return m;
                               return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
                           })
                           .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
-                              if (p1 === 'File') return m;
+                              if (p1 === 'File' || p1 === 'TFile') return m;
                               return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
                           });
             };
@@ -3392,7 +3390,7 @@
                         }
                         let finalStyle = style;
                         if (colspan > 1 || rowspan > 1) {
-                            finalStyle = (finalStyle ? finalStyle + ';' : '') + 'vertical-align: baseline; text-align: center; padding: 0;';
+                            finalStyle = (finalStyle ? finalStyle + ';' : '') + 'vertical-align: baseline; text-align: left; padding: 0;';
                         }
                         html += `<td colspan="${colspan}" rowspan="${rowspan}" style="${finalStyle}">${parseGlobalWiki(cellContent)}</td>`;
                         if (rowspan > 1) {
@@ -3406,6 +3404,7 @@
                 return html;
             });
 
+            // File: centered container with caption (for articles)
             const fileBlockRegex = /\[\[File\|(.*?)(?:\|(.*?))?(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
             workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
                 let url = p1.trim();
@@ -3435,6 +3434,23 @@
                         </div>
                     </div>
                 `;
+            });
+
+            // TFile: inline img only (no container, no caption)
+            const tfileBlockRegex = /\[\[TFile\|(.*?)(?:\|(.*?))?\]\]/g;
+            workingTextStr = workingTextStr.replace(tfileBlockRegex, function(m, p1, p2) {
+                let url = p1.trim();
+                let sizeWidth = "220px";
+                if (url === "DB") {
+                    url = orlePediaFileStore[p2.trim()] || p2.trim();
+                    sizeWidth = "220px";
+                } else if (url.startsWith('http')) {
+                    sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
+                } else {
+                    url = orlePediaFileStore[url] || url;
+                    sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
+                }
+                return `<div class="wiki-file-container"><div class="wiki-file-box"><img src="${url}" class="wiki-file-img" loading="lazy" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';"></div></div>`;
             });
 
             const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
