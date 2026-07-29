@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2890,6 +2890,21 @@
 
             const parseGlobalWiki = (txt) => {
                 if (!txt) return "";
+                // Inline [[File|url|size]] rendering (for tables and inline use)
+                txt = txt.replace(/\[\[File\|([^\]]+)\]\]/g, function(m, rest) {
+                    const parts = rest.split('|');
+                    const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
+                    const sizeMatch = parts[1] ? parts[1].match(/(\d+)px/) : null;
+                    const w = sizeMatch ? sizeMatch[1] : '40';
+                    return `<img src="${url}" style="max-width:${w}px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy">`;
+                });
+                txt = txt.replace(/\[\[File\|([^\]]+)\|([^\]]+)\]\]/g, function(m, rest, opts) {
+                    const parts = rest.split('|');
+                    const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
+                    const sizeMatch = opts.match(/(\d+)px/);
+                    const w = sizeMatch ? sizeMatch[1] : '40';
+                    return `<img src="${url}" style="max-width:${w}px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy">`;
+                });
                 return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
                           .replace(/''(.*?)''/g, '<i>$1</i>')
                           .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
