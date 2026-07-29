@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2642,8 +2642,9 @@
             const revisionCount = article.total_revisions || article.history.length;
             const viewCount = article.views || 0;
             const vIndex = calculateVerifiabilityIndex(article);
-            const qualityStarColor = vIndex.star === 'blue' ? '#2471a3' : vIndex.star === 'green' ? '#27ae60' : vIndex.star === 'yellow' ? '#d4ac0d' : vIndex.star === 'red' ? '#c0392b' : '#8b0000';
-            const verifiabilityStar = `<span style="color:${qualityStarColor}; margin-left:8px; cursor:help; font-size:1.25rem; vertical-align:middle;" title="Quality: ${vIndex.label} (${vIndex.score.toFixed(1)})">★</span><span style="color:${qualityStarColor}; font-weight:bold; font-size:1.1rem; vertical-align:middle; margin-left:4px;">${vIndex.score.toFixed(1)}</span>`;
+            const qcBg = vIndex.score >= 4.5 ? '#2255cc' : vIndex.score >= 4.0 ? '#1a6b1a' : vIndex.score >= 3.5 ? '#5cb85c' : vIndex.score >= 3.0 ? '#f0ad4e' : vIndex.score >= 2.0 ? '#d9534f' : vIndex.score >= 1.5 ? '#8b0000' : '#222';
+            const qcLabel = vIndex.score >= 4.5 ? 'Featured Article' : vIndex.score >= 4.0 ? 'Quality Article' : vIndex.score >= 3.5 ? 'Good Article' : vIndex.score >= 3.0 ? 'Medium' : vIndex.score >= 2.0 ? 'Low Quality' : vIndex.score >= 1.5 ? 'Very Low' : 'Poor Article';
+            const verifiabilityStar = `<span style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:bold;color:white;background:${qcBg};vertical-align:middle;cursor:help;" title="Quality: ${qcLabel} (${vIndex.score.toFixed(1)})"><span>${qcLabel}</span><span style="font-size:0.62rem;opacity:0.85;">${vIndex.score.toFixed(1)}</span></span>`;
             document.getElementById('articleMetaInfo').innerHTML = `By ${article.author} • ${revisionCount} revision${revisionCount !== 1 ? 's' : ''} • ${viewCount} view${viewCount !== 1 ? 's' : ''} ${verifiabilityStar}`;
             
             // Background Lazy Loading (Memory Only)
@@ -2889,41 +2890,14 @@
 
             const parseGlobalWiki = (txt) => {
                 if (!txt) return "";
-                // First: [[File|URL|size|caption]] or [[File:URL|size|caption]]
-                txt = txt.replace(/\[\[File:([^\]]+)\]\]/g, function(m, rest) {
-                    const parts = rest.split('|');
-                    const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
-                    const sizeMatch = parts[1] ? parts[1].match(/(\d+)px/) : null;
-                    const w = sizeMatch ? sizeMatch[1] : '200';
-                    return `<img src="${url}" style="max-width:${w}px; max-height:300px; display:inline-block; vertical-align:middle;" onerror="this.style.display='none';" loading="lazy">`;
-                });
-                txt = txt.replace(/\[\[File:([^\]]+)\|([^\]]+)\]\]/g, function(m, rest, opts) {
-                    const parts = rest.split('|');
-                    const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
-                    const sizeMatch = opts.match(/(\d+)px/);
-                    const w = sizeMatch ? sizeMatch[1] : '200';
-                    return `<img src="${url}" style="max-width:${w}px; max-height:300px; display:inline-block; vertical-align:middle;" onerror="this.style.display='none';" loading="lazy">`;
-                });
-                txt = txt.replace(/\[\[File\|([^\]]+)\]\]/g, function(m, rest) {
-                    const parts = rest.split('|');
-                    const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
-                    const sizeMatch = parts[1] ? parts[1].match(/(\d+)px/) : null;
-                    const w = sizeMatch ? sizeMatch[1] : '200';
-                    return `<img src="${url}" style="max-width:${w}px; max-height:300px; display:inline-block; vertical-align:middle;" onerror="this.style.display='none';" loading="lazy">`;
-                });
-                txt = txt.replace(/\[\[File\|([^\]]+)\|([^\]]+)\]\]/g, function(m, rest, opts) {
-                    const parts = rest.split('|');
-                    const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
-                    const sizeMatch = opts.match(/(\d+)px/);
-                    const w = sizeMatch ? sizeMatch[1] : '200';
-                    return `<img src="${url}" style="max-width:${w}px; max-height:300px; display:inline-block; vertical-align:middle;" onerror="this.style.display='none';" loading="lazy">`;
-                });
                 return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
                           .replace(/''(.*?)''/g, '<i>$1</i>')
                           .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
+                              if (p1.startsWith('File:')) return m;
                               return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
                           })
                           .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
+                              if (p1 === 'File') return m;
                               return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
                           });
             };
@@ -3337,37 +3311,6 @@
 
             workingTextStr = `<div class="h2-section-content wiki-body first-para" style="display:block;">` + workingTextStr + `</div>`;
 
-            const fileBlockRegex = /\[\[File\|(.*?)(?:\|(.*?))?(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
-            workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
-                let url = p1.trim();
-                let fileName = p2 ? p2.trim() : "";
-                let sizeWidth = "220px";
-                let caption = "";
-
-                if (url === "DB") {
-                    url = orlePediaFileStore[fileName] || "";
-                    sizeWidth = p3 || "220px";
-                    caption = p4 || p3 || "";
-                } else if (url.startsWith('http')) {
-                    caption = p3 ? p3 : p2;
-                    sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
-                    url = p1.trim();
-                } else {
-                    url = orlePediaFileStore[url] || "";
-                    caption = p2 || "";
-                    sizeWidth = "220px";
-                }
-
-                return `
-                    <div class="wiki-file-container">
-                        <div class="wiki-file-box">
-                            <img src="${url}" class="wiki-file-img" loading="lazy" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
-                            <span class="wiki-file-caption">${caption}</span>
-                        </div>
-                    </div>
-                `;
-            });
-
             const tableRegex = /\{\{Table([\s\S]*?)\}\}/g;
             workingTextStr = workingTextStr.replace(tableRegex, function(m, content) {
                 const tableId = 'table_' + Math.random().toString(36).substr(2, 9);
@@ -3446,6 +3389,37 @@
                 });
                 html += `</tbody></table>`;
                 return html;
+            });
+
+            const fileBlockRegex = /\[\[File\|(.*?)(?:\|(.*?))?(?:\|(.*?))?(?:\|(.*?))?\]\]/g;
+            workingTextStr = workingTextStr.replace(fileBlockRegex, function(m, p1, p2, p3, p4) {
+                let url = p1.trim();
+                let fileName = p2 ? p2.trim() : "";
+                let sizeWidth = "220px";
+                let caption = "";
+
+                if (url === "DB") {
+                    url = orlePediaFileStore[fileName] || "";
+                    sizeWidth = p3 || "220px";
+                    caption = p4 || p3 || "";
+                } else if (url.startsWith('http')) {
+                    caption = p3 ? p3 : p2;
+                    sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
+                    url = p1.trim();
+                } else {
+                    url = orlePediaFileStore[url] || "";
+                    caption = p2 || "";
+                    sizeWidth = "220px";
+                }
+
+                return `
+                    <div class="wiki-file-container">
+                        <div class="wiki-file-box">
+                            <img src="${url}" class="wiki-file-img" loading="lazy" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <span class="wiki-file-caption">${caption}</span>
+                        </div>
+                    </div>
+                `;
             });
 
             const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
