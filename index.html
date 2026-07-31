@@ -2900,7 +2900,7 @@
                     const parts = rest.split('|');
                     const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
                     const sizeMatch = opts.match(/(\d+)px/);
-                    const w = sizeMatch ? sizeMatch[1] : '40';
+                    const w = sizeMatch ? sizeMatch[1] : '55';
                     return `<img src="${url}" style="max-width:${w}px;max-height:${w}px;display:inline-block;vertical-align:middle;" loading="lazy">`;
                 });
                 return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
