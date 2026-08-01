@@ -3390,7 +3390,7 @@
                         }
                         let finalStyle = style;
                         if (colspan > 1 || rowspan > 1) {
-                            finalStyle = (finalStyle ? finalStyle + ';' : '') + 'vertical-align: baseline; text-align: left; padding: 0;';
+                            finalStyle = (finalStyle ? finalStyle + ';' : '') + 'vertical-align: baseline; text-align: left; padding: 0.2;';
                         }
                         html += `<td colspan="${colspan}" rowspan="${rowspan}" style="${finalStyle}">${parseGlobalWiki(cellContent)}</td>`;
                         if (rowspan > 1) {
