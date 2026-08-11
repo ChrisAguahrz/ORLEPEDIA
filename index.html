@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-               <meta charset="UTF-8">
+       <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -3287,33 +3287,46 @@
                     return h;
                 };
 
+                // Keep image1-image5 in one Wikipedia-style divided container:
+                // image1 spans the top row, image2/image3 share the middle row,
+                // and image4/image5 share the bottom row. The flag and seal remain below it.
+                const mediaCell = (key, fallbackCaption = '', extraStyle = '') => {
+                    const src = infoboxDataRecords[key];
+                    if (!src) return '';
+                    const number = key.replace('image', '');
+                    const caption = infoboxDataRecords[`${key}_caption`] || infoboxDataRecords[`caption${number}`] || fallbackCaption;
+                    return `<div style="min-width:0; padding:6px; background:#fff; text-align:center; ${extraStyle}">
+                        <img src="${getImgSrc(src)}" loading="lazy" onerror="this.parentElement.style.display='none'" style="display:block; width:100%; height:160px; object-fit:contain; margin:0 auto;">
+                        ${caption ? `<span class="infobox-media-caption" style="font-weight:bold; margin-top:4px;">${parseWiki(caption)}</span>` : ''}
+                    </div>`;
+                };
+
+                const mediaPair = (leftKey, rightKey) => {
+                    const left = infoboxDataRecords[leftKey] ? mediaCell(leftKey, '', infoboxDataRecords[rightKey] ? 'border-right:1px solid #a2a9b1;' : '') : '';
+                    const right = infoboxDataRecords[rightKey] ? mediaCell(rightKey) : '';
+                    if (!left && !right) return '';
+                    return `<div style="display:grid; grid-template-columns:${left && right ? 'repeat(2, minmax(0, 1fr))' : '1fr'}; border-top:1px solid #a2a9b1;">${left}${right}</div>`;
+                };
+
+                const hasTemplateImages = ['image1', 'image2', 'image3', 'image4', 'image5'].some(key => infoboxDataRecords[key]);
+                const templateImageGrid = hasTemplateImages ? `
+                    <div class="infobox-template-image-grid" style="width:100%; margin:8px 0; border:1px solid #a2a9b1; background:#fff; overflow:hidden;">
+                        ${infoboxDataRecords['image1'] ? `<div style="width:100%;">${mediaCell('image1')}</div>` : ''}
+                        ${mediaPair('image2', 'image3')}
+                        ${mediaPair('image4', 'image5')}
+                    </div>` : '';
+
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox country-infobox" style="border-top: 5px solid var(--wiki-blue);">
                         <div class="infobox-title" style="background:var(--wiki-blue); color:white;">${parseWiki(infoboxDataRecords['name'] || currentActiveArticleKey)}</div>
                         ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic; border-bottom:1px solid #eee; margin-bottom:5px;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         
-                        ${infoboxDataRecords['image1'] ? `
-                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image1'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image1_caption'] || infoboxDataRecords['caption1'] || '')}</span></div>
-                        </div>` : ''}
-                        ${(infoboxDataRecords['image2'] || infoboxDataRecords['image3']) ? `
-                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee; display:flex; gap:10px;">
-                            ${infoboxDataRecords['image2'] ? `<div class="infobox-media-box" style="border:none; background:none; height:180px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image2'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image2_caption'] || infoboxDataRecords['caption2'] || '')}</span></div>` : ''}
-                            ${infoboxDataRecords['image3'] ? `<div class="infobox-media-box" style="border:none; background:none; height:180px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image3'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image3_caption'] || infoboxDataRecords['caption3'] || '')}</span></div>` : ''}
-                        </div>` : ''}
+                        ${templateImageGrid}
                         <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
                             <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>
                             <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>
                         </div>
-                        ${infoboxDataRecords['image4'] ? `
-                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image4'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image4_caption'] || infoboxDataRecords['caption4'] || '')}</span></div>
-                        </div>` : ''}
-                        ${infoboxDataRecords['image5'] ? `
-                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image5'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image5_caption'] || infoboxDataRecords['caption5'] || '')}</span></div>
-                        </div>` : ''}
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
                             <div style="width: 100%; overflow: hidden; border-radius:4px; border: 1px solid #eee; text-align:center;">
