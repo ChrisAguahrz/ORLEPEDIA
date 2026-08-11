@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-       <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -3296,7 +3296,7 @@
                     const number = key.replace('image', '');
                     const caption = infoboxDataRecords[`${key}_caption`] || infoboxDataRecords[`caption${number}`] || fallbackCaption;
                     return `<div style="min-width:0; padding:6px; background:#fff; text-align:center; ${extraStyle}">
-                        <img src="${getImgSrc(src)}" loading="lazy" onerror="this.parentElement.style.display='none'" style="display:block; width:100%; height:160px; object-fit:contain; margin:0 auto;">
+                        <img src="${getImgSrc(src)}" loading="lazy" onerror="this.parentElement.style.display='none'" style="display:block; width:100%; height:160px; object-fit:fill; margin:0 auto;">
                         ${caption ? `<span class="infobox-media-caption" style="font-weight:bold; margin-top:4px;">${parseWiki(caption)}</span>` : ''}
                     </div>`;
                 };
