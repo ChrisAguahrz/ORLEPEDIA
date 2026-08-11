@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-          <meta charset="UTF-8">
+               <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2721,9 +2721,35 @@
                     const sharedCats = currentCats.filter(cat => artCats.includes(cat));
                     let score = 0;
 
-                    // Measure 1: Shared categories (20 points each)
+                    // Measure 1: Shared categories (10 points each, max cap 30 points)
                     if (sharedCats.length > 0) {
-                        score += sharedCats.length * 20;
+                        score += Math.min(sharedCats.length * 10, 30);
+                    }
+
+                    // Measure 1.1: Category Name Similarity scoring (compare article titles against category names using character overlap percentage > 50% -> 10 points)
+                    let catNameSimilarityAwarded = false;
+                    for (let catName of currentCats) {
+                        let candidateTitle = title;
+                        // Calculate character overlap percentage
+                        let set1 = new Set(candidateTitle.toLowerCase());
+                        let set2 = new Set(catName.toLowerCase());
+                        let intersection = 0;
+                        set1.forEach(ch => { if (set2.has(ch)) intersection++; });
+                        let union = new Set([...set1, ...set2]).size;
+                        let overlapRatio = union > 0 ? intersection / union : 0;
+                        // Alternatively, check character overlap percentage vs string length
+                        let commonChars = 0;
+                        for (let i = 0; i < candidateTitle.length; i++) {
+                            if (catName.toLowerCase().includes(candidateTitle[i].toLowerCase())) commonChars++;
+                        }
+                        let overlapPct = (commonChars / Math.max(candidateTitle.length, 1)) * 100;
+                        if (overlapPct > 50 || overlapRatio > 0.5) {
+                            catNameSimilarityAwarded = true;
+                            break;
+                        }
+                    }
+                    if (catNameSimilarityAwarded) {
+                        score += 10;
                     }
 
                     // Measure 2: How many times current article links to this article
@@ -2736,7 +2762,7 @@
                     const backLinks = (art.content.match(backLinkRegex) || []).length;
                     score += backLinks * 10;
 
-                    // Measure 4: Mutual linked titles (titles that both articles link to)
+                    // Measure 4: Mutual linked titles (titles that both articles link to) - 10 points per mutual link
                     const artLinkedTitles = new Set();
                     (art.content.match(/\[\[([^|\]#]+)/g) || []).forEach(m => {
                         const t = m.replace('[[', '').trim();
@@ -2744,12 +2770,27 @@
                     });
                     let mutualLinks = 0;
                     currentLinkedTitles.forEach(t => { if (artLinkedTitles.has(t)) mutualLinks++; });
-                    score += mutualLinks * 5;
+                    score += mutualLinks * 10;
 
-                    // Measure 5: How many times this article's title is mentioned (plain text) in current article
+                    // Measure 5: How many times this article's title is mentioned (plain text) in current article (3 points per mention, max cap 20 points)
                     const plainMentionRegex = new RegExp(title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
                     const plainMentions = (targetArticle.content.match(plainMentionRegex) || []).length;
-                    score += plainMentions * 3;
+                    score += Math.min(plainMentions * 3, 20);
+
+                    // Measure 6: Shared Images scoring (compare image URLs referenced via [[File|...]] templates, 2 points per shared image)
+                    const currentImages = new Set();
+                    (targetArticle.content.match(/\[\[File\|([^|]+)\|/g) || []).forEach(m => {
+                        let imgName = m.replace('[[File|', '').replace('|', '').trim();
+                        currentImages.add(imgName);
+                    });
+                    const artImages = new Set();
+                    (art.content.match(/\[\[File\|([^|]+)\|/g) || []).forEach(m => {
+                        let imgName = m.replace('[[File|', '').replace('|', '').trim();
+                        artImages.add(imgName);
+                    });
+                    let sharedImagesCount = 0;
+                    currentImages.forEach(img => { if (artImages.has(img)) sharedImagesCount++; });
+                    score += sharedImagesCount * 2;
 
                     if (score > 0) relatedArticles.push({ title, score, content: art.content });
                 }
@@ -3252,10 +3293,27 @@
                         ${infoboxDataRecords['native_name'] ? `<div class="infobox-subtitle" style="font-style:italic; border-bottom:1px solid #eee; margin-bottom:5px;">${parseWiki(infoboxDataRecords['native_name'])}</div>` : ''}
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         
+                        ${infoboxDataRecords['image1'] ? `
                         <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Flag</span></div>
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">Seal</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image1'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image1_caption'] || infoboxDataRecords['caption1'] || '')}</span></div>
+                        </div>` : ''}
+                        ${(infoboxDataRecords['image2'] || infoboxDataRecords['image3']) ? `
+                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee; display:flex; gap:10px;">
+                            ${infoboxDataRecords['image2'] ? `<div class="infobox-media-box" style="border:none; background:none; height:180px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image2'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image2_caption'] || infoboxDataRecords['caption2'] || '')}</span></div>` : ''}
+                            ${infoboxDataRecords['image3'] ? `<div class="infobox-media-box" style="border:none; background:none; height:180px; flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image3'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image3_caption'] || infoboxDataRecords['caption3'] || '')}</span></div>` : ''}
+                        </div>` : ''}
+                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>
                         </div>
+                        ${infoboxDataRecords['image4'] ? `
+                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image4'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image4_caption'] || infoboxDataRecords['caption4'] || '')}</span></div>
+                        </div>` : ''}
+                        ${infoboxDataRecords['image5'] ? `
+                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['image5'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['image5_caption'] || infoboxDataRecords['caption5'] || '')}</span></div>
+                        </div>` : ''}
 
                         <div class="infobox-map" style="padding:10px 0; background:#fff;">
                             <div style="width: 100%; overflow: hidden; border-radius:4px; border: 1px solid #eee; text-align:center;">
