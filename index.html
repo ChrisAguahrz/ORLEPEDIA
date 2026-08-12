@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <meta charset="UTF-8">
+          <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -814,7 +814,7 @@
         }
         
         .infobox-media-caption { 
-            font-size: 0.7rem; 
+            font-size: 0.62rem; 
             color: var(--text-muted); 
             text-align: center; 
             display: block; 
@@ -1689,7 +1689,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('[[File|', '|200px|Caption]]')">🖼️ Template File</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
                 <button class="tool-btn" onclick="insertPersonInfoboxTemplate()">👤 Person Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|flag=\n|voters=\n|turnout=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n}}', '')">🗳️ Election</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|previous_election=\n|next_election=\n|flag=\n|voters=\n|turnout=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n}}', '')">🗳️ Election</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Table\n||Title\n!!Header1!!Header2\n|-\n|Col1|Col2\n}}', '')">📅 Table</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
@@ -1836,6 +1836,10 @@
             <div class="modal-row">
                 <label>Map Image URL</label>
                 <input type="text" id="ib_map" placeholder="https://example.com/map.jpg">
+            </div>
+            <div class="modal-row">
+                <label>Infobox Footnote</label>
+                <input type="text" id="ib_footnote" placeholder="Small italic note beneath the infobox">
             </div>
             <div id="infoboxCustomParamsContainer"></div>
             <button class="tool-btn" onclick="addCustomParamRowField()">+ Add Custom Field</button>
@@ -2456,7 +2460,8 @@
 
             dropdown.innerHTML = results.slice(0, 8).map(article => {
                 const isTitleMatch = article.title.toLowerCase().includes(query);
-                const matchNote = isTitleMatch ? "Article" : "Article keyword found";
+                const namespaceLabel = article.namespace === 'Archive' ? 'Archive' : (article.namespace || 'Article');
+                const matchNote = `${namespaceLabel}${isTitleMatch ? '' : ' keyword found'}`;
                 return `
                 <div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
@@ -2714,16 +2719,18 @@
 
                 for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
                     if (title === currentActiveArticleKey) continue;
-                    // Exclude redirects from See Also
+                    // Exclude redirects and Archive namespace pages from See Also
                     if (art.content && art.content.startsWith('#REDIRECT')) continue;
+                    if ((art.namespace || 'Article') === 'Archive') continue;
                     // Only consider articles in same categories
                     const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
                     const sharedCats = currentCats.filter(cat => artCats.includes(cat));
                     let score = 0;
 
-                    // Measure 1: Shared categories (10 points each, max cap 30 points)
+                    // Measure 1: Shared categories — first shared category is 35 points;
+                    // every additional shared category is 25 points.
                     if (sharedCats.length > 0) {
-                        score += Math.min(sharedCats.length * 10, 30);
+                        score += sharedCats.reduce((total, category, index) => total + (index === 0 ? 35 : 25), 0);
                     }
 
                     // Measure 1.1: Category Name Similarity scoring (compare article titles against category names using character overlap percentage > 50% -> 10 points)
@@ -2792,7 +2799,14 @@
                     currentImages.forEach(img => { if (artImages.has(img)) sharedImagesCount++; });
                     score += sharedImagesCount * 2;
 
-                    if (score > 0) relatedArticles.push({ title, score, content: art.content });
+                    // Most pages mention Orland in ordinary prose. Keep Orland available,
+                    // but only show it when it reaches a genuine 35-point relevance threshold.
+                    const relevancePercent = Math.min(100, score);
+                    const isOrland = title.trim().toLowerCase() === 'orland';
+                    const passesOrlandThreshold = !isOrland || relevancePercent >= 35;
+                    if (score > 0 && passesOrlandThreshold) {
+                        relatedArticles.push({ title, score, relevancePercent, content: art.content });
+                    }
                 }
 
                 relatedArticles.sort((a, b) => b.score - a.score);
@@ -3162,6 +3176,7 @@
                             ${row('Work', 'work')}
                             ${row('Office', 'office')}
                         </table>
+                        ${pData['footnote'] || pData['footnotes'] || pData['note'] ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseWiki(pData['footnote'] || pData['footnotes'] || pData['note'])}</div>` : ''}
                     </div>
                 `;
             } else if (electionMatch) {
@@ -3201,6 +3216,7 @@
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox election-infobox" style="width:100%; max-width:100%; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 0; font-size:0.8rem; overflow-x:visible;">
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
+                        ${(eData['previous_election'] || eData['next_election']) ? `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 6px 6px; font-style:italic; font-size:0.75rem;"><span style="flex:1; text-align:left;">${eData['previous_election'] ? `← ${parseWiki(eData['previous_election'])}` : ''}</span><span style="flex:1; text-align:right;">${eData['next_election'] ? `${parseWiki(eData['next_election'])} →` : ''}</span></div>` : ''}
                         <div style="text-align:center; margin-bottom:0.8rem;">
                             <img src="${getImgSrc(eData['flag'])}" style="max-width:80px; border:1px solid #ddd;" onerror="this.style.display='none'">
                         </div>
@@ -3217,6 +3233,7 @@
                             ${candRow('States Won', 's')}
                             ${candRow('Counties Won', 'co')}
                         </table>
+                        ${eData['footnote'] || eData['footnotes'] || eData['note'] ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseWiki(eData['footnote'] || eData['footnotes'] || eData['note'])}</div>` : ''}
                     </div>
                 `;
             } else if (infoboxMatch) {
@@ -3295,9 +3312,10 @@
                     if (!src) return '';
                     const number = key.replace('image', '');
                     const caption = infoboxDataRecords[`c${number}`] || infoboxDataRecords[`${key}_caption`] || infoboxDataRecords[`caption${number}`] || fallbackCaption;
-                    return `<div style="min-width:0; padding:6px; background:#fff; text-align:center; ${extraStyle}">
-                        <img src="${getImgSrc(src)}" loading="lazy" onerror="this.parentElement.style.display='none'" style="display:block; width:100%; height:160px; object-fit:fill; margin:0 auto;">
-                        ${caption ? `<span class="infobox-media-caption" style="font-weight:bold; margin-top:4px;">${parseWiki(caption)}</span>` : ''}
+                    const imageHeight = key === 'image1' ? '180px' : '160px';
+                    return `<div style="min-width:0; padding:2px; background:#fff; text-align:center; ${extraStyle}">
+                        <img src="${getImgSrc(src)}" loading="lazy" onerror="this.parentElement.style.display='none'" style="display:block; width:100%; height:${imageHeight}; object-fit:fill; margin:0 auto;">
+                        ${caption ? `<span class="infobox-media-caption" style="font-weight:bold; margin-top:2px; font-size:0.62rem;">${parseWiki(caption)}</span>` : ''}
                     </div>`;
                 };
 
@@ -3364,12 +3382,13 @@
                             ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
                 `;
 
-                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'image1', 'image2', 'image3', 'image4', 'image5', 'image1_caption', 'image2_caption', 'image3_caption', 'image4_caption', 'image5_caption', 'caption1', 'caption2', 'caption3', 'caption4', 'caption5', 'c1', 'c2', 'c3', 'c4', 'c5', 'images', 'country', 'region', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'footnote', 'footnotes', 'note', 'image1', 'image2', 'image3', 'image4', 'image5', 'image1_caption', 'image2_caption', 'image3_caption', 'image4_caption', 'image5_caption', 'caption1', 'caption2', 'caption3', 'caption4', 'caption5', 'c1', 'c2', 'c3', 'c4', 'c5', 'images', 'country', 'region', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
                     if (handled.includes(k)) continue;
                     compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${parseWiki(v)}</td></tr>`;
                 }
-                compiledInfoboxHtmlString += `</table></div>`;
+                const generalInfoboxFootnote = infoboxDataRecords['footnote'] || infoboxDataRecords['footnotes'] || infoboxDataRecords['note'];
+                compiledInfoboxHtmlString += `</table>${generalInfoboxFootnote ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseWiki(generalInfoboxFootnote)}</div>` : ''}</div>`;
             }
 
             workingTextStr = workingTextStr.replace(/'''(.*?)'''/g, '<b>$1</b>');
@@ -3583,7 +3602,7 @@
             if (citationsArrayStorage.length > 0) {
                 let referencesSubBlockHtml = `<div class="wiki-references-section" id="footnotesGroupContainer"><h2>References</h2><ol class="wiki-references-list">`;
                 citationsArrayStorage.forEach(citeText => {
-                    referencesSubBlockHtml += `<li>${citeText}</li>`;
+                    referencesSubBlockHtml += `<li><i>${citeText}</i></li>`;
                 });
                 referencesSubBlockHtml += `</ol></div>`;
                 structuredOutputHtml += referencesSubBlockHtml;
@@ -3803,32 +3822,62 @@
         // ============ PAGE METADATA MATRIX SYSTEM CONTROL PANEL ============
         function renderMetaInformationDashboard(articleObj) {
             const container = document.getElementById('wikiTabContentBody');
-            let createdDateString = new Date(articleObj.createdTime).toLocaleString();
-
-            let linksHere = [];
+            const content = articleObj.content || '';
+            const createdDateString = articleObj.createdTime ? new Date(articleObj.createdTime).toLocaleString() : 'Unknown';
+            const sizeBytes = new Blob([content]).size;
+            const formatBytes = (bytes) => {
+                if (bytes < 1024) return `${bytes} B`;
+                if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+                return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+            };
+            const quality = calculateVerifiabilityIndex(articleObj);
+            const revisionCount = articleObj.total_revisions || (articleObj.history ? articleObj.history.length : 0);
+            const viewCount = articleObj.views || 0;
+            const pageId = articleObj._db_id || 'Unavailable';
+            const redirectTarget = (text) => {
+                const match = (text || '').match(/^#REDIRECT\s*\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/i);
+                return match ? match[1].trim() : '';
+            };
+            const safeClickTitle = (title) => String(title).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const redirectTitles = Object.entries(orlePediaMemoryStore)
+                .filter(([title, art]) => title !== articleObj.title && redirectTarget(art.content).toLowerCase() === articleObj.title.toLowerCase())
+                .map(([title]) => title);
+            const acceptedTargets = new Set([articleObj.title.toLowerCase(), ...redirectTitles.map(title => title.toLowerCase())]);
+            const linksHere = [];
             for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
                 if (title === articleObj.title) continue;
-                if (art.content && art.content.includes(`[[${articleObj.title}]]`) || (art.content && art.content.includes(`[[${articleObj.title}|`))) {
-                    linksHere.push(title);
+                const linkRegex = /\[\[([^|\]#]+)(?:\|[^\]]+)?\]\]/g;
+                let match;
+                const matchedTargets = new Set();
+                while ((match = linkRegex.exec(art.content || '')) !== null) {
+                    const target = match[1].trim();
+                    if (acceptedTargets.has(target.toLowerCase())) matchedTargets.add(target);
                 }
+                if (matchedTargets.size > 0) linksHere.push({ title, targets: Array.from(matchedTargets) });
             }
 
             container.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:1.5rem; padding:1rem;">
-                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; line-height:2;">
-                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Article Identity Matrix</h3>
-                        <p>Registered ID: <b>${articleObj.title}</b></p>
-                        <p>Creation Timestamp: ${createdDateString}</p>
-                        <p>Original Author: ${articleObj.author}</p>
+                    <section style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px;">
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.75rem;">Page Information</h3>
+                        <table style="width:100%; border-collapse:collapse; line-height:1.8;">
+                            <tr><th style="text-align:left; width:34%; padding:0.35rem; background:#eaecf0;">Size</th><td style="padding:0.35rem;">${formatBytes(sizeBytes)} (${sizeBytes.toLocaleString()} bytes)</td></tr>
+                            <tr><th style="text-align:left; padding:0.35rem; background:#eaecf0;">Date Created</th><td style="padding:0.35rem;">${createdDateString}</td></tr>
+                            <tr><th style="text-align:left; padding:0.35rem; background:#eaecf0;">Quality</th><td style="padding:0.35rem; color:${quality.color}; font-weight:bold;">${quality.label} (${quality.score.toFixed(1)}/5)</td></tr>
+                            <tr><th style="text-align:left; padding:0.35rem; background:#eaecf0;">Total views</th><td style="padding:0.35rem;">${viewCount.toLocaleString()}</td></tr>
+                            <tr><th style="text-align:left; padding:0.35rem; background:#eaecf0;">Total revisions</th><td style="padding:0.35rem;">${revisionCount.toLocaleString()}</td></tr>
+                            <tr><th style="text-align:left; padding:0.35rem; background:#eaecf0;">Page ID (Supabase)</th><td style="padding:0.35rem; font-family:monospace;">${escapeHtmlCode(String(pageId))}</td></tr>
+                        </table>
                     </section>
 
                     <section>
-                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">What Links Here</h3>
-                        ${linksHere.length > 0 ? `
-                            <ul style="margin-left:1.5rem;">
-                                ${linksHere.map(t => `<li><span class="wiki-link" onclick="loadArticle('${t}')">${t}</span></li>`).join('')}
-                            </ul>
-                        ` : '<p style="color:grey;">No pages link to this article yet.</p>'}
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">Page that redirects here (${redirectTitles.length})</h3>
+                        ${redirectTitles.length > 0 ? `<ul style="margin-left:1.5rem;">${redirectTitles.map(title => `<li><span class="wiki-link" onclick="loadArticle('${safeClickTitle(title)}', true, true)">${escapeHtmlCode(title)}</span></li>`).join('')}</ul>` : '<p style="color:grey;">No redirect pages point to this article.</p>'}
+                    </section>
+
+                    <section>
+                        <h3 style="border-bottom:1px solid #eee; padding-bottom:0.3rem; margin-bottom:0.5rem;">What Links Here (${linksHere.length})</h3>
+                        ${linksHere.length > 0 ? `<ul style="margin-left:1.5rem;">${linksHere.map(item => `<li><span class="wiki-link" onclick="loadArticle('${safeClickTitle(item.title)}', true, true)">${escapeHtmlCode(item.title)}</span>${item.targets.some(target => target.toLowerCase() !== articleObj.title.toLowerCase()) ? `<span style="font-size:0.75rem; color:var(--text-muted);"> (via redirect: ${escapeHtmlCode(item.targets.filter(target => target.toLowerCase() !== articleObj.title.toLowerCase()).join(', '))})</span>` : ''}</li>`).join('')}</ul>` : '<p style="color:grey;">No pages link to this article or its redirects yet.</p>'}
                     </section>
                     
                     <section>
@@ -4807,18 +4856,42 @@
         }
 
         function loadCategoryView(categoryName, isRedirectTab = false) {
-            // FIX 7: Category editing
+            // Category editing: update the stored article content, persist every change,
+            // and create a revision entry so the rename survives reloads and is auditable.
             if(categoryName.startsWith('EDIT:')) {
-                const oldName = categoryName.replace('EDIT:', '');
+                const oldName = categoryName.replace('EDIT:', '').trim();
                 const newName = prompt("Enter new name for category: " + oldName, oldName);
-                if(newName && newName !== oldName) {
-                    for(let [k, v] of Object.entries(orlePediaMemoryStore)) {
-                        if(v.content.includes(`[[Category:${oldName}]]`)) {
-                            v.content = v.content.replace(new RegExp(`\\[\\[Category:${oldName}\\]\\]`, 'g'), `[[Category:${newName}]]`);
+                if(newName && newName.trim() && newName.trim() !== oldName) {
+                    const normalizedNewName = newName.trim();
+                    const escapedOldName = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const categoryRegex = new RegExp(`\\[\\[Category:${escapedOldName}\\]\\]`, 'g');
+                    const changedArticles = [];
+                    const renameSummary = `Renamed category "${oldName}" to "${normalizedNewName}"`;
+                    for(let [, v] of Object.entries(orlePediaMemoryStore)) {
+                        if(!v.content || !categoryRegex.test(v.content)) {
+                            categoryRegex.lastIndex = 0;
+                            continue;
                         }
+                        categoryRegex.lastIndex = 0;
+                        v.content = v.content.replace(categoryRegex, `[[Category:${normalizedNewName}]]`);
+                        if (v.category === oldName) v.category = normalizedNewName;
+                        v.history = Array.isArray(v.history) ? v.history : [];
+                        v.history.push({
+                            timestamp: Date.now(),
+                            editor: currentUserSessionProfile.username || 'System',
+                            tag: 'category-rename',
+                            summary: renameSummary,
+                            content: v.content
+                        });
+                        v.total_revisions = Math.max(Number(v.total_revisions) || 0, v.history.length);
+                        changedArticles.push(v);
                     }
-                    alert("Category updated across all articles.");
-                    return loadCategoryView(newName);
+                    Promise.all(changedArticles.map(article => dispatchDataPayloadToRemoteDataNetworks('ARTICLE_COMMIT_SAVE', { title: article.title, databaseNode: article })))
+                        .then(() => {
+                            alert(`Category renamed in ${changedArticles.length} page(s) and saved permanently.`);
+                            loadCategoryView(normalizedNewName);
+                        })
+                        .catch(err => alert('Category rename saved locally but cloud persistence failed: ' + err.message));
                 }
                 return;
             }
@@ -5009,8 +5082,9 @@
             let sealVal = document.getElementById('ib_seal').value;
             let flagVal = document.getElementById('ib_flag').value;
             let mapVal = document.getElementById('ib_map').value;
+            let footnoteVal = document.getElementById('ib_footnote').value.trim();
 
-            let markupBuffer = `{{Infobox\n|name=${nameVal}\n|seal=${sealVal}\n|flag=${flagVal}\n|map=${mapVal}\n`;
+            let markupBuffer = `{{Infobox\n|name=${nameVal}\n|seal=${sealVal}\n|flag=${flagVal}\n|map=${mapVal}\n${footnoteVal ? `|footnote=${footnoteVal}\n` : ''}`;
 
             const rows = document.querySelectorAll('.row-param');
             rows.forEach(r => {
