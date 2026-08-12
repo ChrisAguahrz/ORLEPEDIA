@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+          
           <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
@@ -3216,7 +3217,7 @@
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox election-infobox" style="width:100%; max-width:100%; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 0; font-size:0.8rem; overflow-x:visible;">
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
-                        ${(eData['previous_election'] || eData['next_election']) ? `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 6px 6px; font-style:italic; font-size:0.75rem;"><span style="flex:1; text-align:left;">${eData['previous_election'] ? `← ${parseWiki(eData['previous_election'])}` : ''}</span><span style="flex:1; text-align:right;">${eData['next_election'] ? `${parseWiki(eData['next_election'])} →` : ''}</span></div>` : ''}
+                        ${(eData['previous_election'] || eData['next_election']) ? `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 6px 6px; font-style:italic; font-size:0.75rem;"><span style="flex:1; text-align:left;">${eData['previous_election'] ? `← ${parseGlobalWiki(eData['previous_election'])}` : ''}</span><span style="flex:1; text-align:right;">${eData['next_election'] ? `${parseGlobalWiki(eData['next_election'])} →` : ''}</span></div>` : ''}
                         <div style="text-align:center; margin-bottom:0.8rem;">
                             <img src="${getImgSrc(eData['flag'])}" style="max-width:80px; border:1px solid #ddd;" onerror="this.style.display='none'">
                         </div>
@@ -3233,7 +3234,7 @@
                             ${candRow('States Won', 's')}
                             ${candRow('Counties Won', 'co')}
                         </table>
-                        ${eData['footnote'] || eData['footnotes'] || eData['note'] ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseWiki(eData['footnote'] || eData['footnotes'] || eData['note'])}</div>` : ''}
+                        ${eData['footnote'] || eData['footnotes'] || eData['note'] ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseGlobalWiki(eData['footnote'] || eData['footnotes'] || eData['note'])}</div>` : ''}
                     </div>
                 `;
             } else if (infoboxMatch) {
