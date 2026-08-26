@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-              <meta charset="UTF-8">
+     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1687,7 +1687,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('[[', ']]')">🔗 Link</button>
                 <button class="tool-btn" onclick="document.getElementById('citationModal').style.display='flex'">📚 APA</button>
                 <button class="tool-btn" onclick="wrapEditorText('[[File|', '|200px|Caption]]')">🖼️ Template File</button>
-                <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
+                <button class="tool-btn" onclick="insertInfoboxTemplate()">📊 Infobox</button>
                 <button class="tool-btn" onclick="insertPersonInfoboxTemplate()">👤 Person Infobox</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|previous_election=\n|next_election=\n|flag=\n|voters=\n|turnout=\n|districts_won=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n|d1=\n|d2=\n|d3=\n|d4=\n|newrow1label=\n|newrow1c1=\n|newrow1c2=\n}}', '')">🗳️ Election</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Table\n||Title\n!!Header1!!Header2\n|-\n|Col1|Col2\n}}', '')">📅 Table</button>
@@ -1929,6 +1929,63 @@
         
 // openFileUploadModal removed
         function openMovePageModal() { document.getElementById('movePageModal').style.display = 'flex'; }
+        function insertInfoboxTemplate() {
+            const template = `{{Infobox
+|name=
+|settlement_type=
+|native_name=
+|flag=
+|seal=
+|map=
+|motto=
+|nickname=
+|country=
+|region=
+|state=
+|seat=
+|image1=
+|c1=
+|image2=
+|c2=
+|image3=
+|c3=
+|capital=
+|largest_city=
+|ethnicity=
+|language=
+|religion=
+|leadertitle1=
+|leadername1=
+|leadername2=
+|leadertitle2=
+|event1=
+|year1=
+|event2=
+|year2=
+|event3=
+|year3=
+|area_total=
+|area_density=
+|area_water_percent=
+|pop_estimate=
+|pop_census=
+|pop_density=
+|gdp_nominal=
+|gdp_nominal_capita=
+|gdp_ppp=
+|gdp_ppp_capita=
+|household_income=
+|hdi=
+|gini=
+|Poverty=
+|Unemployment=
+|Counties=
+|timezone=
+|website=
+}}`;
+            wrapEditorText(template, '');
+        }
+
         function insertPersonInfoboxTemplate() {
             const template = `{{Person
 |name = 
@@ -3311,7 +3368,13 @@
                     if (!values.length) return '';
                     const cells = values.map(item => {
                         if (keyPrefix === 'pc') return `<td style="background:${item.value}; height:10px; padding:0;"></td>`;
-                        if (keyPrefix === 'imgc') return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxImage(item.value, '70px')}</td>`;
+                        if (keyPrefix === 'imgc') {
+                            const rawPhoto = item.value.trim();
+                            let photoSrc = getImgSrc(rawPhoto);
+                            const fileMatch = rawPhoto.match(/^\[\[(?:File|TFile)\|([^|\]]+)/i);
+                            if (fileMatch) photoSrc = getImgSrc(fileMatch[1].trim());
+                            return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;"><img src="${photoSrc}" loading="lazy" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'"></td>`;
+                        }
                         return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxValue(item.value)}</td>`;
                     }).join('');
                     return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th>${cells}</tr>`;
@@ -3469,7 +3532,7 @@
                         
                         ${templateImageGrid}
                         ${(infoboxDataRecords['flag'] || infoboxDataRecords['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            ${infoboxDataRecords['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(infoboxDataRecords['flag'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>` : ''}
+                            ${infoboxDataRecords['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.style.display='none'" style="max-width:80px; max-height:120px; width:auto; height:auto; object-fit:contain; border:1px solid #ddd;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>` : ''}
                             ${infoboxDataRecords['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(infoboxDataRecords['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>` : ''}
                         </div>` : ''}
 
@@ -3485,6 +3548,7 @@
                             ${row('Country', 'country')}
                             ${row('Region', 'region')}
                             ${row('State', 'state')}
+                            ${row('Seat', 'seat')}
                             ${row('County', 'county')}
                             ${row('Capital', 'capital')}
                             ${row('Largest city', 'largest_city')}
@@ -3504,12 +3568,12 @@
                             
                             ${(infoboxDataRecords['gdp_ppp'] || infoboxDataRecords['gdp_ppp_capita'] || infoboxDataRecords['gdp_nominal'] || infoboxDataRecords['gdp_nominal_capita']) ? merged('Economy') + row('GDP (PPP)', 'gdp_ppp') + row('Per capita', 'gdp_ppp_capita') + row('GDP (nominal)', 'gdp_nominal') + row('Per capita', 'gdp_nominal_capita') : ''}
                             
-                            ${(infoboxDataRecords['household_income'] || infoboxDataRecords['hdi'] || infoboxDataRecords['gini'] || infoboxDataRecords['poverty_rate']) ? merged('Household Income') + row('Income', 'household_income') + row('HDI', 'hdi') + row('Gini', 'gini') + row('Poverty Rate', 'poverty_rate') : ''}
+                            ${(infoboxDataRecords['household_income'] || infoboxDataRecords['hdi'] || infoboxDataRecords['gini'] || infoboxDataRecords['poverty_rate'] || infoboxDataRecords['Poverty'] || infoboxDataRecords['Unemployment']) ? merged('Household Income') + row('Income', 'household_income') + row('HDI', 'hdi') + row('Gini', 'gini') + row('Poverty Rate', 'poverty_rate') + row('Poverty', 'Poverty') + row('Unemployment', 'Unemployment') : ''}
                             
-                            ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
+                            ${(infoboxDataRecords['Counties'] || infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Counties', 'Counties') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
                 `;
 
-                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'flag_caption', 'seal_caption', 'map', 'motto', 'nickname', 'footnote', 'footnotes', 'note', 'image1', 'image2', 'image3', 'image4', 'image5', 'image1_caption', 'image2_caption', 'image3_caption', 'image4_caption', 'image5_caption', 'caption1', 'caption2', 'caption3', 'caption4', 'caption5', 'c1', 'c2', 'c3', 'c4', 'c5', 'images', 'country', 'region', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'flag_caption', 'seal_caption', 'map', 'motto', 'nickname', 'footnote', 'footnotes', 'note', 'image1', 'image2', 'image3', 'image4', 'image5', 'image1_caption', 'image2_caption', 'image3_caption', 'image4_caption', 'image5_caption', 'caption1', 'caption2', 'caption3', 'caption4', 'caption5', 'c1', 'c2', 'c3', 'c4', 'c5', 'images', 'country', 'region', 'state', 'seat', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'Poverty', 'Unemployment', 'Counties', 'timezone', 'website'];
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
                     if (handled.includes(k)) continue;
                     if (!v || !String(v).trim()) continue;
