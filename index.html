@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-      <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -3536,10 +3536,10 @@
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         
                         ${templateImageGrid}
-                        ${(infoboxDataRecords['flag'] || infoboxDataRecords['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            ${infoboxDataRecords['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:0; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px;"><span style="display:inline-block; flex:0 0 auto; width:80px; max-width:80px; text-align:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.style.display='none'" style="display:block; width:80px !important; max-width:80px !important; height:auto !important; max-height:80px; object-fit:contain; margin:0 auto; border:1px solid #ddd;"></span><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>` : ''}
-                            ${infoboxDataRecords['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(infoboxDataRecords['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>` : ''}
-                        </div>` : ''}
+                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>
+                        </div>
 
                         ${infoboxDataRecords['map'] ? `<div class="infobox-map" style="padding:10px 0; background:#fff;">
                             <div style="width:100%; overflow:hidden; border-radius:4px; border:1px solid #eee; text-align:center;">
