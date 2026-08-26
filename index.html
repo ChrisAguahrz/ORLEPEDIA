@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-          
-          <meta charset="UTF-8">
+              <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -1690,7 +1689,7 @@
                 <button class="tool-btn" onclick="wrapEditorText('[[File|', '|200px|Caption]]')">🖼️ Template File</button>
                 <button class="tool-btn" onclick="openInfoboxWizard()">📊 Infobox</button>
                 <button class="tool-btn" onclick="insertPersonInfoboxTemplate()">👤 Person Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|previous_election=\n|next_election=\n|flag=\n|voters=\n|turnout=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n}}', '')">🗳️ Election</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|previous_election=\n|next_election=\n|flag=\n|voters=\n|turnout=\n|districts_won=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n|d1=\n|d2=\n|d3=\n|d4=\n|newrow1label=\n|newrow1c1=\n|newrow1c2=\n}}', '')">🗳️ Election</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Table\n||Title\n!!Header1!!Header2\n|-\n|Col1|Col2\n}}', '')">📅 Table</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
@@ -2128,6 +2127,8 @@
             orlePediaTemplateStore['Templatecolor'] = 'Usage: {{Color|HexCode|Text}}';
             orlePediaTemplateStore['Table'] = 'Usage: {{Table|title=...|titlecolumn1=...|row1c1=...}}';
             orlePediaTemplateStore['Piechart'] = 'Usage: {{Piechart|title=...|data=...}}';
+            orlePediaTemplateStore['Toggle'] = 'Usage: {{Toggle\\n*map1=...\\n*c1=...\\n*map2=...\\n*c2=...}}';
+            orlePediaTemplateStore['Related'] = 'Usage: {{Related|Article Name}}';
 
             // FOLDER-BASED TEMPLATE LOADER
             // This loads templates from the repository's virtual folder structure (via Supabase)
@@ -2710,6 +2711,13 @@
                 const nsForSeeAlso = targetArticle.namespace || 'Article';
                 const showSeeAlso = nsForSeeAlso === 'Article';
                 const currentCats = (targetArticle.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                const explicitlyRelatedTitles = [];
+                const relatedTemplateRegex = /\{\{Related\|([^}]+)\}\}/gi;
+                let relatedTemplateMatch;
+                while ((relatedTemplateMatch = relatedTemplateRegex.exec(targetArticle.content || '')) !== null) {
+                    const relatedTitle = relatedTemplateMatch[1].trim();
+                    if (relatedTitle) explicitlyRelatedTitles.push(relatedTitle);
+                }
 
                 // Extract all wiki-linked titles from current article
                 const currentLinkedTitles = new Set();
@@ -2727,6 +2735,11 @@
                     const artCats = (art.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
                     const sharedCats = currentCats.filter(cat => artCats.includes(cat));
                     let score = 0;
+
+                    // Explicit {{Related|Article Name}} gives the named article 50 points.
+                    if (explicitlyRelatedTitles.some(relatedTitle => relatedTitle.toLowerCase() === title.toLowerCase())) {
+                        score += 50;
+                    }
 
                     // Measure 1: Shared categories — first shared category is 35 points;
                     // every additional shared category is 25 points.
@@ -2800,12 +2813,11 @@
                     currentImages.forEach(img => { if (artImages.has(img)) sharedImagesCount++; });
                     score += sharedImagesCount * 2;
 
-                    // Most pages mention Orland in ordinary prose. Keep Orland available,
-                    // but only show it when it reaches a genuine 35-point relevance threshold.
-                    const relevancePercent = Math.min(100, score);
+                    // Orland is common in article text, so always deduct 35 points from it.
                     const isOrland = title.trim().toLowerCase() === 'orland';
-                    const passesOrlandThreshold = !isOrland || relevancePercent >= 35;
-                    if (score > 0 && passesOrlandThreshold) {
+                    if (isOrland) score -= 35;
+                    const relevancePercent = Math.max(0, Math.min(100, score));
+                    if (score > 0) {
                         relatedArticles.push({ title, score, relevancePercent, content: art.content });
                     }
                 }
@@ -2912,11 +2924,93 @@
             }
         }
 
+        // Infobox Toggle controls: switch the visible map/image panel without
+        // navigating away from the current article.
+        function toggleInfoboxMap(toggleId, selectedIndex) {
+            const panels = document.querySelectorAll(`[data-toggle-panel="${toggleId}"]`);
+            panels.forEach(panel => {
+                panel.style.display = Number(panel.getAttribute('data-toggle-index')) === Number(selectedIndex) ? 'block' : 'none';
+            });
+            const toggleRoot = document.getElementById(toggleId);
+            if (!toggleRoot) return;
+            const buttons = toggleRoot.querySelectorAll('button');
+            buttons.forEach((button, index) => {
+                button.style.background = index === Number(selectedIndex) ? '#eaecf0' : '#f8f9fa';
+            });
+        }
+
         // ============ ADVANCED MEDIAWIKI PARSING REGEX PARSER MOTOR ENGINE ============
                 function compileRawMarkupToHtml(wikiMarkupText, isPreview = false) {
             if (!wikiMarkupText) return "";
             let workingTextStr = wikiMarkupText;
             let citationsArrayStorage = [];
+
+            // Protect Toggle blocks before parsing Infobox/Election templates so nested
+            // template braces cannot terminate those parsers prematurely.
+            const toggleTemplateStore = [];
+            workingTextStr = workingTextStr.replace(/\{\{Toggle([\s\S]*?)\}\}/g, function(m, content) {
+                const token = `__ORLE_TOGGLE_${toggleTemplateStore.length}__`;
+                toggleTemplateStore.push(content);
+                return token;
+            });
+
+            const isToggleToken = (value) => typeof value === 'string' && /^__ORLE_TOGGLE_\d+__$/.test(value.trim());
+            const getToggleContent = (value) => {
+                const match = String(value || '').trim().match(/^__ORLE_TOGGLE_(\d+)__$/);
+                return match ? (toggleTemplateStore[Number(match[1])] || '') : '';
+            };
+            const renderToggleMarkup = (value) => {
+                const content = isToggleToken(value) ? getToggleContent(value) : String(value || '');
+                if (!content.trim()) return '';
+                const toggleData = {};
+                content.split(/\r?\n/).forEach(line => {
+                    const cleanLine = line.trim().replace(/^\*+\s*/, '').replace(/^\|\s*/, '');
+                    const eq = cleanLine.indexOf('=');
+                    if (eq > -1) toggleData[cleanLine.substring(0, eq).trim()] = cleanLine.substring(eq + 1).trim();
+                });
+                const toggleId = 'toggle_' + Math.random().toString(36).slice(2, 10);
+                const entries = Object.keys(toggleData)
+                    .filter(key => /^map\d+$/i.test(key) && toggleData[key])
+                    .sort((a, b) => parseInt(a.replace(/\D/g, ''), 10) - parseInt(b.replace(/\D/g, ''), 10));
+                if (!entries.length) return '';
+                const firstIndex = entries[0].replace(/\D/g, '');
+                const buttons = entries.map((key, index) => {
+                    const indexNumber = key.replace(/\D/g, '');
+                    const caption = toggleData['c' + indexNumber] || `Map ${indexNumber}`;
+                    return `<button type="button" onclick="toggleInfoboxMap('${toggleId}', ${index})" style="border:1px solid #a2a9b1; background:${index === 0 ? '#eaecf0' : '#f8f9fa'}; padding:2px 6px; font-size:0.68rem; cursor:pointer;">${parseGlobalWiki(caption)}</button>`;
+                }).join('');
+                const panels = entries.map((key, index) => {
+                    const indexNumber = key.replace(/\D/g, '');
+                    const src = toggleData[key];
+                    const caption = toggleData['c' + indexNumber] || '';
+                    const media = /^\[\[(?:TFile|File)\|/i.test(src) ? parseGlobalWiki(src) : `<img src="${getImgSrcLocal(src)}" loading="lazy" style="display:block; width:100%; height:220px; object-fit:fill;" onerror="this.parentElement.style.display='none'">`;
+                    return `<div data-toggle-panel="${toggleId}" data-toggle-index="${index}" style="display:${index === 0 ? 'block' : 'none'}; text-align:center;">${media}${caption ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); margin-top:2px;">${parseGlobalWiki(caption)}</div>` : ''}</div>`;
+                }).join('');
+                return `<div id="${toggleId}" class="infobox-toggle" style="width:100%; border:1px solid #a2a9b1; background:#fff; padding:2px;">${panels}<div style="display:flex; justify-content:center; gap:2px; margin-top:3px;">${buttons}</div></div>`;
+            };
+            const renderInlineInfoboxMedia = (value) => {
+                const raw = String(value || '').trim();
+                const match = raw.match(/^\[\[(?:File|TFile)\|([\s\S]+?)\]\]$/i);
+                if (!match) return '';
+                const parts = match[1].split('|').map(part => part.trim());
+                const src = getImgSrcLocal(parts.shift());
+                const size = parts.find(part => /^\d+px$/i.test(part));
+                const caption = parts.filter(part => part && !/^\d+px$/i.test(part)).join(' | ');
+                const width = size ? parseInt(size, 10) : 180;
+                return `<span style="display:inline-flex; flex-direction:column; align-items:center; max-width:100%; vertical-align:middle;"><img src="${src}" loading="lazy" style="display:block; max-width:100%; width:${width}px; height:auto; object-fit:fill;" onerror="this.style.display='none'">${caption ? `<small style="font-size:0.62rem; font-style:italic;">${parseGlobalWiki(caption)}</small>` : ''}</span>`;
+            };
+            const renderInfoboxValue = (value) => {
+                if (!value || !String(value).trim()) return '';
+                if (isToggleToken(value)) return renderToggleMarkup(value);
+                if (/^\[\[(?:File|TFile)\|/i.test(String(value).trim())) return renderInlineInfoboxMedia(value);
+                return parseGlobalWiki(value);
+            };
+            const renderInfoboxImage = (value, height = '180px') => {
+                if (!value) return '';
+                if (isToggleToken(value)) return renderToggleMarkup(value);
+                if (/^\[\[(?:TFile|File)\|/i.test(value.trim())) return renderInfoboxValue(value);
+                return `<img src="${getImgSrcLocal(value)}" loading="lazy" style="display:block; width:100%; height:${height}; object-fit:fill; margin:0 auto;" onerror="this.parentElement.style.display='none'">`;
+            };
 
             const citationRegex = /<ref>(.*?)<\/ref>/g;
             let referenceMatch;
@@ -2972,7 +3066,7 @@
             };
 
             for (let [tName, tContent] of Object.entries(orlePediaTemplateStore)) {
-                if (tName === 'Color' || tName === 'Description' || tName === 'Templatecolor') continue;
+                if (tName === 'Color' || tName === 'Description' || tName === 'Templatecolor' || tName === 'Related' || tName === 'Toggle') continue;
                 const tRegex = new RegExp(`\\{\\{${tName}\\|(.*?)\\}\\}`, 'g');
                 workingTextStr = workingTextStr.replace(tRegex, function(m, paramsStr) {
                     let processed = tContent;
@@ -2991,6 +3085,9 @@
 
             const descRegex = /\{\{Description\|([^}]+)\}\}/g;
             workingTextStr = workingTextStr.replace(descRegex, ''); // Descriptions are metadata, don't show in body
+
+            // Related is metadata for See Also scoring, not visible article text.
+            workingTextStr = workingTextStr.replace(/\{\{Related\|[^}]+\}\}/g, '');
             
             // Avoid rendering categories in articles
             workingTextStr = workingTextStr.replace(/\[\[Category:.*?\]\]/g, '');
@@ -3149,7 +3246,7 @@
 
                 const row = (label, key) => {
                     if (!pData[key]) return "";
-                    return `<tr><th style="text-align:left; background:#f2f2f2; width:35%; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th><td style="padding:0.3rem; border-bottom:1px solid #ddd;">${parseWiki(pData[key])}</td></tr>`;
+                    return `<tr><th style="text-align:left; background:#f2f2f2; width:35%; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th><td style="padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxValue(pData[key])}</td></tr>`;
                 };
 
                 const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2" style="text-align:center; font-weight:bold; background:#eaecf0; padding:0.2rem; vertical-align:middle;">${label}</td></tr>`;
@@ -3159,8 +3256,9 @@
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:var(--wiki-blue); color:white; margin-bottom:0.2rem;">${pData['name'] || currentActiveArticleKey}</div>
                         ${pData['title'] ? `<div style="text-align:center; font-style:italic; margin-bottom:0.5rem;">${pData['title']}</div>` : ''}
                         <div style="text-align:center; margin-bottom:0.8rem; border:1px solid #eee; background:#fff; padding:2px;">
-                            <img src="${getImgSrc(pData['image'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.style.display='none'">
+                            ${renderInfoboxImage(pData['image'], '220px')}
                         </div>
+                        ${pData['map'] ? `<div style="text-align:center; margin-bottom:0.8rem; border:1px solid #eee; background:#fff; padding:2px;">${renderInfoboxImage(pData['map'], '220px')}</div>` : ''}
                         <table style="width:100%; border-collapse:collapse;">
                             ${row('Born', 'birth_year')}
                             ${row('Birth Place', 'birth_place')}
@@ -3199,40 +3297,68 @@
                     return orlePediaFileStore[trimmed] || trimmed;
                 };
 
+                const electionRow = (label, key, colspan = 4) => {
+                    if (!eData[key] || !String(eData[key]).trim()) return '';
+                    return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th><td colspan="${colspan}" style="padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxValue(eData[key])}</td></tr>`;
+                };
+
                 const candRow = (label, keyPrefix) => {
-                    let cells = "";
-                    for(let i=1; i<=4; i++) {
-                        let val = eData[keyPrefix + i] || "";
-                        if (keyPrefix === 'pc') {
-                            cells += `<td style="background:${val}; height:10px; padding:0;"></td>`;
-                        } else if (keyPrefix === 'imgc') {
-                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val ? `<img src="${getImgSrc(val)}" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'">` : ''}</td>`;
-                        } else {
-                            cells += `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${val}</td>`;
-                        }
+                    const values = [];
+                    for (let i = 1; i <= 4; i++) {
+                        const val = eData[keyPrefix + i];
+                        if (val && String(val).trim()) values.push({ index: i, value: String(val).trim() });
                     }
+                    if (!values.length) return '';
+                    const cells = values.map(item => {
+                        if (keyPrefix === 'pc') return `<td style="background:${item.value}; height:10px; padding:0;"></td>`;
+                        if (keyPrefix === 'imgc') return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxImage(item.value, '70px')}</td>`;
+                        return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxValue(item.value)}</td>`;
+                    }).join('');
                     return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th>${cells}</tr>`;
                 };
+
+                const candidateHeader = ['c1', 'c2', 'c3', 'c4'].some(key => eData[key] && String(eData[key]).trim())
+                    ? `<tr style="font-weight:bold; background:#eee;"><th style="text-align:left; padding:0.3rem; border-bottom:1px solid #ddd;">Candidate</th>${['c1', 'c2', 'c3', 'c4'].filter(key => eData[key] && String(eData[key]).trim()).map(key => `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxValue(eData[key])}</td>`).join('')}</tr>`
+                    : '';
+
+                const newElectionRows = Object.keys(eData).reduce((rows, key) => {
+                    const match = key.match(/^newrow(\d+)c(\d+)$/i);
+                    if (!match || !eData[key] || !String(eData[key]).trim()) return rows;
+                    const rowNumber = match[1];
+                    const cellNumber = Number(match[2]);
+                    rows[rowNumber] = rows[rowNumber] || [];
+                    rows[rowNumber].push({ cellNumber, value: eData[key] });
+                    return rows;
+                }, {});
+                const renderedNewElectionRows = Object.keys(newElectionRows).sort((a, b) => Number(a) - Number(b)).map(rowNumber => {
+                    const cells = newElectionRows[rowNumber].sort((a, b) => a.cellNumber - b.cellNumber).map(cell => `<td style="padding:0.3rem; border-bottom:1px solid #ddd; vertical-align:top;">${renderInfoboxValue(cell.value)}</td>`).join('');
+                    const label = eData[`newrow${rowNumber}label`] && String(eData[`newrow${rowNumber}label`]).trim() ? renderInfoboxValue(eData[`newrow${rowNumber}label`]) : `Row ${rowNumber}`;
+                    return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th>${cells}</tr>`;
+                }).join('');
+
+                const electionFlagSeal = (eData['flag'] || eData['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">${eData['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['flag'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['flag_caption'] || 'Flag')}</span></div>` : ''}${eData['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['seal_caption'] || 'Seal')}</span></div>` : ''}</div>` : '';
+                const electionMap = eData['map'] ? `<div style="text-align:center; padding:0.5rem;">${renderInfoboxImage(eData['map'], '260px')}<div style="font-size:0.7rem; color:#666;">Electoral Map</div></div>` : '';
 
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox election-infobox" style="width:100%; max-width:100%; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 0; font-size:0.8rem; overflow-x:visible;">
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:#eaecf0; margin-bottom:0.2rem;">${eData['election_name'] || 'Election'}</div>
                         ${(eData['previous_election'] || eData['next_election']) ? `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 6px 6px; font-style:italic; font-size:0.75rem;"><span style="flex:1; text-align:left;">${eData['previous_election'] ? `← ${parseGlobalWiki(eData['previous_election'])}` : ''}</span><span style="flex:1; text-align:right;">${eData['next_election'] ? `${parseGlobalWiki(eData['next_election'])} →` : ''}</span></div>` : ''}
-                        <div style="text-align:center; margin-bottom:0.8rem;">
-                            <img src="${getImgSrc(eData['flag'])}" style="max-width:80px; border:1px solid #ddd;" onerror="this.style.display='none'">
-                        </div>
+                        ${electionFlagSeal}
                         <table style="width:100%; border-collapse:collapse; table-layout: fixed;">
-                            <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Registered Voters</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['voters'] || ''}</td></tr>
-                            <tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">Turnout</th><td colspan="4" style="padding:0.3rem; border-bottom:1px solid #ddd;">${eData['turnout'] || ''}</td></tr>
-                            <tr><td colspan="5" style="text-align:center; padding:0.5rem;"><img src="${getImgSrc(eData['map'])}" style="max-width:100%; display:block; margin:0 auto;" onerror="this.src=eData['map']"><div style="font-size:0.7rem; color:#666;">Electoral Map</div></td></tr>
+                            ${electionRow('Registered Voters', 'voters')}
+                            ${electionRow('Turnout', 'turnout')}
+                            ${electionRow('Districts Won', 'districts_won')}
+                            ${electionMap ? `<tr><td colspan="5" style="padding:0.5rem;">${electionMap}</td></tr>` : ''}
                             ${candRow('Photo', 'imgc')}
-                            <tr style="font-weight:bold; background:#eee;"><th style="text-align:left; padding:0.3rem; border-bottom:1px solid #ddd;">Candidate</th><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c1']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c2']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c3']||''}</td><td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${eData['c4']||''}</td></tr>
+                            ${candidateHeader}
                             ${candRow('Party Color', 'pc')}
                             ${candRow('Party', 'p')}
                             ${candRow('Votes', 'v')}
                             ${candRow('Percentage', 'pct')}
                             ${candRow('States Won', 's')}
+                            ${candRow('Districts Won', 'd')}
                             ${candRow('Counties Won', 'co')}
+                            ${renderedNewElectionRows}
                         </table>
                         ${eData['footnote'] || eData['footnotes'] || eData['note'] ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseGlobalWiki(eData['footnote'] || eData['footnotes'] || eData['note'])}</div>` : ''}
                     </div>
@@ -3279,18 +3405,18 @@
                         lines.forEach(line => {
                             let trimmed = line.trim();
                             if (trimmed.startsWith('**')) {
-                                listHtml += `<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">${parseWiki(trimmed.substring(2).trim())}</li>`;
+                                listHtml += `<li style="font-size:0.85rem; margin-left:1.5rem; list-style-type:circle;">${renderInfoboxValue(trimmed.substring(2).trim())}</li>`;
                             } else if (trimmed.startsWith('*')) {
-                                listHtml += `<li>${parseWiki(trimmed.substring(1).trim())}</li>`;
+                                listHtml += `<li>${renderInfoboxValue(trimmed.substring(1).trim())}</li>`;
                             } else if (trimmed) {
-                                listHtml += `<div>${parseWiki(trimmed)}</div>`;
+                                listHtml += `<div>${renderInfoboxValue(trimmed)}</div>`;
                             }
                         });
                         listHtml += '</ul>';
                         val = listHtml;
                     }
                     
-                    return `<tr><th>${label}</th><td>${parseWiki(val)}</td></tr>`;
+                    return `<tr><th>${label}</th><td>${renderInfoboxValue(val)}</td></tr>`;
                 };
 
                 const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2">${label}</td></tr>`;
@@ -3315,7 +3441,7 @@
                     const caption = infoboxDataRecords[`c${number}`] || infoboxDataRecords[`${key}_caption`] || infoboxDataRecords[`caption${number}`] || fallbackCaption;
                     const imageHeight = key === 'image1' ? '180px' : '160px';
                     return `<div style="min-width:0; padding:2px; background:#fff; text-align:center; ${extraStyle}">
-                        <img src="${getImgSrc(src)}" loading="lazy" onerror="this.parentElement.style.display='none'" style="display:block; width:100%; height:${imageHeight}; object-fit:fill; margin:0 auto;">
+                        ${renderInfoboxImage(src, imageHeight)}
                         ${caption ? `<span class="infobox-media-caption" style="font-weight:bold; margin-top:2px; font-size:0.62rem;">${parseWiki(caption)}</span>` : ''}
                     </div>`;
                 };
@@ -3342,25 +3468,25 @@
                         ${infoboxDataRecords['settlement_type'] ? `<div class="infobox-settlement-type" style="background:#f9f9f9; font-weight:bold; color:var(--text-muted);">${parseWiki(infoboxDataRecords['settlement_type'])}</div>` : ''}
                         
                         ${templateImageGrid}
-                        <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>
-                        </div>
+                        ${(infoboxDataRecords['flag'] || infoboxDataRecords['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
+                            ${infoboxDataRecords['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(infoboxDataRecords['flag'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>` : ''}
+                            ${infoboxDataRecords['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(infoboxDataRecords['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>` : ''}
+                        </div>` : ''}
 
-                        <div class="infobox-map" style="padding:10px 0; background:#fff;">
-                            <div style="width: 100%; overflow: hidden; border-radius:4px; border: 1px solid #eee; text-align:center;">
-                                <img src="${getImgSrc(infoboxDataRecords['map'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="max-width: 100%; height: auto; display:block; margin:0 auto;">
+                        ${infoboxDataRecords['map'] ? `<div class="infobox-map" style="padding:10px 0; background:#fff;">
+                            <div style="width:100%; overflow:hidden; border-radius:4px; border:1px solid #eee; text-align:center;">
+                                ${renderInfoboxImage(infoboxDataRecords['map'], '260px')}
                             </div>
-                            ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${parseWiki(infoboxDataRecords['motto'])}</i></div>` : ''}
-                            ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${parseWiki(infoboxDataRecords['nickname'])}</i></div>` : ''}
-                        </div>
+                            ${infoboxDataRecords['motto'] ? `<div class="infobox-media-caption" style="margin-top:5px;"><b>Motto:</b> <i>${renderInfoboxValue(infoboxDataRecords['motto'])}</i></div>` : ''}
+                            ${infoboxDataRecords['nickname'] ? `<div class="infobox-media-caption"><b>Nickname:</b> <i>${renderInfoboxValue(infoboxDataRecords['nickname'])}</i></div>` : ''}
+                        </div>` : ''}
                         ${infoboxDataRecords['images'] ? `<div style="padding:5px; border-top:1px solid #eee;">${compileRawMarkupToHtml(infoboxDataRecords['images'])}</div>` : ''}
                         <table class="infobox-data-table">
                             ${row('Country', 'country')}
                             ${row('Region', 'region')}
                             ${row('State', 'state')}
                             ${row('County', 'county')}
-                            <tr><th style="padding-left:1rem;">Capital</th><td>${parseWiki(infoboxDataRecords['capital'] || '')}</td></tr>
+                            ${row('Capital', 'capital')}
                             ${row('Largest city', 'largest_city')}
                             ${row('Ethnicity', 'ethnicity')}
                             ${row('Language', 'language')}
@@ -3383,14 +3509,19 @@
                             ${(infoboxDataRecords['timezone'] || infoboxDataRecords['website']) ? merged('Other Information') + row('Time zone', 'timezone') + row('Website', 'website') : ''}
                 `;
 
-                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'map', 'motto', 'nickname', 'footnote', 'footnotes', 'note', 'image1', 'image2', 'image3', 'image4', 'image5', 'image1_caption', 'image2_caption', 'image3_caption', 'image4_caption', 'image5_caption', 'caption1', 'caption2', 'caption3', 'caption4', 'caption5', 'c1', 'c2', 'c3', 'c4', 'c5', 'images', 'country', 'region', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
+                const handled = ['name', 'settlement_type', 'native_name', 'flag', 'seal', 'flag_caption', 'seal_caption', 'map', 'motto', 'nickname', 'footnote', 'footnotes', 'note', 'image1', 'image2', 'image3', 'image4', 'image5', 'image1_caption', 'image2_caption', 'image3_caption', 'image4_caption', 'image5_caption', 'caption1', 'caption2', 'caption3', 'caption4', 'caption5', 'c1', 'c2', 'c3', 'c4', 'c5', 'images', 'country', 'region', 'state', 'county', 'capital', 'largest_city', 'ethnicity', 'language', 'religion', 'leader1', 'leader2', 'leader3', 'leader4', 'leadertitle1', 'leadername1', 'leadertitle2', 'leadername2', 'leadertitle3', 'leadername3', 'leadertitle4', 'leadername4', 'event1', 'event2', 'event3', 'event4', 'event5', 'event6', 'year1', 'year2', 'year3', 'year4', 'year5', 'year6', 'area_total', 'area_density', 'area_water_percent', 'pop_estimate', 'pop_census', 'pop_density', 'gdp_ppp', 'gdp_ppp_capita', 'gdp_nominal', 'gdp_nominal_capita', 'household_income', 'hdi', 'gini', 'poverty_rate', 'timezone', 'website'];
                 for (let [k, v] of Object.entries(infoboxDataRecords)) {
                     if (handled.includes(k)) continue;
-                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${parseWiki(v)}</td></tr>`;
+                    if (!v || !String(v).trim()) continue;
+                    compiledInfoboxHtmlString += `<tr><th>${k}</th><td>${renderInfoboxValue(v)}</td></tr>`;
                 }
                 const generalInfoboxFootnote = infoboxDataRecords['footnote'] || infoboxDataRecords['footnotes'] || infoboxDataRecords['note'];
                 compiledInfoboxHtmlString += `</table>${generalInfoboxFootnote ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseWiki(generalInfoboxFootnote)}</div>` : ''}</div>`;
             }
+
+            // Expand Toggle blocks that remain in ordinary article text after the
+            // Infobox/Election parsers have consumed their protected values.
+            workingTextStr = workingTextStr.replace(/__ORLE_TOGGLE_(\d+)__/g, (m, index) => renderToggleMarkup(`__ORLE_TOGGLE_${index}__`));
 
             workingTextStr = workingTextStr.replace(/'''(.*?)'''/g, '<b>$1</b>');
             workingTextStr = workingTextStr.replace(/''(.*?)''/g, '<i>$1</i>');
