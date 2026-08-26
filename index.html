@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <meta charset="UTF-8">
+      <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2031,7 +2031,9 @@
         function previewTemplate() {
             const content = document.getElementById('templateContentInput').value;
             const preview = document.getElementById('templatePreviewArea');
-            preview.innerHTML = content.replace(/\{\{text\}\}/g, "Sample Text Content");
+            const sampleContent = content.replace(/\{\{text\}\}/g, 'Sample Text Content');
+            // Render template HTML and supported image/wiki markup exactly as article content.
+            preview.innerHTML = compileRawMarkupToHtml(sampleContent, true);
             preview.style.display = 'block';
         }
 
@@ -2295,10 +2297,12 @@
             progress: 0,
             targetProgress: 0,
             animationFrame: null,
-            isComplete: false
+            isComplete: false,
+            silentRefresh: false
         };
 
         function updateLoadingProgress(targetPercent, message) {
+            if (loadingConfig.silentRefresh) return;
             loadingConfig.targetProgress = Math.min(targetPercent, 100);
             const statusEl = document.getElementById('loadingStatusMessage');
             if (statusEl && message) {
@@ -2343,6 +2347,7 @@
         }
 
         async function retryLoading() {
+            loadingConfig.silentRefresh = false;
             // Reset error display
             document.getElementById('loadingErrorContainer').classList.remove('visible');
             document.getElementById('loadingPartialWarning').classList.remove('visible');
@@ -3399,7 +3404,7 @@
                     return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th>${cells}</tr>`;
                 }).join('');
 
-                const electionFlagSeal = (eData['flag'] || eData['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">${eData['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['flag'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['flag_caption'] || 'Flag')}</span></div>` : ''}${eData['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['seal_caption'] || 'Seal')}</span></div>` : ''}</div>` : '';
+                const electionFlagSeal = (eData['flag'] || eData['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">${eData['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:0; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px;"><span style="display:inline-block; flex:0 0 auto; width:80px; max-width:80px; text-align:center;"><img src="${getImgSrc(eData['flag'])}" loading="lazy" onerror="this.style.display='none'" style="display:block; width:80px !important; max-width:80px !important; height:auto !important; max-height:80px; object-fit:contain; margin:0 auto; border:1px solid #ddd;"></span><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['flag_caption'] || 'Flag')}</span></div>` : ''}${eData['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['seal_caption'] || 'Seal')}</span></div>` : ''}</div>` : '';
                 const electionMap = eData['map'] ? `<div style="text-align:center; padding:0.5rem;">${renderInfoboxImage(eData['map'], '260px')}<div style="font-size:0.7rem; color:#666;">Electoral Map</div></div>` : '';
 
                 compiledInfoboxHtmlString = `
@@ -3532,7 +3537,7 @@
                         
                         ${templateImageGrid}
                         ${(infoboxDataRecords['flag'] || infoboxDataRecords['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            ${infoboxDataRecords['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.style.display='none'" style="max-width:80px; max-height:120px; width:auto; height:auto; object-fit:contain; border:1px solid #ddd;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>` : ''}
+                            ${infoboxDataRecords['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:0; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px;"><span style="display:inline-block; flex:0 0 auto; width:80px; max-width:80px; text-align:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.style.display='none'" style="display:block; width:80px !important; max-width:80px !important; height:auto !important; max-height:80px; object-fit:contain; margin:0 auto; border:1px solid #ddd;"></span><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>` : ''}
                             ${infoboxDataRecords['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(infoboxDataRecords['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>` : ''}
                         </div>` : ''}
 
@@ -4011,6 +4016,11 @@
 
             let compiledRows = generateLineByLineGithubStyleDiff(oldContentText, currentEditorText);
             const panel = document.getElementById('editorGitDiffContainer');
+            const livePreview = document.getElementById('editorLivePreviewCard');
+            if (livePreview) {
+                livePreview.style.display = "none";
+                document.getElementById('editorLivePreviewContent').innerHTML = '';
+            }
             panel.innerHTML = compiledRows;
             panel.style.display = "block";
         }
@@ -4935,6 +4945,11 @@
 
         function triggerClientPreview() {
             let rawInputText = document.getElementById('wikiRawInputTextarea').value;
+            const diffPanel = document.getElementById('editorGitDiffContainer');
+            if (diffPanel) {
+                diffPanel.style.display = "none";
+                diffPanel.innerHTML = '';
+            }
             document.getElementById('editorLivePreviewContent').innerHTML = compileRawMarkupToHtml(rawInputText, true);
             document.getElementById('editorLivePreviewCard').style.display = "block";
         }
@@ -5533,16 +5548,28 @@
         }
 
         // ============ APP INITIALIZATION ============
-        async function initializeApplication() {
+        async function initializeApplication(silentRefresh = false) {
             try {
+                loadingConfig.silentRefresh = Boolean(silentRefresh);
+                if (loadingConfig.silentRefresh) {
+                    const overlay = document.getElementById('globalLoadingOverlay');
+                    if (overlay) {
+                        overlay.classList.add('hidden');
+                        overlay.setAttribute('aria-hidden', 'true');
+                    }
+                }
                 loadUserProfile();
                 
                 const success = await loadOrlePediaDataFromCloud();
                 
                 if (success) {
-                    hideLoadingScreen();
+                    if (!loadingConfig.silentRefresh) hideLoadingScreen();
                 } else {
                     console.error("Initialization failed during cloud load.");
+                    if (loadingConfig.silentRefresh) {
+                        const overlay = document.getElementById('globalLoadingOverlay');
+                        if (overlay) overlay.classList.remove('hidden');
+                    }
                 }
                 
                 // Route to correct article
@@ -5575,7 +5602,11 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            initializeApplication();
+            const navigationEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+            const isBrowserReload = navigationEntry
+                ? navigationEntry.type === 'reload'
+                : (performance.navigation && performance.navigation.type === 1);
+            initializeApplication(Boolean(isBrowserReload));
         });
 
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
