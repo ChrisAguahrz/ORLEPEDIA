@@ -1,5 +1,6 @@
-const CACHE_NAME = 'orleopedia-v5';
-const IMAGE_CACHE_NAME = 'orleopedia-images-v3';
+const CACHE_NAME = 'orlePedia-v6';
+const IMAGE_CACHE_NAME = 'orlePedia-images-v3';
+
 
 const PRECACHE_URLS = [
     '/',
@@ -68,10 +69,29 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Navigation requests must be network-first so a browser refresh receives the
-    // newest HTML instead of a cached copy that still contains the old countdown.
-    if (event.request.mode === 'navigate' ||
-        (event.request.headers.get('accept') || '').includes('text/html')) {
+    const isHtmlNavigation = event.request.mode === 'navigate' ||
+        (event.request.headers.get('accept') || '').includes('text/html');
+    const isMainPage = url.pathname === '/' || url.pathname.endsWith('/index.html');
+
+    if (isHtmlNavigation && isMainPage) {
+        // The main page is always available immediately; update it quietly for the next visit.
+        event.respondWith(
+            caches.open(CACHE_NAME).then((cache) => cache.match('/index.html').then((cachedResponse) => {
+                const update = fetch(event.request, { cache: 'no-store' }).then((networkResponse) => {
+                    if (networkResponse && networkResponse.ok) {
+                        cache.put('/index.html', networkResponse.clone());
+                        cache.put('/', networkResponse.clone());
+                    }
+                    return networkResponse;
+                }).catch(() => null);
+                return cachedResponse || update.then((response) => response || caches.match('/index.html'));
+            }))
+        );
+        return;
+    }
+
+    if (isHtmlNavigation) {
+        // Other article URLs remain network-first, with the main page as an offline fallback.
         event.respondWith(
             fetch(event.request, { cache: 'no-store' })
                 .then((networkResponse) => {
@@ -97,5 +117,3 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// Force an active worker update when this version is installed.
-self.addEventListener('controllerchange', () => {});
