@@ -1,7 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+            <script>
+            // Detect a real browser reload before the loading overlay is painted.
+            (function () {
+                try {
+                    const navigationEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+                    window.__orlePediaBrowserReload = navigationEntry
+                        ? navigationEntry.type === 'reload'
+                        : (performance.navigation && performance.navigation.type === 1);
+                    if (window.__orlePediaBrowserReload) document.documentElement.classList.add('orlepedia-silent-refresh');
+                } catch (err) {
+                    window.__orlePediaBrowserReload = false;
+                }
+            })();
+        </script>
+          <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -115,6 +129,10 @@
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
+        }
+
+        html.orlepedia-silent-refresh #globalLoadingOverlay {
+            display: none !important;
         }
 
         #articleRefreshIndicator {
@@ -5779,11 +5797,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const navigationEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-            const isBrowserReload = navigationEntry
-                ? navigationEntry.type === 'reload'
-                : (performance.navigation && performance.navigation.type === 1);
-            initializeApplication(Boolean(isBrowserReload));
+            const isBrowserReload = Boolean(window.__orlePediaBrowserReload);
+            if (isBrowserReload) document.documentElement.classList.add('orlepedia-silent-refresh');
+            initializeApplication(isBrowserReload);
         });
 
         window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
