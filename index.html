@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>
+              <script>
             // Detect a real browser reload before the loading overlay is painted.
             (function () {
                 try {
@@ -139,19 +139,29 @@
 
         #articleRefreshIndicator {
             display: none;
-            width: fit-content;
-            margin: 0.35rem 0 0;
-            padding: 0.2rem 0.5rem;
-            border: 1px solid #c8d6ea;
-            border-radius: 999px;
-            background: #f1f6fc;
-            color: var(--wiki-blue);
-            font-size: 0.72rem;
-            line-height: 1.2;
+            position: fixed;
+            top: max(8px, env(safe-area-inset-top));
+            left: max(8px, env(safe-area-inset-left));
+            width: 16px;
+            height: 16px;
+            padding: 0;
+            border: 2px solid rgba(51,102,187,0.25);
+            border-top-color: var(--wiki-blue);
+            border-radius: 50%;
+            background: transparent;
+            color: transparent;
+            font-size: 0;
+            line-height: 0;
+            z-index: 20000;
+            animation: orlepediaRefreshSpin 0.8s linear infinite;
         }
 
         #articleRefreshIndicator.visible {
-            display: inline-block;
+            display: block;
+        }
+
+        @keyframes orlepediaRefreshSpin {
+            to { transform: rotate(360deg); }
         }
 
         .loading-logo-container {
@@ -517,7 +527,7 @@
             border: 1px solid var(--border-wiki);
             border-top: none;
             border-radius: 0 0 4px 4px;
-            max-height: 300px;
+            max-height: min(70vh, 520px);
             overflow-y: auto;
             display: none;
             z-index: 1000;
@@ -2028,6 +2038,32 @@
             } catch (err) { return null; }
         }
 
+        function seedArticleIndexIntoMemoryStore(articles) {
+            if (!Array.isArray(articles)) return;
+            articles.forEach(art => {
+                if (!art || !art.title) return;
+                const previous = orlePediaMemoryStore[art.title] || {};
+                orlePediaMemoryStore[art.title] = {
+                    ...previous,
+                    title: art.title,
+                    _db_id: art.id || previous._db_id,
+                    namespace: art.namespace || previous.namespace || 'Article',
+                    total_revisions: art.total_revisions || previous.total_revisions || 0,
+                    average_rating: art.average_rating || previous.average_rating || 0,
+                    quality: art.quality !== undefined && art.quality !== null ? parseFloat(art.quality) : previous.quality ?? null,
+                    views: art.views || previous.views || 0,
+                    country_views: art.country_views || previous.country_views || {},
+                    category: art.summary || previous.category || 'General Indexes',
+                    content: art.content || previous.content || '',
+                    _content_loaded: Boolean(art.content || previous._content_loaded),
+                    author: previous.author || 'ChrisAguahrz',
+                    talk: previous.talk || `== Talk Channel for ${art.title} ==`,
+                    history: previous.history || [], ratings: previous.ratings || [],
+                    createdTime: Date.parse(art.created_at) || previous.createdTime || Date.now()
+                };
+            });
+        }
+
         function restoreCachedArticleIndex() {
             try {
                 const cachedRows = JSON.parse(sessionStorage.getItem('orlepedia_article_index_cache') || '[]');
@@ -2385,6 +2421,16 @@
             
             // Keep a lightweight session snapshot so browser refresh can restore navigation instantly.
             cacheArticleIndexForRefresh(articles);
+            seedArticleIndexIntoMemoryStore(articles);
+            window._articleIndexReady = true;
+            if (!window._initialArticleRouted) {
+                const requestedTitle = getArticleTitleFromCurrentLocation();
+                if (requestedTitle) {
+                    window._initialArticleRouted = true;
+                    window._appInitialized = true;
+                    loadArticle(requestedTitle, false, false, true);
+                }
+            }
 
             // Step 3: Revisions — FIX 5: Deferred, loaded on-demand when History tab is opened
             let revisions = []; // Will be populated per-article when History tab is clicked
@@ -2441,7 +2487,9 @@
                 updateLoadingProgress(95, 'Building encyclopedia...');
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
+                        const previousArticle = orlePediaMemoryStore[art.title] || {};
                         orlePediaMemoryStore[art.title] = {
+                            ...previousArticle,
                             title: art.title,
                             _db_id: art.id,
                             namespace: art.namespace || 'Article',
@@ -2453,9 +2501,9 @@
                             _revisions_loaded: false,
                             _ratings_loaded: false,
                             category: art.summary || "General Indexes",
-                            content: art.content || '',
-                            _content_loaded: Boolean(art.content),
-                            author: "ChrisAguahrz",
+                            content: art.content || previousArticle.content || '',
+                            _content_loaded: Boolean(art.content || previousArticle._content_loaded),
+                            author: previousArticle.author || "ChrisAguahrz",
                             talk: `== Talk Board for ${art.title} ==`,
                             history: [
                                 { timestamp: Date.parse(art.created_at) || Date.now(), editor: "ChrisAguahrz", tag: "admin", summary: "Restored from database.", content: art.content || '' }
@@ -2498,6 +2546,8 @@
             const errorTitle = document.getElementById('loadingErrorTitle');
             const errorMessage = document.getElementById('loadingErrorMessage');
             
+            const overlay = document.getElementById('globalLoadingOverlay');
+            if (window._startupLoadingTimedOut && overlay) overlay.classList.remove('hidden');
             errorContainer.classList.add('visible');
             errorTitle.textContent = title;
             
@@ -2753,10 +2803,11 @@
                 return;
             }
 
-            dropdown.innerHTML = results.slice(0, 8).map(article => {
+            dropdown.innerHTML = results.slice(0, 30).map(article => {
                 const isTitleMatch = article.title.toLowerCase().includes(query);
+                const unloadedNote = article._content_loaded === false ? ' — click to load' : '';
                 const namespaceLabel = article.namespace === 'Archive' ? 'Archive' : (article.namespace || 'Article');
-                const matchNote = `${namespaceLabel}${isTitleMatch ? '' : ' keyword found'}`;
+                const matchNote = `${namespaceLabel}${isTitleMatch ? '' : ' keyword found'}${unloadedNote}`;
                 return `
                 <div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
@@ -2873,14 +2924,14 @@
 
         // ============ ARTICLE CONTROLLER PIPELINES ============
         function loadArticleWithCheck(articleTitle) {
-            if (!orlePediaMemoryStore[articleTitle]) {
-                if (confirm(`The page "${articleTitle}" does not exist. Do you want to create it?`)) {
-                    openNewArticleModal();
-                    document.getElementById('newArticleTitleInput').value = articleTitle;
-                }
+            if (orlePediaMemoryStore[articleTitle] || window._appInitialized || window._articleOnlyRefreshMode) {
+                loadArticle(articleTitle);
                 return;
             }
-            loadArticle(articleTitle);
+            if (confirm(`The page "${articleTitle}" does not exist. Do you want to create it?`)) {
+                openNewArticleModal();
+                document.getElementById('newArticleTitleInput').value = articleTitle;
+            }
         }
 
         function loadArticle(articleTitle, pushState = true, skipRedirect = false, skipViewTracking = false) {
@@ -2888,6 +2939,10 @@
             if (existingArticle && existingArticle._db_id && existingArticle._content_loaded === false && !window._articleFetchInFlight) {
                 currentActiveArticleKey = articleTitle;
                 if (pushState) window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
+                const titleEl = document.getElementById('displayArticleTitle');
+                const bodyEl = document.getElementById('wikiTabContentBody');
+                if (titleEl) titleEl.textContent = articleTitle;
+                if (bodyEl) bodyEl.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading article…</div>';
                 window._articleFetchInFlight = true;
                 showArticleRefreshIndicator('Loading article…');
                 refreshCurrentArticleOnly(articleTitle, true).finally(() => { window._articleFetchInFlight = false; });
@@ -2896,6 +2951,19 @@
             if (!orlePediaMemoryStore[articleTitle] && window._articleOnlyRefreshMode && !window._articleFetchInFlight) {
                 if (pushState) window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
                 window._articleFetchInFlight = true;
+                showArticleRefreshIndicator('Loading article…');
+                refreshCurrentArticleOnly(articleTitle, true).finally(() => { window._articleFetchInFlight = false; });
+                return;
+            }
+            if (!orlePediaMemoryStore[articleTitle] && window._appInitialized && !window._articleFetchInFlight) {
+                currentActiveArticleKey = articleTitle;
+                if (pushState) window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
+                const titleEl = document.getElementById('displayArticleTitle');
+                const bodyEl = document.getElementById('wikiTabContentBody');
+                if (titleEl) titleEl.textContent = articleTitle;
+                if (bodyEl) bodyEl.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading article…</div>';
+                window._articleFetchInFlight = true;
+                showArticleRefreshIndicator('Loading article…');
                 refreshCurrentArticleOnly(articleTitle, true).finally(() => { window._articleFetchInFlight = false; });
                 return;
             }
@@ -3427,15 +3495,16 @@
             };
 
             for (let [tName, tContent] of Object.entries(orlePediaTemplateStore)) {
-                if (tName === 'Color' || tName === 'Description' || tName === 'Templatecolor' || tName === 'Related' || tName === 'Toggle') continue;
-                const tRegex = new RegExp(`\\{\\{${tName}\\|(.*?)\\}\\}`, 'g');
-                workingTextStr = workingTextStr.replace(tRegex, function(m, paramsStr) {
+                if (['Color', 'Description', 'Templatecolor', 'Related', 'Toggle', 'Table', 'Piechart', 'Images', 'Map', 'Infobox', 'Election', 'Person'].includes(tName)) continue;
+                const safeTemplateName = tName.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
+                const tRegex = new RegExp(`\\{\\{\\s*${safeTemplateName}\\s*(?:\\|([\\s\\S]*?))?\\}\\}`, 'gi');
+                workingTextStr = workingTextStr.replace(tRegex, function(m, paramsStr = '') {
                     let processed = tContent;
-                    const params = paramsStr.split('|');
+                    const params = paramsStr ? paramsStr.split('|') : [];
                     params.forEach((p, i) => {
                         processed = processed.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), p.trim());
                     });
-                    processed = processed.replace(/\{\{text\}\}/g, params[0].trim());
+                    processed = processed.replace(/\{\{text\}\}/g, (params[0] || '').trim());
                     return parseGlobalWiki(processed);
                 });
             }
@@ -4987,7 +5056,53 @@
         }
 
         // ============ STATISTICS VIEW ============
-        function loadStatisticsView() {
+        async function getCachedSupabaseStatistics() {
+            const cacheKey = 'orlepedia_supabase_statistics_v1';
+            const cacheMaxAge = 30 * 60 * 1000;
+            try {
+                const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+                if (cached && cached.savedAt && Date.now() - cached.savedAt < cacheMaxAge && cached.data) return cached.data;
+            } catch (err) {}
+            try {
+                const rows = await supabaseRequest('rpc/get_orlepedia_statistics', 'POST', {});
+                const data = Array.isArray(rows) ? rows[0] : rows;
+                if (data) {
+                    try { localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), data })); } catch (err) {}
+                    return data;
+                }
+            } catch (err) {
+                console.warn('Supabase statistics unavailable; using local fallback:', err);
+            }
+            try {
+                const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+                return cached && cached.data ? cached.data : null;
+            } catch (err) { return null; }
+        }
+
+        function renderSupabaseStatisticsView(stats) {
+            const rows = Array.isArray(stats.page_stats) ? stats.page_stats : [];
+            const safeTitle = title => String(title).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const top = (field, descending = true) => [...rows].sort((a, b) => { const av = Number(a[field]) || 0; const bv = Number(b[field]) || 0; return descending ? bv - av : av - bv; }).slice(0, 5);
+            const table = (heading, field, suffix = '', descending = true) => `<h3>${heading}</h3><table class="stat-table"><thead><tr><th>Article</th><th>Value</th></tr></thead><tbody>${top(field, descending).map(item => `<tr><td><span class="wiki-link" onclick="loadArticle('${safeTitle(item.title)}')">${item.title}</span></td><td>${Number(item[field] || 0).toLocaleString()}${suffix}</td></tr>`).join('')}</tbody></table>`;
+            const totalPages = Number(stats.total_pages || 0);
+            const totalEdits = Number(stats.total_edits || 0);
+            const totalWords = Number(stats.total_words || 0);
+            const totalViews = Number(stats.total_views || 0);
+            document.getElementById('wikiTabContentBody').innerHTML = `<div class="statistics-grid"><div class="stat-card"><div class="stat-card-label">Total Pages</div><div class="stat-card-value">${totalPages.toLocaleString()}</div></div><div class="stat-card"><div class="stat-card-label">Total Edits</div><div class="stat-card-value">${totalEdits.toLocaleString()}</div></div><div class="stat-card"><div class="stat-card-label">Avg Edits/Page</div><div class="stat-card-value">${(totalEdits / (totalPages || 1)).toFixed(2)}</div></div><div class="stat-card"><div class="stat-card-label">Total Words</div><div class="stat-card-value">${totalWords.toLocaleString()}</div></div><div class="stat-card"><div class="stat-card-label">Total Views</div><div class="stat-card-value">${totalViews.toLocaleString()}</div></div></div>${table('Top 5 Highest Rated Articles', 'rating', ' ★')}${table('Bottom 5 Lowest Rated Articles', 'rating', ' ★', false)}${table('Top 5 Most Edited Articles', 'edits')}${table('Top 5 Largest Articles', 'bytes', ' bytes')}${table('Top 5 Most Linked Articles', 'links')}${table('Top 5 Most Viewed Articles', 'views')}`;
+        }
+
+        async function loadStatisticsView() {
+            exitEditorDashboard();
+
+            document.getElementById('displayArticleTitle').innerText = "Special: Statistics";
+            document.getElementById('articleStarsContainer').innerHTML = "";
+            document.getElementById('articleMetaInfo').innerHTML = "";
+            const remoteStats = await getCachedSupabaseStatistics();
+            if (remoteStats) {
+                renderSupabaseStatisticsView(remoteStats);
+                return;
+            }
+
             exitEditorDashboard();
 
             document.getElementById('displayArticleTitle').innerText = "Special: Statistics";
@@ -5443,7 +5558,9 @@
 
             for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
                 // FIX 4: Only show in category if tag is in content
-                const artCats = (obj.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                const artCats = (String(obj.content || '').match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                const indexedCategory = String(obj.category || '').trim();
+                if (indexedCategory && indexedCategory !== 'General Indexes' && indexedCategory !== 'Redirect') artCats.push(indexedCategory);
                 
                 if (categoryName === 'Article') {
                     if (!(obj.content && obj.content.startsWith('#REDIRECT'))) {
@@ -5863,6 +5980,7 @@
 
         // ============ APP INITIALIZATION ============
         async function initializeApplication(silentRefresh = false) {
+            let startupTimeout = null;
             try {
                 loadingConfig.silentRefresh = Boolean(silentRefresh);
                 if (loadingConfig.silentRefresh) {
@@ -5873,6 +5991,18 @@
                     }
                 }
                 loadUserProfile();
+                restoreCachedArticleIndex();
+                startupTimeout = setTimeout(() => {
+                    if (loadingConfig.isComplete || window._appInitializationFinished) return;
+                    window._startupLoadingTimedOut = true;
+                    const requestedTitle = getArticleTitleFromCurrentLocation();
+                    currentActiveArticleKey = requestedTitle;
+                    const titleEl = document.getElementById('displayArticleTitle');
+                    const bodyEl = document.getElementById('wikiTabContentBody');
+                    if (titleEl) titleEl.textContent = requestedTitle;
+                    if (bodyEl && !bodyEl.innerHTML.trim()) bodyEl.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading this article…</div>';
+                    hideLoadingScreen();
+                }, 1800);
 
                 // A browser reload restores the current article from session cache and
                 // refreshes only that article; the full encyclopedia loader is skipped.
@@ -5915,8 +6045,12 @@
                 }
 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
+                window._appInitializationFinished = true;
+                clearTimeout(startupTimeout);
 
             } catch (globalErr) {
+                window._appInitializationFinished = true;
+                clearTimeout(startupTimeout);
                 console.error("CRITICAL INITIALIZATION ERROR:", globalErr);
                 showDetailedError("Startup Failed", globalErr.message, ["Check console for full stack trace"]);
             }
