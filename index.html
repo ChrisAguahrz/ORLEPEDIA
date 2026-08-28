@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-            <script>
+<script>
             // Detect a real browser reload before the loading overlay is painted.
             (function () {
                 try {
                     const navigationEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-                    window.__orlePediaBrowserReload = navigationEntry
+                    const wasAlreadyBooted = sessionStorage.getItem('orlepedia_app_booted') === '1';
+                    window.__orlePediaBrowserReload = (navigationEntry
                         ? navigationEntry.type === 'reload'
-                        : (performance.navigation && performance.navigation.type === 1);
+                        : (performance.navigation && performance.navigation.type === 1)) || wasAlreadyBooted;
+                    sessionStorage.setItem('orlepedia_app_booted', '1');
                     if (window.__orlePediaBrowserReload) document.documentElement.classList.add('orlepedia-silent-refresh');
                 } catch (err) {
                     window.__orlePediaBrowserReload = false;
@@ -1676,7 +1678,7 @@
             <div id="identityGreeting">Welcome to OrlePedia. Please register a profile to contribute adjustments.</div>
             <div class="modern-search-container">
                 <div class="search-input-wrapper">
-                    <input type="text" id="globalSearchInput" placeholder="Search articles, files..." onkeyup="performGlobalSearch(event)">
+                    <input type="text" id="globalSearchInput" placeholder="Search articles, files..." onkeyup="performGlobalSearchDebounced(event)">
                     <div class="search-results-dropdown" id="searchResultsDropdown"></div>
                 </div>
             </div>
@@ -1992,6 +1994,40 @@
             }
         }
 
+        let articleCacheDbPromise = null;
+        function openArticleCacheDb() {
+            if (!('indexedDB' in window)) return Promise.resolve(null);
+            if (articleCacheDbPromise) return articleCacheDbPromise;
+            articleCacheDbPromise = new Promise((resolve) => {
+                const request = indexedDB.open('orlePediaArticleCache', 1);
+                request.onupgradeneeded = () => request.result.createObjectStore('articles', { keyPath: 'title' });
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(null);
+            });
+            return articleCacheDbPromise;
+        }
+
+        async function saveArticleToIndexedDb(article) {
+            try {
+                const db = await openArticleCacheDb();
+                if (!db || !article || !article.title) return;
+                const tx = db.transaction('articles', 'readwrite');
+                tx.objectStore('articles').put({ title: article.title, content: article.content || '', namespace: article.namespace || 'Article', category: article.category || 'General Indexes', _db_id: article._db_id, updatedAt: Date.now() });
+            } catch (err) {}
+        }
+
+        async function getArticleFromIndexedDb(title) {
+            try {
+                const db = await openArticleCacheDb();
+                if (!db) return null;
+                return await new Promise((resolve) => {
+                    const request = db.transaction('articles', 'readonly').objectStore('articles').get(title);
+                    request.onsuccess = () => resolve(request.result || null);
+                    request.onerror = () => resolve(null);
+                });
+            } catch (err) { return null; }
+        }
+
         function restoreCachedArticleIndex() {
             try {
                 const cachedRows = JSON.parse(sessionStorage.getItem('orlepedia_article_index_cache') || '[]');
@@ -2010,6 +2046,7 @@
                         _ratings_loaded: false,
                         category: art.summary || 'General Indexes',
                         content: art.content || '',
+                        _content_loaded: Boolean(art.content),
                         author: 'ChrisAguahrz',
                         talk: `== Talk Channel for ${art.title} ==`,
                         history: [],
@@ -2024,10 +2061,14 @@
             }
         }
 
+        let activeArticleFetchController = null;
         async function refreshCurrentArticleOnly(articleTitle = getArticleTitleFromCurrentLocation(), renderAfterRefresh = false) {
+            if (activeArticleFetchController) activeArticleFetchController.abort();
+            activeArticleFetchController = new AbortController();
+            const requestController = activeArticleFetchController;
             showArticleRefreshIndicator('Refreshing article…');
             try {
-                const rows = await supabaseRequest(`articles?title=eq.${encodeURIComponent(articleTitle)}&select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views`);
+                const rows = await supabaseRequest(`articles?title=eq.${encodeURIComponent(articleTitle)}&select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views`, 'GET', null, requestController.signal);
                 if (!Array.isArray(rows) || !rows.length) throw new Error('Article not found');
                 const fresh = rows[0];
                 const previous = orlePediaMemoryStore[fresh.title] || {};
@@ -2043,13 +2084,15 @@
                     country_views: fresh.country_views || previous.country_views || {},
                     category: fresh.summary || previous.category || 'General Indexes',
                     content: fresh.content || '',
+                    _content_loaded: true,
                     createdTime: Date.parse(fresh.created_at) || previous.createdTime || Date.now(),
                     history: previous.history || [],
                     ratings: previous.ratings || []
                 };
                 currentActiveArticleKey = fresh.title;
                 try { sessionStorage.setItem('orlepedia_current_article_cache', JSON.stringify(orlePediaMemoryStore[fresh.title])); } catch (err) {}
-                if (renderAfterRefresh) loadArticle(fresh.title, false, true);
+                saveArticleToIndexedDb(orlePediaMemoryStore[fresh.title]);
+                if (renderAfterRefresh) loadArticle(fresh.title, false, true, true);
                 else switchSubTab(activeSubTabState);
                 if (typeof lucide !== 'undefined') lucide.createIcons();
                 showArticleRefreshIndicator('Article refreshed');
@@ -2057,6 +2100,7 @@
                 console.warn('Article-only refresh failed:', err);
                 showArticleRefreshIndicator('Refresh failed — showing saved article');
             } finally {
+                if (activeArticleFetchController === requestController) activeArticleFetchController = null;
                 setTimeout(hideArticleRefreshIndicator, 1200);
             }
         }
@@ -2064,14 +2108,19 @@
         async function restoreArticleOnlyAfterBrowserRefresh() {
             const articleTitle = getArticleTitleFromCurrentLocation();
             restoreCachedArticleIndex();
-            const cachedArticle = sessionStorage.getItem('orlepedia_current_article_cache');
+            let cachedArticle = sessionStorage.getItem('orlepedia_current_article_cache');
             if (cachedArticle) {
                 try {
                     const cached = JSON.parse(cachedArticle);
                     if (cached && cached.title === articleTitle) orlePediaMemoryStore[articleTitle] = cached;
                 } catch (err) {
                     sessionStorage.removeItem('orlepedia_current_article_cache');
+                    cachedArticle = null;
                 }
+            }
+            if (!orlePediaMemoryStore[articleTitle]) {
+                const indexedArticle = await getArticleFromIndexedDb(articleTitle);
+                if (indexedArticle) orlePediaMemoryStore[articleTitle] = { ...indexedArticle, _content_loaded: true, views: 0, total_revisions: 0, average_rating: 0, history: [], ratings: [], createdTime: indexedArticle.updatedAt || Date.now() };
             }
             document.getElementById('globalLoadingOverlay')?.classList.add('hidden');
             if (!orlePediaMemoryStore[articleTitle]) {
@@ -2083,7 +2132,7 @@
                         total_revisions: fresh.total_revisions || 0, average_rating: fresh.average_rating || 0,
                         quality: fresh.quality !== undefined && fresh.quality !== null ? parseFloat(fresh.quality) : null,
                         views: fresh.views || 0, country_views: fresh.country_views || {},
-                        category: fresh.summary || 'General Indexes', content: fresh.content || '',
+                        category: fresh.summary || 'General Indexes', content: fresh.content || '', _content_loaded: true,
                         createdTime: Date.parse(fresh.created_at) || Date.now(), history: [], ratings: []
                     };
                 }
@@ -2243,9 +2292,10 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxbW1mY2hxdHJtdWJmdHhtZ3VnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1ODU5NjEsImV4cCI6MjA5NjE2MTk2MX0.YjPdPUU4JMLfsBGMkyBiICr67lAp0wgN2qYHWiobaqA";
 
         // Network Helper Function with detailed diagnostics
-        async function supabaseRequest(endpoint, method = 'GET', body = null) {
+        async function supabaseRequest(endpoint, method = 'GET', body = null, externalSignal = null) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const requestSignal = externalSignal || controller.signal;
+            const timeoutId = externalSignal ? null : setTimeout(() => controller.abort(), 10000);
             
             const headers = {
                 'apikey': SUPABASE_KEY,
@@ -2253,14 +2303,14 @@
                 'Content-Type': 'application/json',
                 'Prefer': 'return=representation'
             };
-            const config = { method, headers, signal: controller.signal };
+            const config = { method, headers, signal: requestSignal };
             if (body) config.body = JSON.stringify(body);
 
             try {
                 const fullUrl = `${SUPABASE_URL}/rest/v1/${endpoint}`;
                 console.log(`📡 Fetching: ${fullUrl}`);
                 const response = await fetch(fullUrl, config);
-                clearTimeout(timeoutId);
+                if (timeoutId) clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -2279,7 +2329,7 @@
                 const data = await response.json();
                 return data;
             } catch (err) {
-                clearTimeout(timeoutId);
+                if (timeoutId) clearTimeout(timeoutId);
                 if (err.name === 'AbortError') {
                     throw new Error('TIMEOUT: The request took too long. The Supabase server may be down or unreachable. Check your network connection and Supabase project status.');
                 }
@@ -2313,7 +2363,7 @@
             updateLoadingProgress(15, 'Loading articles...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&limit=1000');
+                articles = await supabaseRequest('articles?select=title,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&limit=1000');
                 diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
                 updateLoadingProgress(40, `Loaded ${articles.length} articles`);
             } catch (err) {
@@ -2404,6 +2454,7 @@
                             _ratings_loaded: false,
                             category: art.summary || "General Indexes",
                             content: art.content || '',
+                            _content_loaded: Boolean(art.content),
                             author: "ChrisAguahrz",
                             talk: `== Talk Board for ${art.title} ==`,
                             history: [
@@ -2690,8 +2741,15 @@
             const results = [...titleResults, ...contentResults];
 
             if (results.length === 0) {
-                dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">No results found</div>';
+                dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Searching article content…</div>';
                 dropdown.classList.add('active');
+                supabaseRequest(`articles?content=ilike.${encodeURIComponent('*' + query + '*')}&select=title,namespace,summary,id&limit=8`)
+                    .then(serverResults => {
+                        if (document.getElementById('globalSearchInput')?.value.toLowerCase().trim() !== query) return;
+                        const matches = Array.isArray(serverResults) ? serverResults : [];
+                        dropdown.innerHTML = matches.length ? matches.map(article => `<div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');"><div class="search-result-thumbnail"><div style="width:100%;height:100%;background:linear-gradient(135deg,var(--wiki-blue),var(--wiki-blue-hover));display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;">📄</div></div><div class="search-result-info"><div class="search-result-title">${article.title}</div><div class="search-result-namespace">${article.namespace === 'Archive' ? 'Archive' : (article.namespace || 'Article')} keyword found</div></div></div>`).join('') : '<div class="search-result-item" style="color:var(--text-muted);">No results found</div>';
+                    })
+                    .catch(() => { dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">No results found</div>'; });
                 return;
             }
 
@@ -2719,6 +2777,47 @@
             if (!event.target.closest('.search-input-wrapper')) {
                 document.getElementById('searchResultsDropdown').classList.remove('active');
             }
+        });
+
+        let globalSearchDebounceTimer = null;
+        function performGlobalSearchDebounced(event) {
+            clearTimeout(globalSearchDebounceTimer);
+            globalSearchDebounceTimer = setTimeout(() => performGlobalSearch(event), 180);
+        }
+
+        const articlePrefetchTimers = new Map();
+        function prefetchArticleByTitle(articleTitle) {
+            if (!articleTitle || orlePediaMemoryStore[articleTitle]?._content_loaded || articlePrefetchTimers.has(articleTitle)) return;
+            const timer = setTimeout(async () => {
+                articlePrefetchTimers.delete(articleTitle);
+                try {
+                    const rows = await supabaseRequest(`articles?title=eq.${encodeURIComponent(articleTitle)}&select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views`);
+                    if (!Array.isArray(rows) || !rows.length) return;
+                    const fresh = rows[0];
+                    const previous = orlePediaMemoryStore[fresh.title] || {};
+                    orlePediaMemoryStore[fresh.title] = {
+                        ...previous, title: fresh.title, _db_id: fresh.id,
+                        namespace: fresh.namespace || previous.namespace || 'Article',
+                        category: fresh.summary || previous.category || 'General Indexes',
+                        content: fresh.content || '', _content_loaded: true,
+                        createdTime: Date.parse(fresh.created_at) || previous.createdTime || Date.now(),
+                        views: fresh.views || previous.views || 0,
+                        total_revisions: fresh.total_revisions || previous.total_revisions || 0,
+                        average_rating: fresh.average_rating || previous.average_rating || 0,
+                        quality: fresh.quality !== undefined && fresh.quality !== null ? parseFloat(fresh.quality) : previous.quality ?? null,
+                        country_views: fresh.country_views || previous.country_views || {}, history: previous.history || [], ratings: previous.ratings || []
+                    };
+                } catch (err) {}
+            }, 220);
+            articlePrefetchTimers.set(articleTitle, timer);
+        }
+
+        document.addEventListener('mouseover', (event) => {
+            const link = event.target.closest && event.target.closest('.wiki-link');
+            if (!link) return;
+            const onclick = link.getAttribute('onclick') || '';
+            const match = onclick.match(/loadArticle\(['"]([^'"]+)/);
+            if (match) prefetchArticleByTitle(match[1]);
         });
 
         // ============ USER PROFILE MANAGEMENT ============
@@ -2784,7 +2883,16 @@
             loadArticle(articleTitle);
         }
 
-        function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
+        function loadArticle(articleTitle, pushState = true, skipRedirect = false, skipViewTracking = false) {
+            const existingArticle = orlePediaMemoryStore[articleTitle];
+            if (existingArticle && existingArticle._db_id && existingArticle._content_loaded === false && !window._articleFetchInFlight) {
+                currentActiveArticleKey = articleTitle;
+                if (pushState) window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
+                window._articleFetchInFlight = true;
+                showArticleRefreshIndicator('Loading article…');
+                refreshCurrentArticleOnly(articleTitle, true).finally(() => { window._articleFetchInFlight = false; });
+                return;
+            }
             if (!orlePediaMemoryStore[articleTitle] && window._articleOnlyRefreshMode && !window._articleFetchInFlight) {
                 if (pushState) window.history.pushState({ article: articleTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(articleTitle));
                 window._articleFetchInFlight = true;
@@ -2802,24 +2910,26 @@
             // Page View Tracking
             if (orlePediaMemoryStore[articleTitle]) {
                 const art = orlePediaMemoryStore[articleTitle];
-                if (window._appInitialized) {
+                if (window._appInitialized && !skipViewTracking) {
                     art.views = (art.views || 0) + 1;
                     if (art._db_id) {
                         supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { views: art.views });
                     }
-                    // Country View Tracking
-                    fetch('https://ipapi.co/json/')
-                        .then(r => r.json())
-                        .then(geo => {
-                            if (geo && geo.country_code) {
-                                const country = geo.country_code;
-                                art.country_views = art.country_views || {};
-                                art.country_views[country] = (art.country_views[country] || 0) + 1;
-                                if (art._db_id) {
-                                    supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { country_views: JSON.stringify(art.country_views) });
+                    // Country View Tracking (deferred so it never delays article rendering)
+                    setTimeout(() => {
+                        fetch('https://ipapi.co/json/')
+                            .then(r => r.json())
+                            .then(geo => {
+                                if (geo && geo.country_code) {
+                                    const country = geo.country_code;
+                                    art.country_views = art.country_views || {};
+                                    art.country_views[country] = (art.country_views[country] || 0) + 1;
+                                    if (art._db_id) {
+                                        supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { country_views: JSON.stringify(art.country_views) });
+                                    }
                                 }
-                            }
-                        }).catch(() => {});
+                            }).catch(() => {});
+                    }, 1200);
                 }
             }
             if (pushState) {
@@ -2931,9 +3041,10 @@
                     title: article.title, _db_id: article._db_id, namespace: article.namespace,
                     total_revisions: article.total_revisions, average_rating: article.average_rating,
                     quality: article.quality, views: article.views, country_views: article.country_views,
-                    category: article.category, content: article.content, createdTime: article.createdTime,
+                    category: article.category,                     content: article.content, createdTime: article.createdTime,
                     history: article.history || [], ratings: article.ratings || []
                 }));
+                saveArticleToIndexedDb(article);
             } catch (err) {}
         }
 
@@ -3233,7 +3344,7 @@
                     const indexNumber = key.replace(/\D/g, '');
                     const src = toggleData[key];
                     const caption = toggleData['c' + indexNumber] || '';
-                    const media = /^\[\[(?:TFile|File)\|/i.test(src) ? parseGlobalWiki(src) : `<img src="${getImgSrcLocal(src)}" loading="lazy" style="display:block; width:100%; height:220px; object-fit:fill;" onerror="this.parentElement.style.display='none'">`;
+                    const media = /^\[\[(?:TFile|File)\|/i.test(src) ? parseGlobalWiki(src) : `<img src="${getImgSrcLocal(src)}" loading="lazy" decoding="async" style="display:block; width:100%; height:220px; object-fit:fill;" onerror="this.parentElement.style.display='none'">`;
                     return `<div data-toggle-panel="${toggleId}" data-toggle-index="${index}" style="display:${index === 0 ? 'block' : 'none'}; text-align:center;">${media}${caption ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); margin-top:2px;">${parseGlobalWiki(caption)}</div>` : ''}</div>`;
                 }).join('');
                 return `<div id="${toggleId}" class="infobox-toggle" style="width:100%; border:1px solid #a2a9b1; background:#fff; padding:2px;">${panels}<div style="display:flex; justify-content:center; gap:2px; margin-top:3px;">${buttons}</div></div>`;
@@ -3247,7 +3358,7 @@
                 const size = parts.find(part => /^\d+px$/i.test(part));
                 const caption = parts.filter(part => part && !/^\d+px$/i.test(part)).join(' | ');
                 const width = size ? parseInt(size, 10) : 180;
-                return `<span style="display:inline-flex; flex-direction:column; align-items:center; max-width:100%; vertical-align:middle;"><img src="${src}" loading="lazy" style="display:block; max-width:100%; width:${width}px; height:auto; object-fit:fill;" onerror="this.style.display='none'">${caption ? `<small style="font-size:0.62rem; font-style:italic;">${parseGlobalWiki(caption)}</small>` : ''}</span>`;
+                return `<span style="display:inline-flex; flex-direction:column; align-items:center; max-width:100%; vertical-align:middle;"><img src="${src}" loading="lazy" decoding="async" style="display:block; max-width:100%; width:${width}px; height:auto; object-fit:fill;" onerror="this.style.display='none'">${caption ? `<small style="font-size:0.62rem; font-style:italic;">${parseGlobalWiki(caption)}</small>` : ''}</span>`;
             };
             const renderInfoboxValue = (value) => {
                 if (!value || !String(value).trim()) return '';
@@ -3259,7 +3370,7 @@
                 if (!value) return '';
                 if (isToggleToken(value)) return renderToggleMarkup(value);
                 if (/^\[\[(?:TFile|File)\|/i.test(value.trim())) return renderInfoboxValue(value);
-                return `<img src="${getImgSrcLocal(value)}" loading="lazy" style="display:block; width:100%; height:${height}; object-fit:fill; margin:0 auto;" onerror="this.parentElement.style.display='none'">`;
+                return `<img src="${getImgSrcLocal(value)}" loading="lazy" decoding="async" style="display:block; width:100%; height:${height}; object-fit:fill; margin:0 auto;" onerror="this.parentElement.style.display='none'">`;
             };
 
             const citationRegex = /<ref>(.*?)<\/ref>/g;
@@ -3294,14 +3405,14 @@
                 txt = txt.replace(/\[\[TFile\|([^\]]+)\]\]/g, function(m, rest) {
                     const parts = rest.split('|');
                     const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
-                    return `<img src="${url}" style="max-width:40px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy">`;
+                    return `<img src="${url}" style="max-width:40px;max-height:40px;display:inline-block;vertical-align:middle;" loading="lazy" decoding="async">`;
                 });
                 txt = txt.replace(/\[\[TFile\|([^\]]+)\|([^\]]+)\]\]/g, function(m, rest, opts) {
                     const parts = rest.split('|');
                     const url = orlePediaFileStore[parts[0].trim()] || parts[0].trim();
                     const sizeMatch = opts.match(/(\d+)px/);
                     const w = sizeMatch ? sizeMatch[1] : '55';
-                    return `<img src="${url}" style="max-width:${w}px;max-height:${w}px;display:inline-block;vertical-align:middle;" loading="lazy">`;
+                    return `<img src="${url}" style="max-width:${w}px;max-height:${w}px;display:inline-block;vertical-align:middle;" loading="lazy" decoding="async">`;
                 });
                 return txt.replace(/'''(.*?)'''/g, '<b>$1</b>')
                           .replace(/''(.*?)''/g, '<i>$1</i>')
@@ -3397,6 +3508,9 @@
                 setTimeout(() => {
                     const container = document.getElementById(mapId);
                     if (!container) return;
+                    const initializeMap = () => {
+                    if (container.dataset.mapInitialized === '1') return;
+                    container.dataset.mapInitialized = '1';
                     // Check for Leaflet availability
                     if (typeof L === 'undefined') {
                         container.innerHTML = `<p style="color:red; font-size:0.7rem;">Leaflet.js not loaded. Cannot render map.</p>`;
@@ -3452,6 +3566,18 @@
                         .catch(err => {
                             container.innerHTML = `<p style="color:red; font-size:0.7rem;">Failed to load map data: (B) ORLAND STATES.geojson</p>`;
                         });
+                    };
+                    if ('IntersectionObserver' in window) {
+                        const observer = new IntersectionObserver((entries) => {
+                            if (entries.some(entry => entry.isIntersecting)) {
+                                observer.disconnect();
+                                initializeMap();
+                            }
+                        }, { rootMargin: '300px' });
+                        observer.observe(container);
+                    } else {
+                        initializeMap();
+                    }
                 }, 100);
                 return `<div id="${mapId}" class="wiki-map-container" style="height:300px; width:100%; background:#f0f0f0; border:1px solid #ddd; border-radius:4px; margin:1rem 0; overflow:hidden;"></div>
                         ${mData['txt'] ? `<div style="font-size:0.8rem; text-align:center; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">${mData['txt']}</div>` : ''}`;
@@ -3566,7 +3692,7 @@
                             let photoSrc = getImgSrc(rawPhoto);
                             const fileMatch = rawPhoto.match(/^\[\[(?:File|TFile)\|([^|\]]+)/i);
                             if (fileMatch) photoSrc = getImgSrc(fileMatch[1].trim());
-                            return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;"><img src="${photoSrc}" loading="lazy" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'"></td>`;
+                            return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;"><img src="${photoSrc}" loading="lazy" decoding="async" style="width:70px; height:70px; border-radius:50%; object-fit:cover; border:2px solid #eee;" onerror="this.style.display='none'"></td>`;
                         }
                         return `<td style="text-align:center; padding:0.3rem; border-bottom:1px solid #ddd;">${renderInfoboxValue(item.value)}</td>`;
                     }).join('');
@@ -3592,7 +3718,7 @@
                     return `<tr><th style="text-align:left; background:#f2f2f2; padding:0.3rem; border-bottom:1px solid #ddd;">${label}</th>${cells}</tr>`;
                 }).join('');
 
-                const electionFlagSeal = (eData['flag'] || eData['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">${eData['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:0; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px;"><span style="display:inline-block; flex:0 0 auto; width:80px; max-width:80px; text-align:center;"><img src="${getImgSrc(eData['flag'])}" loading="lazy" onerror="this.style.display='none'" style="display:block; width:80px !important; max-width:80px !important; height:auto !important; max-height:80px; object-fit:contain; margin:0 auto; border:1px solid #ddd;"></span><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['flag_caption'] || 'Flag')}</span></div>` : ''}${eData['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['seal_caption'] || 'Seal')}</span></div>` : ''}</div>` : '';
+                const electionFlagSeal = (eData['flag'] || eData['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">${eData['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:0; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px;"><span style="display:inline-block; flex:0 0 auto; width:80px; max-width:80px; text-align:center;"><img src="${getImgSrc(eData['flag'])}" loading="lazy" decoding="async" onerror="this.style.display='none'" style="display:block; width:80px !important; max-width:80px !important; height:auto !important; max-height:80px; object-fit:contain; margin:0 auto; border:1px solid #ddd;"></span><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['flag_caption'] || 'Flag')}</span></div>` : ''}${eData['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['seal_caption'] || 'Seal')}</span></div>` : ''}</div>` : '';
                 const electionMap = eData['map'] ? `<div style="text-align:center; padding:0.5rem;">${renderInfoboxImage(eData['map'], '260px')}<div style="font-size:0.7rem; color:#666;">Electoral Map</div></div>` : '';
 
                 compiledInfoboxHtmlString = `
@@ -3725,8 +3851,8 @@
                         
                         ${templateImageGrid}
                         <div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>
-                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['flag'])}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; box-shadow:0 1px 3px rgba(0,0,0,0.2);"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['flag_caption'] || 'Flag')}</span></div>
+                            <div class="infobox-media-box" style="border:none; background:none; height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;"><img src="${getImgSrc(infoboxDataRecords['seal'])}" loading="lazy" decoding="async" onerror="this.parentElement.style.display='none'" style="width: 100%; height: 100%; object-fit: fill; padding:5px;"><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${parseWiki(infoboxDataRecords['seal_caption'] || 'Seal')}</span></div>
                         </div>
 
                         ${infoboxDataRecords['map'] ? `<div class="infobox-map" style="padding:10px 0; background:#fff;">
@@ -3908,7 +4034,7 @@
                 return `
                     <div class="wiki-file-container">
                         <div class="wiki-file-box">
-                            <img src="${url}" class="wiki-file-img" loading="lazy" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
+                            <img src="${url}" class="wiki-file-img" loading="lazy" decoding="async" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';">
                             <span class="wiki-file-caption">${caption}</span>
                         </div>
                     </div>
@@ -3929,7 +4055,7 @@
                     url = orlePediaFileStore[url] || url;
                     sizeWidth = p2 && p2.includes('px') ? p2 : "220px";
                 }
-                return `<div class="wiki-file-container"><div class="wiki-file-box"><img src="${url}" class="wiki-file-img" loading="lazy" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';"></div></div>`;
+                return `<div class="wiki-file-container"><div class="wiki-file-box"><img src="${url}" class="wiki-file-img" loading="lazy" decoding="async" style="width:${sizeWidth};" onerror="this.onerror=null; this.src='https://via.placeholder.com/200?text=Image+Not+Found';"></div></div>`;
             });
 
             const pieRegex = /\{\{Piechart([\s\S]*?)\}\}/g;
