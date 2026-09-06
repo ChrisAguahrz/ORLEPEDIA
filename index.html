@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -4149,13 +4149,18 @@
             return { extension: 'jpg', contentType: 'image/jpeg' };
         }
 
-        async function docxImageRun(image, media, relationships) {
+        function formatDataSize(bytes) {
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        async function docxImageRun(image, media, relationships, sizeStats) {
             const source = image.getAttribute('src');
             if (!source) return '';
             try {
                 const response = await fetch(source, { mode: 'cors' });
                 if (!response.ok) throw new Error('Image request failed');
                 const blob = await response.blob();
+                sizeStats.sourceBytes += blob.size;
                 const imageType = docxImageType(source, blob);
                 const imageId = media.length + 1;
                 const relationshipId = 'rIdImage' + imageId;
@@ -4168,7 +4173,7 @@
             }
         }
 
-        async function htmlToDocxBlocks(html, media, relationships) {
+        async function htmlToDocxBlocks(html, media, relationships, sizeStats) {
             const root = document.createElement('div');
             root.innerHTML = html || '';
             const blocks = [];
@@ -4182,7 +4187,7 @@
                     } else if (child.nodeType === Node.ELEMENT_NODE) {
                         const tag = child.tagName;
                         if (tag === 'BR') output += '<w:r><w:br/></w:r>';
-                        else if (tag === 'IMG') output += await docxImageRun(child, media, relationships);
+                        else if (tag === 'IMG') output += await docxImageRun(child, media, relationships, sizeStats);
                         else output += await inlineRuns(child, bold || tag === 'STRONG' || tag === 'B', italic || tag === 'EM' || tag === 'I');
                     }
                 }
@@ -4218,20 +4223,22 @@
             const documentParts = [];
             const media = [];
             const relationships = [];
+            const sizeStats = { sourceBytes: 0, textBytes: 0 };
             documentParts.push('<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr>' + docxTextRun(archiveTitle, true, false) + '</w:p>');
             documentParts.push('<w:p>' + docxTextRun('Generated: ' + new Date().toLocaleString(), false, false) + '</w:p>');
 
             for (let i = 0; i < titles.length; i++) {
                 const title = titles[i];
                 const article = orlePediaMemoryStore[title];
-                statusSpan.innerText = 'Building DOCX (' + (i + 1) + '/' + titles.length + '): ' + title;
                 let rawContent = article.content || '';
                 if (!includeImages) rawContent = rawContent.replace(/\[\[File\|.*?\]\]/g, '');
+                sizeStats.textBytes += new Blob([rawContent]).size;
+                statusSpan.innerText = 'Building DOCX (' + (i + 1) + '/' + titles.length + '): ' + title + ' | Source data downloaded: ' + formatDataSize(sizeStats.sourceBytes + sizeStats.textBytes) + ' | Estimated DOCX so far: ' + formatDataSize(sizeStats.sourceBytes + sizeStats.textBytes + (titles.length * 12000));
                 rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, '');
                 const renderedContent = compileRawMarkupToHtml(rawContent);
                 documentParts.push('<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>' + docxTextRun(title, true, false) + '</w:p>');
                 documentParts.push('<w:p>' + docxTextRun('Category: ' + (article.category || '') + ' | Author: ' + (article.author || ''), false, false) + '</w:p>');
-                documentParts.push(await htmlToDocxBlocks(renderedContent, media, relationships));
+                documentParts.push(await htmlToDocxBlocks(renderedContent, media, relationships, sizeStats));
             }
 
             const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>' + documentParts.join('') + '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>';
@@ -4251,7 +4258,7 @@
             anchor.click();
             document.body.removeChild(anchor);
             URL.revokeObjectURL(url);
-            statusSpan.innerText = 'Normal editable DOCX download triggered.';
+            statusSpan.innerText = 'Normal editable DOCX downloaded | Total source data downloaded: ' + formatDataSize(sizeStats.sourceBytes + sizeStats.textBytes) + ' | Actual DOCX size: ' + formatDataSize(blob.size) + ' | Estimated DOCX size before packaging: ' + formatDataSize(sizeStats.sourceBytes + sizeStats.textBytes + (titles.length * 12000));
             setTimeout(() => { statusSpan.innerText = ''; }, 8000);
         }
 
