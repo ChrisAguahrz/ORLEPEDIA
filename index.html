@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -4132,6 +4134,121 @@
             triggerClientPreview();
         }
 
+        function escapeDocxXml(value) {
+            return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+        }
+
+        function docxTextRun(value, bold, italic) {
+            const properties = (bold ? '<w:b/>' : '') + (italic ? '<w:i/>' : '');
+            return '<w:r><w:rPr>' + properties + '</w:rPr><w:t xml:space="preserve">' + escapeDocxXml(value) + '</w:t></w:r>';
+        }
+
+        function htmlToDocxBlocks(html) {
+            const root = document.createElement('div');
+            root.innerHTML = html || '';
+            const blocks = [];
+            const blockTags = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
+
+            function inlineRuns(node, bold, italic) {
+                let output = '';
+                node.childNodes.forEach(child => {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        if (child.nodeValue) output += docxTextRun(child.nodeValue, bold, italic);
+                    } else if (child.nodeType === Node.ELEMENT_NODE) {
+                        const tag = child.tagName;
+                        if (tag === 'BR') {
+                            output += '<w:r><w:br/></w:r>';
+                        } else {
+                            output += inlineRuns(child, bold || tag === 'STRONG' || tag === 'B', italic || tag === 'EM' || tag === 'I');
+                        }
+                    }
+                });
+                return output;
+            }
+
+            function walk(node) {
+                node.childNodes.forEach(child => {
+                    if (child.nodeType !== Node.ELEMENT_NODE) return;
+                    const tag = child.tagName;
+                    if (blockTags.includes(tag)) {
+                        const style = tag.startsWith('H') ? 'Heading' + tag.substring(1) : '';
+                        const bullet = tag === 'LI' ? '<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>' : (style ? '<w:pPr><w:pStyle w:val="' + style + '"/></w:pPr>' : '');
+                        const runs = inlineRuns(child, false, false);
+                        if (runs) blocks.push('<w:p>' + bullet + runs + '</w:p>');
+                    } else if (tag === 'TABLE') {
+                        child.querySelectorAll('tr').forEach(row => {
+                            const values = Array.from(row.querySelectorAll('th,td')).map(cell => cell.innerText.trim());
+                            if (values.length) blocks.push('<w:p>' + docxTextRun(values.join('\\t'), false, false) + '</w:p>');
+                        });
+                    } else {
+                        walk(child);
+                    }
+                });
+            }
+            walk(root);
+            if (!blocks.length && root.innerText.trim()) blocks.push('<w:p>' + docxTextRun(root.innerText.trim(), false, false) + '</w:p>');
+            return blocks.join('');
+        }
+
+        async function downloadEditableOcrDocx(titles, includeImages, statusSpan, archiveTitle, fileName) {
+            if (typeof JSZip === 'undefined') return alert('DOCX support is unavailable because the document package library did not load.');
+            if (typeof Tesseract === 'undefined') return alert('OCR support is unavailable because the OCR library did not load.');
+
+            const documentParts = [];
+            documentParts.push('<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr>' + docxTextRun(archiveTitle, true, false) + '</w:p>');
+            documentParts.push('<w:p>' + docxTextRun('Generated: ' + new Date().toLocaleString(), false, false) + '</w:p>');
+
+            for (let i = 0; i < titles.length; i++) {
+                const title = titles[i];
+                const article = orlePediaMemoryStore[title];
+                statusSpan.innerText = 'OCR and DOCX conversion (' + (i + 1) + '/' + titles.length + '): ' + title;
+                let rawContent = article.content || '';
+                if (!includeImages) rawContent = rawContent.replace(/\[\[File\|.*?\]\]/g, '');
+                rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, '');
+                const renderedContent = compileRawMarkupToHtml(rawContent);
+                documentParts.push('<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>' + docxTextRun(title, true, false) + '</w:p>');
+                documentParts.push('<w:p>' + docxTextRun('Category: ' + (article.category || '') + ' | Author: ' + (article.author || ''), false, false) + '</w:p>');
+                documentParts.push(htmlToDocxBlocks(renderedContent));
+
+                if (includeImages) {
+                    const imageRoot = document.createElement('div');
+                    imageRoot.innerHTML = renderedContent;
+                    const images = Array.from(imageRoot.querySelectorAll('img'));
+                    for (let imageIndex = 0; imageIndex < images.length; imageIndex++) {
+                        try {
+                            const ocrResult = await Tesseract.recognize(images[imageIndex].src, 'eng');
+                            const ocrText = ocrResult && ocrResult.data ? ocrResult.data.text.trim() : '';
+                            if (ocrText) {
+                                documentParts.push('<w:p>' + docxTextRun('OCR text from image ' + (imageIndex + 1) + ':', true, false) + '</w:p>');
+                                documentParts.push('<w:p>' + docxTextRun(ocrText, false, false) + '</w:p>');
+                            }
+                        } catch (ocrError) {
+                            console.warn('OCR skipped for image in ' + title, ocrError);
+                        }
+                    }
+                }
+            }
+
+            const documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + documentParts.join('') + '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>';
+            const zip = new JSZip();
+            zip.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+            zip.folder('_rels').file('.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+            zip.folder('word').file('document.xml', documentXml);
+            zip.folder('word').file('styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:rPr><w:b/><w:sz w:val="24"/></w:rPr></w:style></w:styles>');
+            zip.folder('word/_rels').file('document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+            const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = fileName;
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            URL.revokeObjectURL(url);
+            statusSpan.innerText = 'Editable, searchable DOCX download triggered.';
+            setTimeout(() => { statusSpan.innerText = ''; }, 8000);
+        }
+
         async function downloadAllArticles(format) {
             const statusSpan = document.getElementById('bulkLoadStatus');
             
@@ -4169,6 +4286,12 @@
             const includeImages = confirm("📦 BULK DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).");
             
             statusSpan.innerText = `Preparing ${titles.length} articles...`;
+
+            if (format === 'docx') {
+                const includeImages = confirm("📦 BULK DOCX OPTIONS:\n\nClick OK to OCR text from included images.\nClick CANCEL for article text only.");
+                await downloadEditableOcrDocx(titles, includeImages, statusSpan, 'OrlePedia Encyclopedia Archive', 'OrlePedia_Archive_DOCX_' + new Date().toISOString().split('T')[0] + '.docx');
+                return;
+            }
 
             if (format === 'txt') {
                 let fullTxt = `OrlePedia Encyclopedia Archive\nTotal Articles: ${titles.length}\nGenerated: ${new Date().toLocaleString()}\n\n` + "=".repeat(50) + "\n\n";
@@ -4466,6 +4589,12 @@
 
             const includeImages = confirm('📦 CATEGORY DOWNLOAD OPTIONS:\n\nClick OK to include all IMAGES.\nClick CANCEL for TEXT ONLY (faster).');
             statusSpan.innerText = `Preparing ${titles.length} articles in "${cat}"...`;
+
+            if (format === 'docx') {
+                const includeImages = confirm("📦 CATEGORY DOCX OPTIONS:\n\nClick OK to OCR text from included images.\nClick CANCEL for article text only.");
+                await downloadEditableOcrDocx(titles, includeImages, statusSpan, 'OrlePedia — ' + cat + ' Category Archive', 'OrlePedia_' + cat.replace(/[^a-z0-9]/gi,'_') + '_DOCX_' + new Date().toISOString().split('T')[0] + '.docx');
+                return;
+            }
 
             let fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OrlePedia — ${cat} Category Archive</title><style>body{font-family:Georgia,serif;padding:2rem;max-width:900px;margin:0 auto;line-height:1.6;color:#202122;}.article-break{page-break-after:always;border-bottom:2px solid #36b;margin-bottom:3rem;padding-bottom:1rem;}h1.archive-title{text-align:center;font-size:2.5rem;color:#36b;margin-bottom:5rem;}h1.article-title{font-size:2rem;border-bottom:1px solid #a2a9b1;padding-bottom:0.25rem;margin-top:2rem;}h2{font-size:1.4rem;border-bottom:1px solid #a2a9b1;margin-top:1.5rem;}p{margin:1rem 0;font-size:1rem;text-align:justify;}.portable-infobox{float:right;width:280px;background:#f8f9fa;border:1px solid #a2a9b1;padding:0.5rem;margin:0 0 1rem 1rem;font-size:0.8rem;}.wiki-table{width:100%;border-collapse:collapse;margin:1rem 0;border:1px solid #a2a9b1;font-size:0.9rem;}.wiki-table th,.wiki-table td{border:1px solid #a2a9b1;padding:0.4rem;}.wiki-table th{background:#f2f2f2;}.wiki-file-container{text-align:center;margin:1rem 0;}.wiki-file-img{max-width:100%;height:auto;border:1px solid #eee;}</style></head><body><h1 class="archive-title">OrlePedia — ${cat} Category Archive</h1><p style="text-align:center;">Total Articles: ${titles.length} | Generated: ${new Date().toLocaleString()}</p><hr style="margin:3rem 0;">`;
 
