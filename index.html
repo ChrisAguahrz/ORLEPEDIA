@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -609,6 +609,13 @@
 
         .more-tabs-content div:hover { background-color: #f1f1f1; }
         .more-tabs-dropdown:hover .more-tabs-content { display: block; }
+
+        .infobox-toggle-controls { display:flex; justify-content:center; gap:0; border-top:1px solid #a2a9b1; background:#f8f9fa; padding:0.25rem; }
+        .infobox-toggle-control { border:1px solid #a2a9b1; border-right:0; background:#f8f9fa; color:var(--wiki-blue); padding:0.25rem 0.7rem; font-size:0.75rem; cursor:pointer; }
+        .infobox-toggle-control:first-child { border-radius:2px 0 0 2px; }
+        .infobox-toggle-control:last-child { border-right:1px solid #a2a9b1; border-radius:0 2px 2px 0; }
+        .infobox-toggle-control.active { background:#fff; color:var(--text-dark); font-weight:bold; box-shadow:inset 0 -2px 0 var(--wiki-blue); }
+        .infobox-toggle-panel { background:#fff; padding:0.25rem; }
 
         .h2-section-header {
             display: flex;
@@ -1690,12 +1697,12 @@
                 <button class="tool-btn" onclick="wrapEditorText('[[File|', '|200px|Caption]]')">🖼️ Template File</button>
                 <button class="tool-btn" onclick="insertInfoboxTemplate()">📊 Infobox</button>
                 <button class="tool-btn" onclick="insertPersonInfoboxTemplate()">👤 Person Infobox</button>
-                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|previous_election=\n|next_election=\n|flag=\n|voters=\n|turnout=\n|districts_won=\n|map=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n|d1=\n|d2=\n|d3=\n|d4=\n|newrow1label=\n|newrow1c1=\n|newrow1c2=\n}}', '')">🗳️ Election</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Election\n|election_name=\n|previous_election=\n|next_election=\n|flag=\n|voters=\n|turnout=\n|districts_won=\n|map=\n|mapstyle=\n|map1style=\n|c1=\n|imgc1=\n|p1=\n|pc1=\n|v1=\n|pct1=\n|s1=\n|co1=\n|c2=\n|imgc2=\n|p2=\n|pc2=\n|v2=\n|pct2=\n|s2=\n|co2=\n|c3=\n|imgc3=\n|p3=\n|pc3=\n|v3=\n|pct3=\n|s3=\n|co3=\n|c4=\n|imgc4=\n|p4=\n|pc4=\n|v4=\n|pct4=\n|s4=\n|co4=\n|d1=\n|d2=\n|d3=\n|d4=\n|newrow1label=\n|newrow1c1=\n|newrow1c2=\n}}', '')">🗳️ Election</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Table\n||Title\n!!Header1!!Header2\n|-\n|Col1|Col2\n}}', '')">📅 Table</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Piechart\n|title=\n|data=Label:Value, Label:Value\n}}', '')">🥧 Chart</button>
                 <button class="tool-btn" onclick="wrapEditorText('\n== ', ' ==\n')">H2</button>
                 <button class="tool-btn" onclick="wrapEditorText('{{Delete}}', '')">🗑️ Delete</button>
-                <button class="tool-btn" onclick="wrapEditorText('{{Map\n|state = \n|method = Highlight \n|color = \n|txt = \n}}', '')">🗺️ Map</button>
+                <button class="tool-btn" onclick="wrapEditorText('{{Map\n|type=latitude\n|method=point\n|latitude=\n|longitude=\n|color=#8b0000\n|size=9\n}}', '')">🗺️ Map</button>
                 <button class="tool-btn" onclick="wrapEditorText('#REDIRECT [[', ']]')">↪️ Redirect</button>
             </div>
             <textarea id="wikiRawInputTextarea" class="wiki-editor" placeholder="Write standard MediaWiki markup here..."></textarea>
@@ -1996,7 +2003,11 @@
 |birth_year = 
 |death_year = 
 |nationality = 
-|occupation = 
+|occupation1 = 
+|occupation2 = 
+|occupation3 = 
+|occupation4 = 
+|occupation5 = 
 }}`;
             wrapEditorText(template, '');
         }
@@ -2885,7 +2896,7 @@
                     }
                 }
 
-                relatedArticles.sort((a, b) => b.score - a.score);
+                relatedArticles.sort((a, b) => { const aExplicit = explicitlyRelatedTitles.some(t => t.toLowerCase() === a.title.toLowerCase()); const bExplicit = explicitlyRelatedTitles.some(t => t.toLowerCase() === b.title.toLowerCase()); if (aExplicit !== bExplicit) return aExplicit ? -1 : 1; return b.score - a.score; });
                 const displayRelated = relatedArticles.slice(0, 3);
                 
                 if (showSeeAlso && displayRelated.length > 0) {
@@ -2998,7 +3009,7 @@
             if (!toggleRoot) return;
             const buttons = toggleRoot.querySelectorAll('button');
             buttons.forEach((button, index) => {
-                button.style.background = index === Number(selectedIndex) ? '#eaecf0' : '#f8f9fa';
+                button.classList.toggle('active', index === Number(selectedIndex));
             });
         }
 
@@ -3040,16 +3051,17 @@
                 const buttons = entries.map((key, index) => {
                     const indexNumber = key.replace(/\D/g, '');
                     const caption = toggleData['c' + indexNumber] || `Map ${indexNumber}`;
-                    return `<button type="button" onclick="toggleInfoboxMap('${toggleId}', ${index})" style="border:1px solid #a2a9b1; background:${index === 0 ? '#eaecf0' : '#f8f9fa'}; padding:2px 6px; font-size:0.68rem; cursor:pointer;">${parseGlobalWiki(caption)}</button>`;
+                    return `<button type="button" class="infobox-toggle-control${index === 0 ? ' active' : ''}" onclick="toggleInfoboxMap('${toggleId}', ${index})">${parseGlobalWiki(caption)}</button>`;
                 }).join('');
                 const panels = entries.map((key, index) => {
                     const indexNumber = key.replace(/\D/g, '');
                     const src = toggleData[key];
                     const caption = toggleData['c' + indexNumber] || '';
+                    const panelStyle = toggleData['map' + indexNumber + 'style'] || toggleData['mapstyle'] || '';
                     const media = /^\[\[(?:TFile|File)\|/i.test(src) ? parseGlobalWiki(src) : `<img src="${getImgSrcLocal(src)}" loading="lazy" style="display:block; width:100%; height:220px; object-fit:fill;" onerror="this.parentElement.style.display='none'">`;
-                    return `<div data-toggle-panel="${toggleId}" data-toggle-index="${index}" style="display:${index === 0 ? 'block' : 'none'}; text-align:center;">${media}${caption ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); margin-top:2px;">${parseGlobalWiki(caption)}</div>` : ''}</div>`;
+                    return `<div data-toggle-panel="${toggleId}" data-toggle-index="${index}" class="infobox-toggle-panel" style="display:${index === 0 ? 'block' : 'none'}; text-align:center;${panelStyle ? panelStyle : ''}">${media}${caption ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); margin-top:2px;">${parseGlobalWiki(caption)}</div>` : ''}</div>`;
                 }).join('');
-                return `<div id="${toggleId}" class="infobox-toggle" style="width:100%; border:1px solid #a2a9b1; background:#fff; padding:2px;">${panels}<div style="display:flex; justify-content:center; gap:2px; margin-top:3px;">${buttons}</div></div>`;
+                return `<div id="${toggleId}" class="infobox-toggle" style="width:100%; border:1px solid #a2a9b1; background:#fff; padding:0;">${panels}<div class="infobox-toggle-controls">${buttons}</div></div>`;
             };
             const renderInlineInfoboxMedia = (value) => {
                 const raw = String(value || '').trim();
@@ -3197,77 +3209,84 @@
             });
 
             // {{Map}} Template Implementation
-            const mapRegex = /\{\{Map([\s\S]*?)\}\}/g;
-            workingTextStr = workingTextStr.replace(mapRegex, function(m, content) {
-                let mData = {};
-                content.split('\n').forEach(ln => {
-                    if (ln.startsWith('|') && ln.includes('=')) {
-                        let eqIdx = ln.indexOf('=');
-                        mData[ln.substring(1, eqIdx).trim()] = ln.substring(eqIdx + 1).trim();
+            const parseMapCoordinate = (value, isLatitude) => {
+                const raw = String(value || '').trim().replace(/[−–—]/g, '-');
+                if (!raw) return NaN;
+                const decimal = Number(raw);
+                if (Number.isFinite(decimal)) return decimal;
+                const dms = raw.match(/^(\d+(?:\.\d+)?)\s*°?\s*(?:(\d+(?:\.\d+)?)\s*['′]\s*)?(?:(\d+(?:\.\d+)?)\s*["″]\s*)?([NSEW])?$/i);
+                if (!dms) return NaN;
+                let result = Number(dms[1]) + (Number(dms[2] || 0) / 60) + (Number(dms[3] || 0) / 3600);
+                const direction = (dms[4] || '').toUpperCase();
+                if (direction === 'S' || direction === 'W' || (!direction && raw.startsWith('-'))) result = -Math.abs(result);
+                if (isLatitude && (result < -90 || result > 90)) return NaN;
+                if (!isLatitude && (result < -180 || result > 180)) return NaN;
+                return result;
+            };
+
+            const mapTemplateStore = [];
+            workingTextStr = workingTextStr.replace(/\{\{Map([\s\S]*?)\}\}/gi, function(m, content) {
+                const token = `__ORLE_MAP_${mapTemplateStore.length}__`;
+                mapTemplateStore.push(content);
+                return token;
+            });
+
+            const renderMapTemplate = (content) => {
+                const mData = {};
+                String(content || '').split(/\r?\n/).forEach(line => {
+                    const cleanLine = line.trim();
+                    if (cleanLine.startsWith('|') && cleanLine.includes('=')) {
+                        const eq = cleanLine.indexOf('=');
+                        mData[cleanLine.substring(1, eq).trim().toLowerCase()] = cleanLine.substring(eq + 1).trim();
                     }
                 });
                 const mapId = 'map_' + Math.random().toString(36).substr(2, 9);
+                const mapStyle = 'height:' + (mData.height || '320px') + '; width:100%; background:#fff; border:1px solid #a2a9b1;';
                 setTimeout(() => {
                     const container = document.getElementById(mapId);
-                    if (!container) return;
-                    // Check for Leaflet availability
-                    if (typeof L === 'undefined') {
-                        container.innerHTML = `<p style="color:red; font-size:0.7rem;">Leaflet.js not loaded. Cannot render map.</p>`;
-                        return;
-                    }
-                    const map = L.map(mapId, { zoomControl: false, attributionControl: false }).setView([0, 0], 2);
+                    if (!container || typeof L === 'undefined') return;
+                    const map = L.map(mapId, { zoomControl: false, attributionControl: false, minZoom: 1, maxZoom: 12, dragging: false, touchZoom: false, doubleClickZoom: false, scrollWheelZoom: false, boxZoom: false, keyboard: false }).setView([0, 0], 2);
+                    const finishMap = (layer) => {
+                        const bounds = layer.getBounds();
+                        if (bounds.isValid()) map.fitBounds(bounds, { padding: [8, 8], maxZoom: 6 });
+                        map.invalidateSize();
+                    };
                     fetch('(B) ORLAND STATES.geojson')
                         .then(res => res.json())
                         .then(data => {
-                            const layer = L.geoJSON(data, {
-                                style: (feature) => {
-                                    const props = feature.properties;
-                                    const stateName = (props.name || props.STATE || props.State || props.NAME || "").toLowerCase().trim();
-                                    const isTarget = stateName === (mData['state'] || "").toLowerCase().trim();
-                                    return {
-                                        fillColor: isTarget ? (mData['color'] || 'red') : '#ccc',
-                                        weight: 1,
-                                        opacity: 1,
-                                        color: 'white',
-                                        fillOpacity: isTarget ? 0.8 : 0.4
-                                    };
+                            const mapType = (mData.type || 'place').toLowerCase();
+                            const method = (mData.method || 'highlight').toLowerCase();
+                            const targetPlace = (mData.place || mData.state || '').trim().toLowerCase();
+                            const hideOther = /^(hide|yes|true|1)$/i.test(mData.other || '');
+                            const selectedColor = mData.color || '#8b0000';
+                            const baseColor = '#d8c3a5';
+                            const geoLayer = L.geoJSON(data, {
+                                style: feature => {
+                                    const props = feature.properties || {};
+                                    const name = String(props.name || props.STATE || props.State || props.NAME || '').trim().toLowerCase();
+                                    const selected = targetPlace && name === targetPlace;
+                                    return { fillColor: selected ? selectedColor : baseColor, weight: selected ? 2 : 1, opacity: 1, color: '#ffffff', fillOpacity: hideOther && !selected ? 0 : (selected ? 0.88 : 0.72) };
                                 }
                             }).addTo(map);
-                            
-                            const method = (mData['method'] || "").toLowerCase().trim();
-                            const targetState = (mData['state'] || "").toLowerCase().trim();
-                            
-                            if (targetState) {
-                                const targetLayer = layer.getLayers().find(l => {
-                                    const props = l.feature.properties;
-                                    const stateName = (props.name || props.STATE || props.State || props.NAME || "").toLowerCase().trim();
-                                    return stateName === targetState;
-                                });
-                                
-                                if (targetLayer) {
-                                    if (method === 'zoom') {
-                                        map.fitBounds(targetLayer.getBounds());
-                                    } else {
-                                        // For Highlight, still fit to the whole map but ensure the highlight is visible
-                                        map.fitBounds(layer.getBounds());
-                                    }
-                                } else {
-                                    map.fitBounds(layer.getBounds());
-                                }
+                            const lat = parseMapCoordinate(mData.latitude, true);
+                            const lon = parseMapCoordinate(mData.longitude, false);
+                            const hasPoint = Number.isFinite(lat) && Number.isFinite(lon);
+                            if ((mapType === 'latitude' || method === 'point') && hasPoint) {
+                                const pointColor = mData.color || '#8b0000';
+                                const radius = Math.max(5, Math.min(18, Number.parseFloat(mData.size) || 9));
+                                L.circleMarker([lat, lon], { radius, color: pointColor, weight: 2, fillColor: pointColor, fillOpacity: 1 }).addTo(map).bindTooltip(mData.txt || 'Location', { permanent: false });
+                                map.setView([lat, lon], 5);
                             } else {
-                                map.fitBounds(layer.getBounds());
+                                finishMap(geoLayer);
                             }
-                            map.dragging.disable();
-                            map.touchZoom.disable();
-                            map.doubleClickZoom.disable();
-                            map.scrollWheelZoom.disable();
                         })
-                        .catch(err => {
-                            container.innerHTML = `<p style="color:red; font-size:0.7rem;">Failed to load map data: (B) ORLAND STATES.geojson</p>`;
-                        });
+                        .catch(() => { container.innerHTML = '<p style="color:#8b0000; font-size:0.75rem; padding:0.5rem;">Map data could not be loaded.</p>'; });
                 }, 100);
-                return `<div id="${mapId}" class="wiki-map-container" style="height:300px; width:100%; background:#f0f0f0; border:1px solid #ddd; border-radius:4px; margin:1rem 0; overflow:hidden;"></div>
-                        ${mData['txt'] ? `<div style="font-size:0.8rem; text-align:center; font-style:italic; margin-top:-0.5rem; margin-bottom:1rem;">${mData['txt']}</div>` : ''}`;
+                return `<div id="${mapId}" class="wiki-map-container" style="${mapStyle} margin:0.5rem 0; overflow:hidden;"></div>${mData.txt ? `<div style="font-size:0.8rem; text-align:center; font-style:italic; margin:0.25rem 0 0.5rem;">${parseGlobalWiki(mData.txt)}</div>` : ''}`;
+            };
+
+            mapTemplateStore.forEach((content, index) => {
+                workingTextStr = workingTextStr.replace(`__ORLE_MAP_${index}__`, renderMapTemplate(content));
             });
 
             workingTextStr = parseGlobalWiki(workingTextStr);
@@ -3315,7 +3334,7 @@
                 const merged = (label) => `<tr class="infobox-merged-row"><td colspan="2" style="text-align:center; font-weight:bold; background:#eaecf0; padding:0.2rem; vertical-align:middle;">${label}</td></tr>`;
 
                 compiledInfoboxHtmlString = `
-                    <div class="portable-infobox person-infobox" style="float:right; width:280px; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 1rem; font-size:0.8rem;">
+                    <div class="portable-infobox person-infobox" style="float:none; display:block; width:100%; max-width:420px; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:1rem auto; font-size:0.8rem;">
                         <div class="infobox-title" style="font-size:1.2rem; font-weight:bold; text-align:center; padding:0.4rem; background:var(--wiki-blue); color:white; margin-bottom:0.2rem;">${pData['name'] || currentActiveArticleKey}</div>
                         ${pData['title'] ? `<div style="text-align:center; font-style:italic; margin-bottom:0.5rem;">${pData['title']}</div>` : ''}
                         <div style="text-align:center; margin-bottom:0.8rem; border:1px solid #eee; background:#fff; padding:2px;">
@@ -3333,9 +3352,13 @@
                             ${row('Spouse', 'spouse')}
                             ${row('Children', 'children')}
                             
-                            ${(pData['occupation'] || pData['work'] || pData['office']) ? merged('Work') : ''}
+                            ${(pData['occupation'] || pData['occupation1'] || pData['occupation2'] || pData['occupation3'] || pData['occupation4'] || pData['occupation5'] || pData['office']) ? merged('Occupation') : ''}
                             ${row('Occupation', 'occupation')}
-                            ${row('Work', 'work')}
+                            ${row('Occupation', 'occupation1')}
+                            ${row('Occupation', 'occupation2')}
+                            ${row('Occupation', 'occupation3')}
+                            ${row('Occupation', 'occupation4')}
+                            ${row('Occupation', 'occupation5')}
                             ${row('Office', 'office')}
                         </table>
                         ${pData['footnote'] || pData['footnotes'] || pData['note'] ? `<div style="font-size:0.62rem; font-style:italic; color:var(--text-muted); text-align:left; margin-top:4px;">${parseWiki(pData['footnote'] || pData['footnotes'] || pData['note'])}</div>` : ''}
@@ -3406,7 +3429,7 @@
                 }).join('');
 
                 const electionFlagSeal = (eData['flag'] || eData['seal']) ? `<div class="infobox-media-row" style="padding:10px 0; border-bottom:1px solid #eee;">${eData['flag'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:0; height:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4px;"><span style="display:inline-block; flex:0 0 auto; width:80px; max-width:80px; text-align:center;"><img src="${getImgSrc(eData['flag'])}" loading="lazy" onerror="this.style.display='none'" style="display:block; width:80px !important; max-width:80px !important; height:auto !important; max-height:80px; object-fit:contain; margin:0 auto; border:1px solid #ddd;"></span><span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['flag_caption'] || 'Flag')}</span></div>` : ''}${eData['seal'] ? `<div class="infobox-media-box" style="border:none; background:none; min-height:180px; display:flex; flex-direction:column; align-items:center; justify-content:center;">${renderInfoboxImage(eData['seal'], '160px')}<span class="infobox-media-caption" style="font-weight:bold; margin-top:5px;">${renderInfoboxValue(eData['seal_caption'] || 'Seal')}</span></div>` : ''}</div>` : '';
-                const electionMap = eData['map'] ? `<div style="text-align:center; padding:0.5rem;">${renderInfoboxImage(eData['map'], '260px')}<div style="font-size:0.7rem; color:#666;">Electoral Map</div></div>` : '';
+                const electionMap = eData['map'] ? `<div style="text-align:center; padding:0.5rem;${eData['mapstyle'] || ''}">${renderInfoboxImage(eData['map'], '260px')}<div style="font-size:0.7rem; color:#666;">Electoral Map</div></div>` : '';
 
                 compiledInfoboxHtmlString = `
                     <div class="portable-infobox election-infobox" style="width:100%; max-width:100%; background:#f8f9fa; border:1px solid #a2a9b1; padding:0.5rem; margin:0 0 1rem 0; font-size:0.8rem; overflow-x:visible;">
@@ -4204,10 +4227,17 @@
                         const runs = await inlineRuns(child, false, false);
                         if (runs) blocks.push('<w:p>' + paragraphProperties + runs + '</w:p>');
                     } else if (tag === 'TABLE') {
-                        for (const row of Array.from(child.querySelectorAll('tr'))) {
-                            const values = Array.from(row.querySelectorAll('th,td')).map(cell => cell.innerText.trim());
-                            if (values.length) blocks.push('<w:p>' + docxTextRun(values.join('\t'), false, false) + '</w:p>');
+                        let tableXml = '<w:tbl><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:space="0" w:color="A2A9B1"/><w:left w:val="single" w:sz="4" w:space="0" w:color="A2A9B1"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="A2A9B1"/><w:right w:val="single" w:sz="4" w:space="0" w:color="A2A9B1"/><w:insideH w:val="single" w:sz="4" w:space="0" w:color="D9D9D9"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="D9D9D9"/></w:tblBorders></w:tblPr>';
+                        for (const row of Array.from(child.querySelectorAll(':scope > tbody > tr, :scope > tr'))) {
+                            tableXml += '<w:tr>';
+                            for (const cell of Array.from(row.children)) {
+                                const isHeader = cell.tagName === 'TH';
+                                const runs = await inlineRuns(cell, isHeader, false);
+                                tableXml += '<w:tc><w:tcPr>' + (isHeader ? '<w:shd w:fill="EAECF0"/>' : '') + '<w:tcMar><w:top w:w="80" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tcMar></w:tcPr><w:p>' + runs + '</w:p></w:tc>';
+                            }
+                            tableXml += '</w:tr>';
                         }
+                        blocks.push(tableXml + '</w:tbl>');
                     } else {
                         await walk(child);
                     }
@@ -5110,6 +5140,7 @@
             }
 
             let article = orlePediaMemoryStore[currentActiveArticleKey];
+            const sectionToRestore = currentEditingSection;
             
             if (currentEditingSection) {
                 const fullContent = article.content;
@@ -5131,6 +5162,16 @@
 
             exitEditorDashboard();
             switchSubTab('article');
+            if (sectionToRestore) {
+                setTimeout(() => {
+                    const targetHeader = Array.from(document.querySelectorAll('.h2-section-header')).find(header => (header.querySelector('.h2-section-title')?.innerText || '').trim() === sectionToRestore.trim());
+                    if (targetHeader) {
+                        targetHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        targetHeader.style.background = '#f8f9fa';
+                        setTimeout(() => { targetHeader.style.background = ''; }, 1200);
+                    }
+                }, 0);
+            }
             // FIX 3: Update sessionStorage cache after save
                 // Storage update removed as per user request
             triggerToastBannerNotification("💾 Data securely locked down and dispatched to cloud vectors.");
