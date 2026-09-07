@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3083,7 +3083,9 @@
             const renderInfoboxImage = (value, height = '180px') => {
                 if (!value) return '';
                 if (isToggleToken(value)) return renderToggleMarkup(value);
-                if (/^\[\[(?:TFile|File)\|/i.test(value.trim())) return renderInfoboxValue(value);
+                const renderedValue = String(value).trim();
+                if (/class=["']wiki-map-container["']/i.test(renderedValue) || /id=["']map_[^"']+["']/i.test(renderedValue)) return value;
+                if (/^\[\[(?:TFile|File)\|/i.test(renderedValue)) return renderInfoboxValue(value);
                 return `<img src="${getImgSrcLocal(value)}" loading="lazy" style="display:block; width:100%; height:${height}; object-fit:fill; margin:0 auto;" onerror="this.parentElement.style.display='none'">`;
             };
 
