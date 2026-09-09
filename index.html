@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+<meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -2480,80 +2480,90 @@
 
         // ============ ARTICLE SIDEBAR MANAGEMENT ============    
         // ============ GLOBAL SEARCH FUNCTIONALITY ============
-        function performGlobalSearch(event) {
-            const query = event.target.value.toLowerCase().trim();
+        let globalSearchDebounceTimer = null;
+        let globalSearchRequestSerial = 0;
+
+        function renderSupabaseSearchResults(rows, query, isDeepSearch = false) {
             const dropdown = document.getElementById('searchResultsDropdown');
-
-            if (!query) {
-                dropdown.classList.remove('active');
-                return;
-            }
-
-            // Build a map of redirect targets: redirectTitle -> targetTitle
-            const redirectTargetMap = {};
-            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                if (article.content && article.content.startsWith('#REDIRECT')) {
-                    const match = article.content.match(/\[\[(.*?)\]\]/);
-                    if (match && match[1]) {
-                        redirectTargetMap[key.toLowerCase()] = match[1];
-                    }
-                }
-            }
-
-            const titleResults = [];
-            const contentResults = [];
-            const addedTitles = new Set();
-
-            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                // Skip redirect articles from appearing directly
-                if (article.content && article.content.startsWith('#REDIRECT')) continue;
-
-                const titleLower = article.title.toLowerCase();
-
-                // Check if any redirect pointing to this article matches the query
-                let matchedViaRedirect = false;
-                for (let [rKey, rTarget] of Object.entries(redirectTargetMap)) {
-                    if (rKey.includes(query) && rTarget.toLowerCase() === titleLower) {
-                        matchedViaRedirect = true;
-                        break;
-                    }
-                }
-
-                if (titleLower === query) {
-                    if (!addedTitles.has(article.title)) { titleResults.unshift(article); addedTitles.add(article.title); }
-                } else if (titleLower.includes(query) || matchedViaRedirect) {
-                    if (!addedTitles.has(article.title)) { titleResults.push(article); addedTitles.add(article.title); }
-                } else if (article.content && article.content.toLowerCase().includes(query)) {
-                    if (!addedTitles.has(article.title)) { contentResults.push(article); addedTitles.add(article.title); }
-                }
-            }
-
-            const results = [...titleResults, ...contentResults];
-
-            if (results.length === 0) {
-                dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">No results found</div>';
+            const results = Array.isArray(rows) ? rows.slice(0, 8) : [];
+            const safeTitle = title => String(title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            if (!results.length) {
+                dropdown.innerHTML = isDeepSearch
+                    ? `<div class="search-result-item" style="color:var(--text-muted);">No article text matched “${escapeHtmlCode(query)}”.</div>`
+                    : `<div class="search-result-item" style="color:var(--text-muted);">No article title matched “${escapeHtmlCode(query)}”.<button class="action-btn" style="display:block; margin-top:0.5rem; width:100%;" onclick="performDeepArticleSearch('${String(query).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Deep search article text</button></div>`;
                 dropdown.classList.add('active');
                 return;
             }
 
-            dropdown.innerHTML = results.slice(0, 8).map(article => {
-                const isTitleMatch = article.title.toLowerCase().includes(query);
+            dropdown.innerHTML = results.map(article => {
                 const namespaceLabel = article.namespace === 'Archive' ? 'Archive' : (article.namespace || 'Article');
-                const matchNote = `${namespaceLabel}${isTitleMatch ? '' : ' keyword found'}`;
+                const description = article.summary || 'No description available';
+                const isRedirect = String(article.content || '').toUpperCase().startsWith('#REDIRECT');
+                const resultNote = `${namespaceLabel}${isRedirect ? ' • Redirect' : ''}`;
                 return `
-                <div class="search-result-item" onclick="loadArticle('${article.title}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
+                <div class="search-result-item" onclick="loadArticle('${safeTitle(article.title)}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
-                        <div style="width:100%; height:100%; background:linear-gradient(135deg, var(--wiki-blue), var(--wiki-blue-hover)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:0.7rem;">
-                            📄
-                        </div>
+                        <div style="width:100%; height:100%; background:linear-gradient(135deg, var(--wiki-blue), var(--wiki-blue-hover)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:0.7rem;">📄</div>
                     </div>
                     <div class="search-result-info">
-                        <div class="search-result-title">${article.title}</div>
-                        <div class="search-result-namespace">${matchNote}</div>
+                        <div class="search-result-title">${escapeHtmlCode(article.title)}</div>
+                        <div class="search-result-namespace">${escapeHtmlCode(resultNote)}</div>
+                        <div class="search-result-namespace">${escapeHtmlCode(description)}</div>
                     </div>
-                </div>
-            `;}).join('');
+                </div>`;
+            }).join('');
             dropdown.classList.add('active');
+        }
+
+        async function performDeepArticleSearch(rawQuery) {
+            const query = String(rawQuery || '').trim();
+            const dropdown = document.getElementById('searchResultsDropdown');
+            if (!query) return;
+            const requestSerial = ++globalSearchRequestSerial;
+            dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Searching article text...</div>';
+            dropdown.classList.add('active');
+            try {
+                const encodedQuery = encodeURIComponent(query);
+                const rows = await supabaseRequest(`articles?select=title,summary,namespace,content&content=ilike.*${encodedQuery}*&order=title.asc&limit=8`, 'GET');
+                if (requestSerial !== globalSearchRequestSerial) return;
+                renderSupabaseSearchResults(rows, query, true);
+            } catch (err) {
+                if (requestSerial !== globalSearchRequestSerial) return;
+                dropdown.innerHTML = `<div class="search-result-item" style="color:#8b0000;">Deep search failed: ${escapeHtmlCode(err.message || String(err))}</div>`;
+                dropdown.classList.add('active');
+            }
+        }
+
+        function performGlobalSearch(event) {
+            const query = event.target.value.trim();
+            const dropdown = document.getElementById('searchResultsDropdown');
+            clearTimeout(globalSearchDebounceTimer);
+            globalSearchRequestSerial++;
+            if (!query) {
+                dropdown.classList.remove('active');
+                dropdown.innerHTML = '';
+                return;
+            }
+            if (query.length < 2) {
+                dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Type at least 2 characters to search titles.</div>';
+                dropdown.classList.add('active');
+                return;
+            }
+            dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Searching article titles...</div>';
+            dropdown.classList.add('active');
+            globalSearchDebounceTimer = setTimeout(async () => {
+                const requestSerial = ++globalSearchRequestSerial;
+                try {
+                    const encodedQuery = encodeURIComponent(query);
+                    const rows = await supabaseRequest(`articles?select=title,summary,namespace,content&title=ilike.*${encodedQuery}*&order=title.asc&limit=8`, 'GET');
+                    if (requestSerial !== globalSearchRequestSerial) return;
+                    renderSupabaseSearchResults(rows, query, false);
+                } catch (err) {
+                    if (requestSerial !== globalSearchRequestSerial) return;
+                    dropdown.innerHTML = `<div class="search-result-item" style="color:#8b0000;">Search failed: ${escapeHtmlCode(err.message || String(err))}</div>`;
+                    dropdown.classList.add('active');
+                }
+            }, 350);
         }
 
         document.addEventListener('click', function(event) {
