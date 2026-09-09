@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2230,6 +2230,8 @@
                 updateLoadingProgress(95, 'Building encyclopedia...');
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
+                        const existingNormalizedTitle = Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === articleTitleKey(art.title));
+                        if (existingNormalizedTitle) return;
                         orlePediaMemoryStore[art.title] = {
                             title: art.title,
                             _db_id: art.id,
@@ -2389,7 +2391,7 @@
                     const content = payloadData.databaseNode?.content || payloadData.content || "";
                     const category = payloadData.databaseNode?.category || "General Indexes";
                     
-                    const totalRevs = payloadData.databaseNode?.history?.length || 1;
+                    const totalRevs = Math.max(Number(payloadData.databaseNode?.total_revisions) || 0, payloadData.databaseNode?.history?.length || 0, 1);
                     const summaryTxt = payloadData.databaseNode?.history?.slice(-1)[0]?.summary || 'Interface update modification';
 
                     const existing = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}`, 'GET');
@@ -2611,25 +2613,43 @@
             document.getElementById('headerUserBadge').innerHTML = `<span class="user-tag">${currentUserSessionProfile.tag || 'User'}</span>`;
         }
 
+        // Article titles use MediaWiki-style first-letter normalization only.
+        // Thus "Aron" and "aron" resolve to one article, while
+        // "Chris blackwood" and "Chris Blackwood" remain different.
+        function articleTitleKey(title) {
+            const value = String(title || '').trim();
+            return value ? value.charAt(0).toLowerCase() + value.slice(1) : '';
+        }
+
+        function resolveArticleKey(title) {
+            const requested = String(title || '').trim();
+            if (!requested) return requested;
+            const requestedKey = articleTitleKey(requested);
+            return Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === requestedKey) || requested;
+        }
+
         // ============ ARTICLE CONTROLLER PIPELINES ============
         function loadArticleWithCheck(articleTitle) {
-            if (!orlePediaMemoryStore[articleTitle]) {
+            const resolvedTitle = resolveArticleKey(articleTitle);
+            if (!orlePediaMemoryStore[resolvedTitle]) {
                 if (confirm(`The page "${articleTitle}" does not exist. Do you want to create it?`)) {
                     openNewArticleModal();
                     document.getElementById('newArticleTitleInput').value = articleTitle;
                 }
                 return;
             }
-            loadArticle(articleTitle);
+            loadArticle(resolvedTitle);
         }
 
         function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
+            articleTitle = resolveArticleKey(articleTitle);
             currentActiveArticleKey = articleTitle;
 
             // Handle Redirects
             if (!skipRedirect && orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
                 const match = orlePediaMemoryStore[articleTitle].content.match(/\[\[(.*?)\]\]/);
-                if (match && match[1] !== articleTitle) return loadArticle(match[1], pushState);
+                const redirectTarget = match ? resolveArticleKey(match[1]) : '';
+                if (redirectTarget && articleTitleKey(redirectTarget) !== articleTitleKey(articleTitle)) return loadArticle(redirectTarget, pushState);
             }
 
             // Page View Tracking
@@ -2741,20 +2761,6 @@
                         }).catch(() => { article._ratings_loaded = true; });
                 }
                 
-                if (!article._revisions_loaded) {
-                    supabaseRequest(`revisions?article_id=eq.${article._db_id}&select=article_id,created_at,editor_name,edit_summary,new_content&order=created_at.desc&limit=50`)
-                        .then(revs => {
-                            if (Array.isArray(revs) && revs.length > 0) {
-                                article.history = revs.map(r => ({
-                                    timestamp: Date.parse(r.created_at) || Date.now(),
-                                    editor: r.editor_name || 'Anonymous',
-                                    summary: r.edit_summary || 'Update',
-                                    content: r.new_content
-                                }));
-                            }
-                            article._revisions_loaded = true;
-                        }).catch(() => { article._revisions_loaded = true; });
-                }
             }
 
             renderRatingStarsCluster();
@@ -5161,6 +5167,7 @@
                     summary: changeSummaryText || "(No summary provided)",
                     content: editorTextContent
                 });
+                article.total_revisions = Math.max(Number(article.total_revisions) || 0, article.history.length - 1, 1) + 1;
 
             exitEditorDashboard();
             switchSubTab('article');
@@ -5379,7 +5386,7 @@
                 return;
             }
 
-            if (orlePediaMemoryStore[targetTitleStr]) {
+            if (orlePediaMemoryStore[resolveArticleKey(targetTitleStr)]) {
                 alert("⛔ An article with this name already exists. Please choose a different title.");
                 return;
             }
