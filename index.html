@@ -4853,204 +4853,66 @@
         }
 
         // ============ STATISTICS VIEW ============
-        function loadStatisticsView() {
+        async function loadStatisticsView() {
             exitEditorDashboard();
 
             document.getElementById('displayArticleTitle').innerText = "Special: Statistics";
             document.getElementById('articleStarsContainer').innerHTML = "";
             document.getElementById('articleMetaInfo').innerHTML = "";
+            const container = document.getElementById('wikiTabContentBody');
+            container.innerHTML = '<div style="padding:1rem; color:var(--text-muted);">Loading server-calculated statistics...</div>';
 
-            // Statistics: only count Article namespace
-            let totalPages = Object.keys(orlePediaMemoryStore).filter(k => !orlePediaMemoryStore[k].content?.startsWith('#REDIRECT') && orlePediaMemoryStore[k].namespace === 'Article').length;
-            let totalEdits = 0;
-            let totalWords = 0;
-            let pageStats = [];
+            try {
+                const response = await supabaseRequest('rpc/get_statistics', 'POST', {});
+                const stats = response && response.data ? response.data : response;
+                if (!stats || !stats.totals) throw new Error('The Statistics RPC returned no data.');
 
-            const calculateLinksTo = (title) => {
-                let count = 0;
-                for (let [k, obj] of Object.entries(orlePediaMemoryStore)) {
-                    if (k === title) continue;
-                    if (obj.content && obj.content.includes(`[[${title}`)) {
-                        // Ensure it's not just a partial match
-                        const linkRegex = new RegExp(`\\[\\[${title}(\\||\\]\\])`, 'g');
-                        if (linkRegex.test(obj.content)) count++;
-                    }
-                }
-                return count;
-            };
+                const totals = stats.totals;
+                const safeTitle = title => String(title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                const qualityDetails = score => {
+                    const numeric = Number(score) || 0;
+                    if (numeric >= 4) return { label: 'High Quality', color: '#2471a3' };
+                    if (numeric >= 3) return { label: 'Good Quality', color: '#27ae60' };
+                    if (numeric >= 2) return { label: 'Low Quality', color: '#d4ac0d' };
+                    if (numeric >= 1) return { label: 'Poor Quality', color: '#c0392b' };
+                    return { label: 'Unrated', color: '#8b0000' };
+                };
+                const articleCell = title => `<span class="wiki-link" onclick="loadArticle('${safeTitle(title)}')">${escapeHtmlCode(title)}</span>`;
+                const rankingTable = (heading, rows, valueKey, formatter) => `<h3>${heading}</h3><table class="stat-table"><thead><tr><th>Article</th><th>Value</th></tr></thead><tbody>${(rows || []).map(row => `<tr><td>${articleCell(row.title)}</td><td>${formatter(row[valueKey], row)}</td></tr>`).join('')}</tbody></table>`;
 
-            for (let [key, article] of Object.entries(orlePediaMemoryStore)) {
-                // Skip redirects from all counts
-                if (article.content && article.content.startsWith('#REDIRECT')) continue;
-                // Statistics: only include Article namespace
-                if (article.namespace && article.namespace !== 'Article') continue;
+                const qualityFormatter = (value) => {
+                    const details = qualityDetails(value);
+                    return `<span style="color:${details.color}; font-weight:bold;">${details.label} (${(Number(value) || 0).toFixed(1)})</span>`;
+                };
+                const byteFormatter = value => `${Number(value || 0).toLocaleString()} B`;
+                const ratingFormatter = value => `${(Number(value) || 0).toFixed(1)} ★`;
+                const numberFormatter = value => Number(value || 0).toLocaleString();
 
-                const editCount = parseInt(article.total_revisions) || 0;
-                totalEdits += editCount;
-                const wordCount = article.content ? article.content.split(/\s+/).filter(w => w).length : 0;
-                totalWords += wordCount;
-                const byteSize = article.content ? new Blob([article.content]).size : 0;
-                const linkedCount = calculateLinksTo(key);
-                
-                // FIX: Pre-fetch real average from database if possible
-                let avgRating = 0;
-                    avgRating = parseFloat(article.average_rating || calculatePageRatingAverage(article.ratings));
-                
-                const views = article.views || 0;
-                const vIndex = calculateVerifiabilityIndex(article);
-                pageStats.push({ title: key, edits: editCount, rating: avgRating, words: wordCount, bytes: byteSize, links: linkedCount, views: views, vScore: vIndex.score, vLabel: vIndex.label, vColor: vIndex.color });
+                container.innerHTML = `
+                    <div class="statistics-grid">
+                        <div class="stat-card"><div class="stat-card-label">Total Pages</div><div class="stat-card-value">${Number(totals.totalPages || 0).toLocaleString()}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">Total Edits</div><div class="stat-card-value">${Number(totals.totalEdits || 0).toLocaleString()}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">Avg Edits/Page</div><div class="stat-card-value">${Number(totals.averageEditsPerPage || 0).toFixed(2)}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">Total Words</div><div class="stat-card-value">${Number(totals.totalWords || 0).toLocaleString()}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">Total Views</div><div class="stat-card-value">${Number(totals.totalViews || 0).toLocaleString()}</div></div>
+                        <div class="stat-card"><div class="stat-card-label">Total Categories</div><div class="stat-card-value">${Number(totals.totalCategories || 0).toLocaleString()}</div></div>
+                    </div>
+                    ${rankingTable('Top 5 Highest Rated Articles', stats.topRated, 'rating', ratingFormatter)}
+                    ${rankingTable('Bottom 5 Lowest Rated Articles', stats.bottomRated, 'rating', ratingFormatter)}
+                    ${rankingTable('Top 5 Most Edited Articles', stats.topEdited, 'edits', numberFormatter)}
+                    ${rankingTable('Bottom 5 Least Edited Articles', stats.bottomEdited, 'edits', numberFormatter)}
+                    ${rankingTable('Top 5 Largest Articles (Bytes)', stats.topBytes, 'bytes', byteFormatter)}
+                    ${rankingTable('Bottom 5 Smallest Articles (Bytes)', stats.bottomBytes, 'bytes', byteFormatter)}
+                    ${rankingTable('Top 5 Most Linked Articles', stats.topLinks, 'links', numberFormatter)}
+                    ${rankingTable('Bottom 5 Least Linked Articles', stats.bottomLinks, 'links', numberFormatter)}
+                    ${rankingTable('Top 5 Most Viewed Articles', stats.topViews, 'views', numberFormatter)}
+                    ${rankingTable('Bottom 5 Least Viewed Articles', stats.bottomViews, 'views', numberFormatter)}
+                    ${rankingTable('Top 5 Highest Quality Articles', stats.topQuality, 'quality', qualityFormatter)}
+                    ${rankingTable('Bottom 5 Lowest Quality Articles', stats.bottomQuality, 'quality', qualityFormatter)}
+                `;
+            } catch (err) {
+                container.innerHTML = `<div style="padding:1rem; color:#8b0000; background:#fff5f5; border:1px solid #fecaca;">Statistics could not be loaded from Supabase: ${escapeHtmlCode(err.message || String(err))}<br><small>Run the attached <code>supabase_statistics_rpc.sql</code> in Supabase first.</small></div>`;
             }
-
-                const validStats = pageStats.filter(p => orlePediaMemoryStore[p.title] && orlePediaMemoryStore[p.title].content && !orlePediaMemoryStore[p.title].content.startsWith('#REDIRECT'));
-            
-            // Use Direct SQL Column Values for Stats (Article namespace only)
-            totalEdits = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
-                if (art.content && art.content.startsWith('#REDIRECT')) return sum;
-                if (art.namespace && art.namespace !== 'Article') return sum;
-                return sum + (art.total_revisions || 0);
-            }, 0);
-
-            const topRated = [...validStats].sort((a, b) => b.rating - a.rating).slice(0, 5);
-            const bottomRated = [...validStats].sort((a, b) => a.rating - b.rating).slice(0, 5);
-            const topEdited = [...validStats].sort((a, b) => b.edits - a.edits).slice(0, 5);
-            const bottomEdited = [...validStats].sort((a, b) => a.edits - b.edits).slice(0, 5);
-            const topBytes = [...validStats].sort((a, b) => b.bytes - a.bytes).slice(0, 5);
-            const bottomBytes = [...validStats].sort((a, b) => a.bytes - b.bytes).slice(0, 5);
-            const topLinks = [...validStats].sort((a, b) => b.links - a.links).slice(0, 5);
-            const bottomLinks = [...validStats].sort((a, b) => a.links - b.links).slice(0, 5);
-            const topViews = [...validStats].sort((a, b) => b.views - a.views).slice(0, 5);
-            const bottomViews = [...validStats].sort((a, b) => a.views - b.views).slice(0, 5);
-            const topVerifiable = [...validStats].sort((a, b) => b.vScore - a.vScore).slice(0, 5);
-            const bottomVerifiable = [...validStats].sort((a, b) => a.vScore - b.vScore).slice(0, 5);
-
-            const totalViews = Object.values(orlePediaMemoryStore).reduce((sum, art) => {
-                if (art.content && art.content.startsWith('#REDIRECT')) return sum;
-                if (art.namespace && art.namespace !== 'Article') return sum;
-                return sum + (art.views || 0);
-            }, 0);
-
-            let statsHtml = `
-                <div class="statistics-grid">
-                    <div class="stat-card">
-                        <div class="stat-card-label">Total Pages</div>
-                        <div class="stat-card-value">${totalPages}</div>
-                    </div>
-                        <div class="stat-card">
-                            <div class="stat-card-label">Total Edits</div>
-                            <div class="stat-card-value">${totalEdits}</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-card-label">Avg Edits/Page</div>
-                            <div class="stat-card-value">${(totalEdits / (totalPages || 1)).toFixed(2)}</div>
-                        </div>
-                    <div class="stat-card">
-                        <div class="stat-card-label">Total Words</div>
-                        <div class="stat-card-value">${totalWords}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card-label">Total Views</div>
-                        <div class="stat-card-value">${totalViews}</div>
-                    </div>
-                </div>
-
-                <h3>Top 5 Highest Rated Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Rating</th></tr></thead>
-                    <tbody>
-                        ${topRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Bottom 5 Lowest Rated Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Rating</th></tr></thead>
-                    <tbody>
-                        ${bottomRated.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.rating.toFixed(1)} ★</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Top 5 Most Edited Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Edits</th></tr></thead>
-                    <tbody>
-                        ${topEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Bottom 5 Least Edited Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Edits</th></tr></thead>
-                    <tbody>
-                        ${bottomEdited.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.edits}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Top 5 Largest Articles (Bytes)</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Size</th></tr></thead>
-                    <tbody>
-                        ${topBytes.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.bytes} B</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Bottom 5 Smallest Articles (Bytes)</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Size</th></tr></thead>
-                    <tbody>
-                        ${bottomBytes.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.bytes} B</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Top 5 Most Linked Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Links</th></tr></thead>
-                    <tbody>
-                        ${topLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Bottom 5 Least Linked Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Links</th></tr></thead>
-                    <tbody>
-                        ${bottomLinks.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.links}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Top 5 Most Viewed Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Views</th></tr></thead>
-                    <tbody>
-                        ${topViews.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.views}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Bottom 5 Least Viewed Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Views</th></tr></thead>
-                    <tbody>
-                        ${bottomViews.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td>${art.views}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Top 5 Highest Quality Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Quality</th></tr></thead>
-                    <tbody>
-                        ${topVerifiable.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td style="color:${art.vColor}; font-weight:bold;">${art.vLabel} (${art.vScore.toFixed(1)})</td></tr>`).join('')}
-                    </tbody>
-                </table>
-
-                <h3>Bottom 5 Lowest Quality Articles</h3>
-                <table class="stat-table">
-                    <thead><tr><th>Article</th><th>Quality</th></tr></thead>
-                    <tbody>
-                        ${bottomVerifiable.map(art => `<tr><td><span class="wiki-link" onclick="loadArticle('${art.title}')">${art.title}</span></td><td style="color:${art.vColor}; font-weight:bold;">${art.vLabel} (${art.vScore.toFixed(1)})</td></tr>`).join('')}
-                    </tbody>
-                </table>
-            `;
-
-            document.getElementById('wikiTabContentBody').innerHTML = statsHtml;
         }
 
         // ============ DYNAMIC WIKIPEDIA TEXT WRAPPING UTILITY TOOL ============
