@@ -1536,6 +1536,8 @@
             }
         }
     </style>
+<style>html.orle-suppress-splash #globalLoadingOverlay{display:none!important;}</style>
+    <script>try{if(sessionStorage.getItem('orlepedia_splash_seen')==='1'){document.documentElement.classList.add('orle-suppress-splash');}else{sessionStorage.setItem('orlepedia_splash_seen','1');}}catch(e){}</script>
 </head>
 <body>
 
@@ -1547,15 +1549,6 @@
             <div class="loading-logo-text">Orle<span>Pedia</span></div>
         </div>
         
-        <div class="loading-status-message" id="loadingStatusMessage">Connecting to database...</div>
-        <div class="loading-partial-warning" id="loadingPartialWarning">⚠️ Some data could not be loaded. Articles are available but files, ratings, or history may be incomplete.</div>
-        
-        <div class="loading-error-container" id="loadingErrorContainer">
-            <div class="loading-error-icon">⚠️</div>
-            <div class="loading-error-title" id="loadingErrorTitle">Connection Error</div>
-            <div class="loading-error-message" id="loadingErrorMessage">Unable to connect to the database.</div>
-            <button class="loading-retry-btn" onclick="retryLoading()">🔄 Retry Connection</button>
-        </div>
     </div>
 
     <aside id="mainSidebar">
@@ -2215,41 +2208,16 @@
             
             // Show partial warning if some things failed but articles worked
             if (hadErrors) {
-                document.getElementById('loadingPartialWarning').classList.add('visible');
                 console.log('📋 Diagnostics:\n' + diagnosticsLog.join('\n'));
             }
             
             switchSubTab(activeSubTabState);
             window._appInitialized = true;
-            // Force hide if stuck at 100%
-            setTimeout(() => {
-                const overlay = document.getElementById('globalLoadingOverlay');
-                if (overlay && !overlay.classList.contains('hidden')) {
-                    console.warn("Loading screen timed out. Forcing entry.");
-                    hideLoadingScreen();
-                }
-            }, 1500);
             return true;
         }
 
         function showDetailedError(title, message, diagnosticsLog) {
-            const errorContainer = document.getElementById('loadingErrorContainer');
-            const errorTitle = document.getElementById('loadingErrorTitle');
-            const errorMessage = document.getElementById('loadingErrorMessage');
-            
-            errorContainer.classList.add('visible');
-            errorTitle.textContent = title;
-            
-            // Show the main error plus diagnostics
-            let fullMessage = message;
-            if (diagnosticsLog && diagnosticsLog.length > 0) {
-                fullMessage += '\n\n--- Diagnostics ---\n' + diagnosticsLog.join('\n');
-            }
-            fullMessage += '\n\n--- Troubleshooting ---\n1. Check your Supabase project is active\n2. Verify table names: articles, revisions, ratings, files, templates\n3. Check RLS policies allow anon access\n4. Ensure tables have data';
-            
-            errorMessage.textContent = fullMessage;
-            document.getElementById('loadingStatusMessage').textContent = '⚠️ Error loading data';
-            document.getElementById('loadingStatusMessage').style.color = 'var(--wiki-red)';
+            console.error(title, message, diagnosticsLog || []);
         }
 
         // Loading screen controller: text status only; no progress/countdown UI.
@@ -2258,25 +2226,12 @@
             silentRefresh: false
         };
 
-        function updateLoadingStatus(message) {
-            if (loadingConfig.silentRefresh) return;
-            const statusEl = document.getElementById('loadingStatusMessage');
-            if (statusEl && message) {
-                statusEl.textContent = message;
-                statusEl.style.color = 'var(--text-muted)';
-            }
-        }
+        function updateLoadingStatus() {}
 
         function hideLoadingScreen() {
             loadingConfig.isComplete = true;
-            updateLoadingStatus('Encyclopedia ready!');
-            setTimeout(() => {
-                const overlay = document.getElementById('globalLoadingOverlay');
-                if (overlay) { 
-                    overlay.classList.add('hidden'); 
-                    setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 600); 
-                }
-            }, 300);
+            const overlay = document.getElementById('globalLoadingOverlay');
+            if (overlay) { overlay.classList.add('hidden'); overlay.remove(); }
         }
 
         async function retryLoading() {
@@ -2956,7 +2911,7 @@
                         if (firstSentence.length > 80) firstSentence = firstSentence.substring(0, 80) + "...";
                         
                         finalHtml += `
-                            <div class="related-card" onclick="loadArticle('${rel.title}')" style="flex:1; min-width:200px; display:flex; gap:10px; padding:10px; background:#f8f9fa; border:1px solid #eee; border-radius:4px; cursor:pointer;">
+                            <div class="related-card" onclick="window.location.assign('/ORLEPEDIA/' + encodeURIComponent('${rel.title}'))" style="flex:1; min-width:200px; display:flex; gap:10px; padding:10px; background:#f8f9fa; border:1px solid #eee; border-radius:4px; cursor:pointer;">
                                 <div style="width:60px; height:60px; background:#eee; flex-shrink:0;">
                                     ${imgUrl ? `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#ccc;"><i data-lucide="image"></i></div>`}
                                 </div>
@@ -3178,11 +3133,11 @@
                           .replace(/''(.*?)''/g, '<i>$1</i>')
                           .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
                               if (p1.startsWith('File:') || p1.startsWith('TFile')) return m;
-                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p1}</span>`;
+                              return `<span class="wiki-link" onclick="window.location.assign('/ORLEPEDIA/' + encodeURIComponent('${p1}'))">${p1}</span>`;
                           })
                           .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
                               if (p1 === 'File' || p1 === 'TFile') return m;
-                              return `<span class="wiki-link" onclick="loadArticle('${p1}')">${p2}</span>`;
+                              return `<span class="wiki-link" onclick="window.location.assign('/ORLEPEDIA/' + encodeURIComponent('${p1}'))">${p2}</span>`;
                           });
             };
 
@@ -5523,8 +5478,7 @@
         }
 
         function navigateTo(title) {
-            window.history.pushState({ article: title }, '', '/ORLEPEDIA/' + encodeURIComponent(title));
-            loadArticle(title);
+            window.location.assign('/ORLEPEDIA/' + encodeURIComponent(title));
         }
 
         // ============ NEW FEATURES LOGIC ============
@@ -5653,6 +5607,8 @@
                 }
                 loadUserProfile();
                 
+                const splashSuppressed = document.documentElement.classList.contains('orle-suppress-splash');
+                if (!splashSuppressed) setTimeout(hideLoadingScreen, 800);
                 const success = await loadOrlePediaDataFromCloud();
                 
                 if (success) {
