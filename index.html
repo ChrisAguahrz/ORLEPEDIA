@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    
 <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
@@ -144,46 +143,6 @@
 
         .loading-logo-text span {
             color: var(--wiki-blue);
-        }
-
-        .loading-progress-ring-container {
-            position: relative;
-            width: 140px;
-            height: 140px;
-            margin-bottom: 30px;
-        }
-
-        .loading-progress-ring {
-            transform: rotate(-90deg);
-            width: 140px;
-            height: 140px;
-        }
-
-        .loading-progress-ring-bg {
-            fill: none;
-            stroke: #e0e0e0;
-            stroke-width: 6;
-        }
-
-        .loading-progress-ring-fill {
-            fill: none;
-            stroke: var(--wiki-blue);
-            stroke-width: 6;
-            stroke-linecap: round;
-            transition: stroke-dashoffset 0.4s ease;
-            stroke-dasharray: 377;
-            stroke-dashoffset: 377;
-        }
-
-        .loading-percentage-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2rem;
-            font-weight: bold;
-            color: var(--wiki-blue);
-            font-family: monospace;
         }
 
         .loading-status-message {
@@ -1588,14 +1547,6 @@
             <div class="loading-logo-text">Orle<span>Pedia</span></div>
         </div>
         
-        <div class="loading-progress-ring-container">
-            <svg class="loading-progress-ring" viewBox="0 0 140 140">
-                <circle class="loading-progress-ring-bg" cx="70" cy="70" r="60"></circle>
-                <circle class="loading-progress-ring-fill" id="progressRingFill" cx="70" cy="70" r="60"></circle>
-            </svg>
-            <div class="loading-percentage-text" id="loadingPercentage">0%</div>
-        </div>
-        
         <div class="loading-status-message" id="loadingStatusMessage">Connecting to database...</div>
         <div class="loading-partial-warning" id="loadingPartialWarning">⚠️ Some data could not be loaded. Articles are available but files, ratings, or history may be incomplete.</div>
         
@@ -2139,12 +2090,12 @@
             let hadErrors = false;
             
             // Step 1: Test basic connectivity first
-            updateLoadingProgress(5, 'Testing database connection...');
+            updateLoadingStatus(5, 'Testing database connection...');
             try {
                 const testResult = await supabaseRequest('articles?select=title&limit=1');
                 if (Array.isArray(testResult)) {
                     diagnosticsLog.push('✅ Connection test passed');
-                    updateLoadingProgress(10, 'Connection successful!');
+                    updateLoadingStatus(10, 'Connection successful!');
                 }
             } catch (err) {
                 diagnosticsLog.push('❌ Connection test failed: ' + err.message);
@@ -2152,47 +2103,42 @@
                 return false;
             }
             
-            // Step 2: Load articles independently
-            updateLoadingProgress(15, 'Loading articles...');
+            // Step 2: Load only Main Page and the article requested by the current route.
+            updateLoadingStatus('Loading Main Page...');
             let articles = [];
             try {
-                articles = await supabaseRequest('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&limit=1000');
-                diagnosticsLog.push(`✅ Articles loaded: ${articles.length} found`);
-                updateLoadingProgress(40, `Loaded ${articles.length} articles`);
+                const routeTitle = getInitialRouteArticleTitle();
+                const initialTitles = ['Main Page'];
+                if (routeTitle && !initialTitles.some(t => articleTitleKey(t) === articleTitleKey(routeTitle))) initialTitles.push(routeTitle);
+                const initialRows = await Promise.all(initialTitles.map(title =>
+                    supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}&select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views`)
+                ));
+                articles = initialRows.flat();
+                diagnosticsLog.push(`✅ Initial articles loaded: ${articles.length}`);
+                updateLoadingStatus(`Loaded ${articles.length} initial article${articles.length === 1 ? '' : 's'}`);
             } catch (err) {
-                diagnosticsLog.push('❌ Articles failed: ' + err.message);
-                hadErrors = true;
-                
-                // Try fallback: just load titles
-                try {
-                    diagnosticsLog.push('🔄 Trying fallback: loading only titles...');
-                    articles = await supabaseRequest('articles?select=title');
-                    diagnosticsLog.push(`✅ Fallback succeeded: ${articles.length} article titles loaded`);
-                    updateLoadingProgress(40, `Loaded ${articles.length} article titles (partial)`);
-                } catch (err2) {
-                    diagnosticsLog.push('❌ Fallback also failed: ' + err2.message);
-                    showDetailedError('Failed to Load Articles', 'Could not load any articles from the database. ' + err2.message, diagnosticsLog);
-                    return false;
-                }
+                diagnosticsLog.push('❌ Initial article load failed: ' + err.message);
+                showDetailedError('Failed to Load Main Page', 'Could not load the initial article from Supabase. ' + err.message, diagnosticsLog);
+                return false;
             }
             
             // Step 3: Revisions — FIX 5: Deferred, loaded on-demand when History tab is opened
             let revisions = []; // Will be populated per-article when History tab is clicked
             diagnosticsLog.push('ℹ️ Revisions deferred: will load on History tab open');
-            updateLoadingProgress(60, 'Skipping revisions (deferred)...');
+            updateLoadingStatus(60, 'Skipping revisions (deferred)...');
 
             // Step 4: Ratings — FIX 5: Deferred, loaded on-demand when article is opened
             let ratings = []; // Will be populated per-article when article is loaded
             diagnosticsLog.push('ℹ️ Ratings deferred: will load on article open');
-            updateLoadingProgress(70, 'Skipping ratings (deferred)...');
+            updateLoadingStatus(70, 'Skipping ratings (deferred)...');
 
             // Step 5: Files — FIX 5: Deferred, loaded on-demand when Files view is opened
             // orlePediaFileStore will be populated by loadFilesView() when the Files tab is clicked
             diagnosticsLog.push('ℹ️ Files deferred: will load when Files view is opened');
-            updateLoadingProgress(80, 'Skipping files (deferred)...');
+            updateLoadingStatus(80, 'Skipping files (deferred)...');
             
             // Step 6: Load templates independently
-            updateLoadingProgress(88, 'Loading templates...');
+            updateLoadingStatus(88, 'Loading templates...');
             
             // DEFAULT TEMPLATES (CANNOT BE DELETED)
             // Color and Description are handled by regex, not stored as strings to avoid overwriting usage text
@@ -2220,7 +2166,7 @@
                     });
                 }
                 diagnosticsLog.push(`✅ Templates loaded: ${templates.length} found`);
-                updateLoadingProgress(92, 'Templates loaded');
+                updateLoadingStatus(92, 'Templates loaded');
             } catch (err) {
                 diagnosticsLog.push('⚠️ Templates failed: ' + err.message + ' (continuing without templates)');
                 hadErrors = true;
@@ -2228,7 +2174,7 @@
             
             // Step 7: Build the memory store from whatever we got
                 // FIX: Load pre-calculated stats directly from Supabase columns
-                updateLoadingProgress(95, 'Building encyclopedia...');
+                updateLoadingStatus(95, 'Building encyclopedia...');
                 if (Array.isArray(articles) && articles.length > 0) {
                     articles.forEach(art => {
                         const existingNormalizedTitle = Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === articleTitleKey(art.title));
@@ -2246,6 +2192,7 @@
                             _ratings_loaded: false,
                             category: art.summary || "General Indexes",
                             content: art.content || '',
+                            _content_loaded: art.content !== undefined && art.content !== null,
                             author: "ChrisAguahrz",
                             talk: `== Talk Board for ${art.title} ==`,
                             history: [
@@ -2256,14 +2203,15 @@
                         };
                     });
                 
-                updateLoadingProgress(98, `Built encyclopedia with ${articles.length} articles`);
+                updateLoadingStatus(`Built ${articles.length} initial article${articles.length === 1 ? '' : 's'}`);
+                scheduleBackgroundArticleLoading();
                 // Storage removed as per user request to avoid LocalStorage usage across devices
             } else {
                 showDetailedError('No Articles Found', 'The database query returned no articles. Check your Supabase table.', diagnosticsLog);
                 return false;
             }
             
-            updateLoadingProgress(100, 'Ready!');
+            updateLoadingStatus('Ready!');
             
             // Show partial warning if some things failed but articles worked
             if (hadErrors) {
@@ -2302,56 +2250,26 @@
             errorMessage.textContent = fullMessage;
             document.getElementById('loadingStatusMessage').textContent = '⚠️ Error loading data';
             document.getElementById('loadingStatusMessage').style.color = 'var(--wiki-red)';
-            document.getElementById('progressRingFill').style.stroke = 'var(--wiki-red)';
-            document.getElementById('loadingPercentage').textContent = '!';
-            document.getElementById('loadingPercentage').style.color = 'var(--wiki-red)';
         }
 
-        // Loading screen controller
+        // Loading screen controller: text status only; no progress/countdown UI.
         const loadingConfig = {
-            progress: 0,
-            targetProgress: 0,
-            animationFrame: null,
             isComplete: false,
             silentRefresh: false
         };
 
-        function updateLoadingProgress(targetPercent, message) {
+        function updateLoadingStatus(message) {
             if (loadingConfig.silentRefresh) return;
-            loadingConfig.targetProgress = Math.min(targetPercent, 100);
             const statusEl = document.getElementById('loadingStatusMessage');
             if (statusEl && message) {
                 statusEl.textContent = message;
                 statusEl.style.color = 'var(--text-muted)';
             }
-            if (!loadingConfig.animationFrame) animateProgressRing();
-        }
-
-        function animateProgressRing() {
-            const current = loadingConfig.progress;
-            const target = loadingConfig.targetProgress;
-            if (Math.abs(current - target) < 0.5) {
-                loadingConfig.progress = target;
-                loadingConfig.animationFrame = null;
-                renderProgressRing();
-                return;
-            }
-            loadingConfig.progress = current + (target - current) * 0.12;
-            renderProgressRing();
-            loadingConfig.animationFrame = requestAnimationFrame(animateProgressRing);
-        }
-
-        function renderProgressRing() {
-            const progress = Math.round(loadingConfig.progress);
-            const ringFill = document.getElementById('progressRingFill');
-            const percentText = document.getElementById('loadingPercentage');
-            if (ringFill) ringFill.style.strokeDashoffset = 377 - (progress / 100) * 377;
-            if (percentText) percentText.textContent = progress + '%';
         }
 
         function hideLoadingScreen() {
             loadingConfig.isComplete = true;
-            updateLoadingProgress(100, 'Encyclopedia ready!');
+            updateLoadingStatus('Encyclopedia ready!');
             setTimeout(() => {
                 const overlay = document.getElementById('globalLoadingOverlay');
                 if (overlay) { 
@@ -2368,11 +2286,6 @@
             document.getElementById('loadingPartialWarning').classList.remove('visible');
             document.getElementById('loadingStatusMessage').textContent = 'Retrying...';
             document.getElementById('loadingStatusMessage').style.color = 'var(--text-muted)';
-            document.getElementById('progressRingFill').style.stroke = 'var(--wiki-blue)';
-            document.getElementById('loadingPercentage').textContent = '0%';
-            document.getElementById('loadingPercentage').style.color = 'var(--wiki-blue)';
-            loadingConfig.progress = 0;
-            loadingConfig.targetProgress = 0;
             
             // Clear existing data
             orlePediaMemoryStore = {};
@@ -2499,10 +2412,12 @@
             dropdown.innerHTML = results.map(article => {
                 const namespaceLabel = article.namespace === 'Archive' ? 'Archive' : (article.namespace || 'Article');
                 const description = article.summary || 'No description available';
-                const isRedirect = String(article.content || '').toUpperCase().startsWith('#REDIRECT');
-                const resultNote = `${namespaceLabel}${isRedirect ? ' • Redirect' : ''}`;
+                const redirectMatch = String(article.content || '').match(/^#REDIRECT\s*\[\[([^|\]]+)/i);
+                const isRedirect = Boolean(redirectMatch);
+                const destinationTitle = redirectMatch ? redirectMatch[1].trim() : article.title;
+                const resultNote = `${namespaceLabel}${isRedirect ? ' • Redirect to ' + destinationTitle : ''}`;
                 return `
-                <div class="search-result-item" onclick="loadArticle('${safeTitle(article.title)}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
+                <div class="search-result-item" onclick="loadArticle('${safeTitle(destinationTitle)}'); document.getElementById('searchResultsDropdown').classList.remove('active');">
                     <div class="search-result-thumbnail">
                         <div style="width:100%; height:100%; background:linear-gradient(135deg, var(--wiki-blue), var(--wiki-blue-hover)); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold; font-size:0.7rem;">📄</div>
                     </div>
@@ -2639,6 +2554,106 @@
             return Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === requestedKey) || requested;
         }
 
+        function getInitialRouteArticleTitle() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const p = params.get('p');
+                if (p) return decodeURIComponent(p.replace(/^\//, '')).trim();
+                const pathTitle = window.location.pathname.split('/').pop();
+                if (pathTitle && pathTitle !== 'index.html' && !pathTitle.includes('.html')) return decodeURIComponent(pathTitle);
+            } catch (err) { console.warn('Route title could not be read:', err); }
+            return 'Main Page';
+        }
+
+        function articleObjectFromSupabaseRow(art, existing = null) {
+            return {
+                ...(existing || {}),
+                title: art.title,
+                _db_id: art.id,
+                namespace: art.namespace || 'Article',
+                total_revisions: art.total_revisions || 0,
+                average_rating: art.average_rating || 0.0,
+                quality: (art.quality !== undefined && art.quality !== null) ? parseFloat(art.quality) : null,
+                views: art.views || 0,
+                country_views: art.country_views || {},
+                category: art.summary || 'General Indexes',
+                content: art.content !== undefined && art.content !== null ? art.content : (existing?.content || ''),
+                _content_loaded: art.content !== undefined && art.content !== null ? true : Boolean(existing?._content_loaded),
+                author: existing?.author || 'ChrisAguahrz',
+                talk: existing?.talk || `== Talk Board for ${art.title} ==`,
+                history: existing?.history || [{ timestamp: Date.parse(art.created_at) || Date.now(), editor: 'ChrisAguahrz', tag: 'admin', summary: 'Loaded from database.', content: art.content || '' }],
+                ratings: existing?.ratings || [],
+                createdTime: existing?.createdTime || Date.parse(art.created_at) || Date.now(),
+                _revisions_loaded: existing?._revisions_loaded || false,
+                _ratings_loaded: existing?._ratings_loaded || false
+            };
+        }
+
+        async function fetchArticleRecordFromSupabase(title, includeContent = true) {
+            const select = includeContent
+                ? 'title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views'
+                : 'title,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views';
+            const rows = await supabaseRequest(`articles?title=eq.${encodeURIComponent(title)}&select=${select}&limit=1`, 'GET');
+            if (!Array.isArray(rows) || !rows[0]) return null;
+            const existing = orlePediaMemoryStore[rows[0].title] || null;
+            orlePediaMemoryStore[rows[0].title] = articleObjectFromSupabaseRow(rows[0], existing);
+            return orlePediaMemoryStore[rows[0].title];
+        }
+
+        async function ensureArticleContentLoaded(article) {
+            if (!article || article._content_loaded || !article.title) return article;
+            if (!article._content_fetch_promise) {
+                article._content_fetch_promise = fetchArticleRecordFromSupabase(article.title, true)
+                    .finally(() => { article._content_fetch_promise = null; });
+            }
+            return await article._content_fetch_promise;
+        }
+
+        async function loadRemainingArticleMetadata() {
+            try {
+                const rows = await supabaseRequest('articles?select=title,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&limit=1000', 'GET');
+                if (!Array.isArray(rows)) return;
+                rows.forEach(art => {
+                    const existingKey = Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === articleTitleKey(art.title));
+                    if (existingKey) return;
+                    orlePediaMemoryStore[art.title] = articleObjectFromSupabaseRow(art);
+                });
+            } catch (err) { console.warn('Background article metadata load failed:', err); }
+        }
+
+        function extractLinkedArticleTitles(content) {
+            const found = [];
+            const seen = new Set();
+            const regex = /\[\[([^|\]#]+)(?:\|[^\]]+)?\]\]/g;
+            let match;
+            while ((match = regex.exec(content || '')) !== null) {
+                const title = match[1].trim();
+                const key = articleTitleKey(title);
+                if (title && !seen.has(key) && !/^Category:|^File:/i.test(title)) { seen.add(key); found.push(title); }
+            }
+            return found;
+        }
+
+        async function prefetchLinkedArticles(article) {
+            const linkedTitles = extractLinkedArticleTitles(article?.content).slice(0, 12);
+            for (const title of linkedTitles) {
+                const existingKey = Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === articleTitleKey(title));
+                const existing = existingKey ? orlePediaMemoryStore[existingKey] : null;
+                if (existing && existing._content_loaded) continue;
+                try { await fetchArticleRecordFromSupabase(title, true); } catch (err) { /* link prefetch is best effort */ }
+            }
+        }
+
+        function scheduleBackgroundArticleLoading() {
+            const run = async () => {
+                await loadRemainingArticleMetadata();
+                const active = orlePediaMemoryStore[currentActiveArticleKey] || orlePediaMemoryStore['Main Page'];
+                if (active) await prefetchLinkedArticles(active);
+            };
+            if (window.requestIdleCallback) requestIdleCallback(() => run(), { timeout: 1200 });
+            else setTimeout(run, 100);
+        }
+
         // ============ ARTICLE CONTROLLER PIPELINES ============
         function loadArticleWithCheck(articleTitle) {
             const resolvedTitle = resolveArticleKey(articleTitle);
@@ -2652,9 +2667,17 @@
             loadArticle(resolvedTitle);
         }
 
-        function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
+        async function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
             articleTitle = resolveArticleKey(articleTitle);
             currentActiveArticleKey = articleTitle;
+
+            let routeArticle = orlePediaMemoryStore[articleTitle];
+            if (!routeArticle || !routeArticle._content_loaded) {
+                try {
+                    routeArticle = await ensureArticleContentLoaded(routeArticle) || await fetchArticleRecordFromSupabase(articleTitle, true);
+                } catch (err) { console.warn('Article content load failed:', err); }
+            }
+            if (!orlePediaMemoryStore[articleTitle] && routeArticle) articleTitle = routeArticle.title;
 
             // Handle Redirects
             if (!skipRedirect && orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
@@ -2776,6 +2799,10 @@
 
             renderRatingStarsCluster();
             switchSubTab(activeSubTabState);
+            if (article && article._content_loaded) {
+                const prefetch = () => prefetchLinkedArticles(article);
+                if (window.requestIdleCallback) requestIdleCallback(prefetch, { timeout: 800 }); else setTimeout(prefetch, 0);
+            }
         }
 
         function switchSubTab(targetTab) {
@@ -5283,6 +5310,7 @@
             };
 
             closeNewArticleModal();
+            // Use the current in-memory cache; do not restart initialization or show the loading screen.
             loadArticle(targetTitleStr);
             triggerToastBannerNotification("✨ Dynamic layout canvas successfully created.");
 
