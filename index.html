@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2077,6 +2077,34 @@
             }
         }
 
+        function saveMainPageToFastCache() {
+            const mainPage = orlePediaMemoryStore['Main Page'];
+            if (!mainPage || !mainPage._content_loaded) return;
+            try {
+                sessionStorage.setItem('orlepedia_main_page_cache_v1', JSON.stringify({
+                    title: mainPage.title,
+                    content: mainPage.content,
+                    summary: mainPage.category || '',
+                    namespace: mainPage.namespace || 'Article',
+                    createdTime: mainPage.createdTime || Date.now(),
+                    cachedAt: Date.now()
+                }));
+            } catch (err) { console.warn('Main Page cache unavailable:', err); }
+        }
+
+        function restoreMainPageFromFastCache() {
+            try {
+                const cached = JSON.parse(sessionStorage.getItem('orlepedia_main_page_cache_v1') || 'null');
+                if (!cached || !cached.content) return false;
+                orlePediaMemoryStore['Main Page'] = articleObjectFromSupabaseRow({
+                    title: 'Main Page', id: null, content: cached.content, summary: cached.summary,
+                    namespace: cached.namespace, created_at: cached.createdTime,
+                    views: 0, total_revisions: 0, average_rating: 0, quality: null, country_views: {}
+                });
+                return true;
+            } catch (err) { return false; }
+        }
+
         // 1. FETCH ALL DATA FROM CLOUD - WITH INDEPENDENT ERROR HANDLING
         async function loadOrlePediaDataFromCloud() {
             let diagnosticsLog = [];
@@ -2197,6 +2225,7 @@
                     });
                 
                 updateLoadingStatus(`Built ${articles.length} initial article${articles.length === 1 ? '' : 's'}`);
+                saveMainPageToFastCache();
                 scheduleBackgroundArticleLoading();
                 // Storage removed as per user request to avoid LocalStorage usage across devices
             } else {
@@ -2911,7 +2940,7 @@
                         if (firstSentence.length > 80) firstSentence = firstSentence.substring(0, 80) + "...";
                         
                         finalHtml += `
-                            <div class="related-card" onclick="window.location.assign('/ORLEPEDIA/' + encodeURIComponent('${rel.title}'))" style="flex:1; min-width:200px; display:flex; gap:10px; padding:10px; background:#f8f9fa; border:1px solid #eee; border-radius:4px; cursor:pointer;">
+                            <div class="related-card" onclick="navigateTo('${rel.title}')" style="flex:1; min-width:200px; display:flex; gap:10px; padding:10px; background:#f8f9fa; border:1px solid #eee; border-radius:4px; cursor:pointer;">
                                 <div style="width:60px; height:60px; background:#eee; flex-shrink:0;">
                                     ${imgUrl ? `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#ccc;"><i data-lucide="image"></i></div>`}
                                 </div>
@@ -3133,11 +3162,11 @@
                           .replace(/''(.*?)''/g, '<i>$1</i>')
                           .replace(/\[\[([^|\]]+)\]\]/g, function(m, p1) {
                               if (p1.startsWith('File:') || p1.startsWith('TFile')) return m;
-                              return `<span class="wiki-link" onclick="window.location.assign('/ORLEPEDIA/' + encodeURIComponent('${p1}'))">${p1}</span>`;
+                              return `<span class="wiki-link" onclick="navigateTo('${p1}')">${p1}</span>`;
                           })
                           .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, function(m, p1, p2) {
                               if (p1 === 'File' || p1 === 'TFile') return m;
-                              return `<span class="wiki-link" onclick="window.location.assign('/ORLEPEDIA/' + encodeURIComponent('${p1}'))">${p2}</span>`;
+                              return `<span class="wiki-link" onclick="navigateTo('${p1}')">${p2}</span>`;
                           });
             };
 
@@ -5478,7 +5507,9 @@
         }
 
         function navigateTo(title) {
-            window.location.assign('/ORLEPEDIA/' + encodeURIComponent(title));
+            const targetTitle = String(title || '').trim() || 'Main Page';
+            window.history.pushState({ article: targetTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(targetTitle));
+            loadArticle(targetTitle, false);
         }
 
         // ============ NEW FEATURES LOGIC ============
@@ -5606,6 +5637,11 @@
                     }
                 }
                 loadUserProfile();
+                const hasCachedMainPage = restoreMainPageFromFastCache();
+                if (hasCachedMainPage) {
+                    currentActiveArticleKey = 'Main Page';
+                    loadArticle('Main Page', false);
+                }
                 
                 const splashSuppressed = document.documentElement.classList.contains('orle-suppress-splash');
                 if (!splashSuppressed) setTimeout(hideLoadingScreen, 800);
@@ -5621,25 +5657,13 @@
                     }
                 }
                 
-                // Route to correct article
+                // Route to the exact article URL without changing it back to Main Page.
                 try {
-                    const params = new URLSearchParams(window.location.search);
-                    const p = params.get('p');
-                    if (p) {
-                        const articleName = decodeURIComponent(p.replace(/^\//, ''));
-                        navigateTo(articleName);
-                    } else {
-                        const path = window.location.pathname.split('/').pop();
-                        if (path && path !== 'index.html' && !path.includes('.html')) {
-                            loadArticle(decodeURIComponent(path));
-                        } else {
-                            loadArticle(currentActiveArticleKey);
-                        }
-                    }
+                    const routeTitle = getInitialRouteArticleTitle();
+                    await loadArticle(routeTitle || 'Main Page', false);
                 } catch (routeErr) {
-                    console.error("Routing error:", routeErr);
-                    loadArticle("Main Page"); // Fallback
-                    hideLoadingScreen();
+                    console.error('Routing error:', routeErr);
+                    await loadArticle('Main Page', false);
                 }
 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -5658,7 +5682,7 @@
             initializeApplication(Boolean(isBrowserReload));
         });
 
-        window.onpopstate = (e) => e.state && e.state.article && loadArticle(e.state.article, false);
+        window.onpopstate = () => loadArticle(getInitialRouteArticleTitle(), false);
     </script>
 </body>
                           </html>
