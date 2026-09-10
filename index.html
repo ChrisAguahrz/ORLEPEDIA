@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -2829,7 +2829,8 @@
                 });
 
                 for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                    if (title === currentActiveArticleKey) continue;
+                    if (articleTitleKey(title) === articleTitleKey(currentActiveArticleKey)) continue;
+                    if (articleTitleKey(title) === articleTitleKey('Main Page')) continue;
                     // Exclude redirects and Archive namespace pages from See Also
                     if (art.content && art.content.startsWith('#REDIRECT')) continue;
                     if ((art.namespace || 'Article') === 'Archive') continue;
@@ -4718,6 +4719,8 @@
             return { score: totalScore, label: "Unrated", color: "#8b0000", star: "darkred" };
         }
 
+        let globalReplaceSupabaseRows = new Map();
+
         function loadGlobalSearchReplaceView() {
             exitEditorDashboard();
 
@@ -4745,49 +4748,39 @@
             lucide.createIcons();
         }
 
-        function performGlobalReplaceSearch() {
-            const findText = document.getElementById('globalReplaceSearch').value;
+        async function performGlobalReplaceSearch() {
+            const findText = document.getElementById('globalReplaceSearch').value.trim();
             if (!findText) return alert("Please enter a word to find.");
-            
-            // Exact word match: word boundaries
-            const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
-            
-            const results = [];
-            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                if (art.content) {
-                    const matches = art.content.match(exactWordRegex);
-                    if (matches && matches.length > 0) {
-                        results.push({ title, count: matches.length });
-                    }
-                }
-            }
-            
             const resultsContainer = document.getElementById('globalReplaceResults');
-            if (results.length === 0) {
-                resultsContainer.innerHTML = `<p style="color:grey;">No articles found containing exact word "${findText}".</p>`;
-                return;
+            resultsContainer.innerHTML = '<p style="color:var(--text-muted);">Searching all Supabase articles...</p>';
+            try {
+                const rows = await fetchAllSupabaseRows('articles?select=title,content,summary,namespace,id&order=title.asc');
+                const escapedFind = findText.replace(/[.*+?^${}()|[\\]\\]/g, '\\\\$&');
+                const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
+                globalReplaceSupabaseRows = new Map(rows.map(row => [row.title, row]));
+                const results = rows.filter(row => row.content && exactWordRegex.test(row.content)).map(row => {
+                    exactWordRegex.lastIndex = 0;
+                    return { title: row.title, count: (row.content.match(exactWordRegex) || []).length };
+                });
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = `<p style="color:grey;">No articles found containing exact word "${escapeHtmlCode(findText)}".</p>`;
+                    return;
+                }
+                resultsContainer.innerHTML = `
+                    <p style="margin-bottom:1rem;">Found <b>${results.length}</b> articles containing "${escapeHtmlCode(findText)}" (exact word). Uncheck articles to exclude them:</p>
+                    <table class="stat-table" style="margin-bottom:1.5rem;" id="globalReplaceTable">
+                        <thead><tr><th style="width:30px;"><input type="checkbox" id="globalReplaceSelectAll" checked onchange="document.querySelectorAll('.gr-article-chk').forEach(c => c.checked = this.checked)"></th><th>Article</th><th>Occurrences</th></tr></thead>
+                        <tbody>${results.map(r => `<tr><td><input type="checkbox" class="gr-article-chk" data-title="${escapeHtmlCode(r.title)}" checked></td><td><span class="wiki-link" onclick="showGlobalReplaceLines('${r.title.replace(/'/g, "\\'")}','${findText.replace(/'/g, "\\'")}')">${escapeHtmlCode(r.title)}</span></td><td>${r.count}</td></tr>`).join('')}</tbody>
+                    </table>
+                    <div id="globalReplaceLinePreview" style="margin-bottom:1rem;"></div>
+                    <button class="action-btn danger" onclick="commitGlobalReplace()">Commit Changes to Checked Articles</button>`;
+            } catch (err) {
+                resultsContainer.innerHTML = `<p style="color:#8b0000;">Global Replace could not load Supabase articles: ${escapeHtmlCode(err.message || String(err))}</p>`;
             }
-            
-            resultsContainer.innerHTML = `
-                <p style="margin-bottom:1rem;">Found <b>${results.length}</b> articles containing "${findText}" (exact word). Uncheck articles to exclude them:</p>
-                <table class="stat-table" style="margin-bottom:1.5rem;" id="globalReplaceTable">
-                    <thead><tr><th style="width:30px;"><input type="checkbox" id="globalReplaceSelectAll" checked onchange="document.querySelectorAll('.gr-article-chk').forEach(c => c.checked = this.checked)"></th><th>Article</th><th>Occurrences</th></tr></thead>
-                    <tbody>
-                        ${results.map(r => `<tr>
-                            <td><input type="checkbox" class="gr-article-chk" data-title="${r.title.replace(/"/g,'&quot;')}" checked></td>
-                            <td><span class="wiki-link" onclick="showGlobalReplaceLines('${r.title.replace(/'/g, "\\'")}',' ${findText.replace(/'/g, "\\'")}')"> ${r.title}</span></td>
-                            <td>${r.count}</td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>
-                <div id="globalReplaceLinePreview" style="margin-bottom:1rem;"></div>
-                <button class="action-btn danger" onclick="commitGlobalReplace()">Commit Changes to Checked Articles</button>
-            `;
         }
 
         function showGlobalReplaceLines(title, findText) {
-            const art = orlePediaMemoryStore[title];
+            const art = globalReplaceSupabaseRows.get(title) || orlePediaMemoryStore[title];
             if (!art || !art.content) return;
             const escapedFind = findText.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'gi');
@@ -4816,18 +4809,16 @@
             const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
 
             let updatedCount = 0;
-            for (let [title, art] of Object.entries(orlePediaMemoryStore)) {
-                if (!includedTitles.has(title)) continue;
-                if (art.content) {
-                    const newContent = art.content.replace(exactWordRegex, replaceText);
-                    if (newContent !== art.content) {
-                        art.content = newContent;
-                        // Persist to Supabase
-                        if (art._db_id) {
-                            await supabaseRequest(`articles?id=eq.${art._db_id}`, 'PATCH', { content: newContent });
-                        }
-                        updatedCount++;
-                    }
+            for (const title of includedTitles) {
+                const row = globalReplaceSupabaseRows.get(title);
+                if (!row || !row.content) continue;
+                const newContent = row.content.replace(exactWordRegex, replaceText);
+                if (newContent !== row.content) {
+                    await supabaseRequest(`articles?id=eq.${row.id}`, 'PATCH', { content: newContent });
+                    row.content = newContent;
+                    const cachedKey = Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === articleTitleKey(title));
+                    if (cachedKey) orlePediaMemoryStore[cachedKey].content = newContent;
+                    updatedCount++;
                 }
             }
             
@@ -5142,7 +5133,21 @@
             `;
         }
 
-        function loadCategoryView(categoryName, isRedirectTab = false) {
+        async function fetchAllSupabaseRows(endpointBase, pageSize = 1000) {
+            const allRows = [];
+            let offset = 0;
+            while (true) {
+                const separator = endpointBase.includes('?') ? '&' : '?';
+                const page = await supabaseRequest(`${endpointBase}${separator}limit=${pageSize}&offset=${offset}`, 'GET');
+                if (!Array.isArray(page) || page.length === 0) break;
+                allRows.push(...page);
+                if (page.length < pageSize) break;
+                offset += pageSize;
+            }
+            return allRows;
+        }
+
+        async function loadCategoryView(categoryName, isRedirectTab = false) {
             // Category editing: update the stored article content, persist every change,
             // and create a revision entry so the rename survives reloads and is auditable.
             if(categoryName.startsWith('EDIT:')) {
@@ -5203,21 +5208,28 @@
             const categories = new Set();
             const allArticles = [];
 
-            for (let [key, obj] of Object.entries(orlePediaMemoryStore)) {
-                // FIX 4: Only show in category if tag is in content
-                const artCats = (obj.content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
-                
-                if (categoryName === 'Article') {
-                    if (!(obj.content && obj.content.startsWith('#REDIRECT'))) {
-                        allArticles.push(obj);
+            let categoryRows = [];
+            try {
+                categoryRows = await fetchAllSupabaseRows('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&order=title.asc');
+                categoryRows.forEach(row => {
+                    if (!orlePediaMemoryStore[row.title]) {
+                        orlePediaMemoryStore[row.title] = articleObjectFromSupabaseRow(row);
                     }
+                });
+            } catch (err) {
+                document.getElementById('wikiTabContentBody').innerHTML = `<p style="color:#8b0000;">Categories could not be loaded from Supabase: ${escapeHtmlCode(err.message || String(err))}</p>`;
+                return;
+            }
+
+            for (const obj of categoryRows) {
+                const content = obj.content || '';
+                const artCats = (content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
+                if (categoryName === 'Article') {
+                    if (!content.startsWith('#REDIRECT')) allArticles.push(obj);
                 } else if (categoryName === 'All') {
                     artCats.forEach(c => categories.add(c));
                 } else if (categoryName === 'Redirects') {
-                    if (obj.content && obj.content.startsWith('#REDIRECT')) {
-                        matchesFoundCount++;
-                        allArticles.push(obj);
-                    }
+                    if (content.startsWith('#REDIRECT')) { matchesFoundCount++; allArticles.push(obj); }
                 } else if (artCats.includes(categoryName)) {
                     matchesFoundCount++;
                     allArticles.push(obj);
@@ -5637,7 +5649,8 @@
                     }
                 }
                 loadUserProfile();
-                const hasCachedMainPage = restoreMainPageFromFastCache();
+                const initialRouteTitle = getInitialRouteArticleTitle();
+                const hasCachedMainPage = articleTitleKey(initialRouteTitle) === articleTitleKey('Main Page') && restoreMainPageFromFastCache();
                 if (hasCachedMainPage) {
                     currentActiveArticleKey = 'Main Page';
                     loadArticle('Main Page', false);
