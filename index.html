@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1580,8 +1580,8 @@
             <div class="nav-sub-menu">
                 <a onclick="loadStatisticsView()"><i data-lucide="bar-chart-2"></i> Statistics</a>
                 <a onclick="openTemplateManager()"><i data-lucide="layout"></i> Templates</a>
-                <a onclick="switchSubTab('bulk')"><i data-lucide="download"></i> Bulk Download</a>
-                <a onclick="switchSubTab('replace')"><i data-lucide="replace"></i> Global Replace</a>
+                <a onclick="switchSubTab('bulk', true)"><i data-lucide="download"></i> Bulk Download</a>
+                <a onclick="switchSubTab('replace', true)"><i data-lucide="replace"></i> Global Replace</a>
             </div>
         </div>
 
@@ -1615,16 +1615,16 @@
             <div class="article-meta-info" id="articleMetaInfo"></div>
 
             <div class="wiki-tabs">
-                <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article')">Article</div>
+                <div class="wiki-tab active" id="tabArticle" onclick="switchSubTab('article', true)">Article</div>
                 <span id="articleNamespaceTabBadge" style="font-size:0.75rem; padding:2px 6px; border-radius:4px; background:#eaecf0; color:var(--wiki-blue); margin-left:4px; display:none;"></span>
                 <div style="flex:1"></div>
                 <div class="more-tabs-dropdown">
                     <button class="tool-btn" style="border:none; background:none; font-size:1.2rem;">⋮</button>
                     <div class="more-tabs-content">
-                        <div id="tabTalk" onclick="switchSubTab('talk')">Talk Page</div>
-                        <div id="tabHistory" onclick="switchSubTab('history')">Revision Logs</div>
-                        <div id="tabMeta" onclick="switchSubTab('meta')">Page Information</div>
-                        <div id="tabBulk" onclick="switchSubTab('bulk')">Article Download</div>
+                        <div id="tabTalk" onclick="switchSubTab('talk', true)">Talk Page</div>
+                        <div id="tabHistory" onclick="switchSubTab('history', true)">Revision Logs</div>
+                        <div id="tabMeta" onclick="switchSubTab('meta', true)">Page Information</div>
+                        <div id="tabBulk" onclick="switchSubTab('bulk', true)">Article Download</div>
                     </div>
                 </div>
             </div>
@@ -1874,6 +1874,9 @@
         let orlePediaMemoryStore = {};
         let orlePediaFileStore = {}; // For DB-backed files
         let currentActiveArticleKey = "Main Page";
+        // Lightweight index: every article name/namespace/description, no article bodies.
+        let orlePediaTitleIndex = [];
+        let orlePediaTitleIndexByKey = Object.create(null);
         let activeSubTabState = "article";
         let currentUserSessionProfile = {
             username: "",
@@ -2381,6 +2384,20 @@
         let globalSearchDebounceTimer = null;
         let globalSearchRequestSerial = 0;
 
+        function renderTitleIndexResults(query) {
+            const dropdown = document.getElementById('searchResultsDropdown');
+            const q = String(query || '').toLocaleLowerCase();
+            const rows = orlePediaTitleIndex.filter(row => String(row.title || '').toLocaleLowerCase().includes(q)).slice(0, 8);
+            if (!rows.length) return false;
+            dropdown.innerHTML = rows.map(row => {
+                const title = String(row.title || '');
+                const safe = title.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                return `<div class="search-result-item" onclick="openTitleIndexResult('${safe}')"><div class="search-result-thumbnail"><div style="width:100%;height:100%;background:linear-gradient(135deg,var(--wiki-blue),var(--wiki-blue-hover));display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:0.7rem;">📄</div></div><div class="search-result-info"><div class="search-result-title">${escapeHtmlCode(title)}</div><div class="search-result-namespace">${escapeHtmlCode(row.namespace || 'Article')}</div><div class="search-result-namespace">${escapeHtmlCode(row.summary || 'No description available')}</div></div></div>`;
+            }).join('');
+            dropdown.classList.add('active');
+            return true;
+        }
+
         function renderSupabaseSearchResults(rows, query, isDeepSearch = false) {
             const dropdown = document.getElementById('searchResultsDropdown');
             const results = Array.isArray(rows) ? rows.slice(0, 8) : [];
@@ -2439,20 +2456,11 @@
             const dropdown = document.getElementById('searchResultsDropdown');
             clearTimeout(globalSearchDebounceTimer);
             globalSearchRequestSerial++;
-            if (!query) {
-                dropdown.classList.remove('active');
-                dropdown.innerHTML = '';
-                return;
-            }
-            if (query.length < 2) {
-                dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Type at least 2 characters to search titles.</div>';
-                dropdown.classList.add('active');
-                return;
-            }
-            dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Searching article titles...</div>';
-            dropdown.classList.add('active');
+            if (!query) { dropdown.classList.remove('active'); dropdown.innerHTML = ''; return; }
+            if (query.length < 2) { dropdown.innerHTML = '<div class="search-result-item" style="color:var(--text-muted);">Type at least 2 characters...</div>'; dropdown.classList.add('active'); return; }
             globalSearchDebounceTimer = setTimeout(async () => {
                 const requestSerial = ++globalSearchRequestSerial;
+                if (orlePediaTitleIndex.length && renderTitleIndexResults(query)) return;
                 try {
                     const encodedQuery = encodeURIComponent(query);
                     const rows = await supabaseRequest(`articles?select=title,summary,namespace,content&title=ilike.*${encodedQuery}*&order=title.asc&limit=8`, 'GET');
@@ -2463,7 +2471,7 @@
                     dropdown.innerHTML = `<div class="search-result-item" style="color:#8b0000;">Search failed: ${escapeHtmlCode(err.message || String(err))}</div>`;
                     dropdown.classList.add('active');
                 }
-            }, 350);
+            }, 120);
         }
 
         document.addEventListener('click', function(event) {
@@ -2593,6 +2601,29 @@
             return await article._content_fetch_promise;
         }
 
+        async function loadAllArticleTitleIndex() {
+            const rows = [];
+            let offset = 0;
+            const pageSize = 1000;
+            try {
+                while (true) {
+                    const page = await supabaseRequest(`articles?select=title,namespace,summary&order=title.asc&limit=${pageSize}&offset=${offset}`, 'GET');
+                    if (!Array.isArray(page) || page.length === 0) break;
+                    rows.push(...page);
+                    if (page.length < pageSize) break;
+                    offset += pageSize;
+                }
+                orlePediaTitleIndex = rows;
+                orlePediaTitleIndexByKey = Object.create(null);
+                rows.forEach(row => { orlePediaTitleIndexByKey[articleTitleKey(row.title)] = row; });
+            } catch (err) { console.warn('Article title index load failed:', err); }
+        }
+
+        function openTitleIndexResult(title) {
+            document.getElementById('searchResultsDropdown')?.classList.remove('active');
+            loadArticle(title);
+        }
+
         async function loadRemainingArticleMetadata() {
             try {
                 const rows = await supabaseRequest('articles?select=title,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&limit=1000', 'GET');
@@ -2630,6 +2661,7 @@
 
         function scheduleBackgroundArticleLoading() {
             const run = async () => {
+                await loadAllArticleTitleIndex();
                 await loadRemainingArticleMetadata();
                 const active = orlePediaMemoryStore[currentActiveArticleKey] || orlePediaMemoryStore['Main Page'];
                 if (active) await prefetchLinkedArticles(active);
@@ -2789,7 +2821,22 @@
             }
         }
 
-        function switchSubTab(targetTab) {
+        function tabRouteName(tab) {
+            return tab === 'article' ? '' : String(tab || 'article');
+        }
+
+        function getInitialTabRoute() {
+            try { return new URLSearchParams(window.location.search).get('tab') || 'article'; }
+            catch (err) { return 'article'; }
+        }
+
+        function switchSubTab(targetTab, updateRoute = false) {
+            if (updateRoute) {
+                const url = new URL(window.location.href);
+                if (targetTab === 'article') url.searchParams.delete('tab');
+                else url.searchParams.set('tab', tabRouteName(targetTab));
+                window.history.pushState({ article: currentActiveArticleKey, tab: targetTab }, '', url.pathname + (url.search ? url.search : ''));
+            }
             activeSubTabState = targetTab;
             document.querySelectorAll('.wiki-tab').forEach(t => t.classList.remove('active'));
 
@@ -4044,7 +4091,7 @@
 
             let renderedDiffMarkup = generateSentenceByLineDiff(baseContentStr, currentSelectedContent);
             let displayTargetBox = document.getElementById('wikiTabContentBody');
-            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison — Sentence by Sentence</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Red lines = old content &nbsp;|&nbsp; Green lines = new content</p>`;
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history', true)" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison — Sentence by Sentence</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Red lines = old content &nbsp;|&nbsp; Green lines = new content</p>`;
 
             displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
         }
@@ -4060,7 +4107,7 @@
 
             let renderedDiffMarkup = generateSentenceByLineDiff(baseContentStr, currentSelectedContent);
             let displayTargetBox = document.getElementById('wikiTabContentBody');
-            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history')" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison — Sentence by Sentence</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Red lines = old content &nbsp;|&nbsp; Green lines = new content</p>`;
+            let trackingHeaderBackHtml = `<button class="tool-btn" onclick="switchSubTab('history', true)" style="margin-bottom:1rem;">⬅️ Return to Revision Matrix Log</button><h3>Diff Comparison — Sentence by Sentence</h3><p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem;">Red lines = old content &nbsp;|&nbsp; Green lines = new content</p>`;
 
             displayTargetBox.innerHTML = trackingHeaderBackHtml + `<div class="github-diff-board" style="display:block;">${renderedDiffMarkup}</div>`;
         }
@@ -5190,74 +5237,41 @@
             exitEditorDashboard();
 
             document.getElementById('displayArticleTitle').innerText = categoryName === 'Article' ? 'All Articles' : `Category: ${categoryName}`;
-            document.getElementById('articleStarsContainer').innerHTML = "";
-            document.getElementById('articleMetaInfo').innerHTML = "";
+            document.getElementById('articleStarsContainer').innerHTML = '';
+            document.getElementById('articleMetaInfo').innerHTML = '';
+            const container = document.getElementById('wikiTabContentBody');
+            container.innerHTML = '<p style="color:var(--text-muted);">Loading Categories from Supabase...</p>';
 
-            let matchedArticlesListHtml = "";
-            if (categoryName === 'Article') {
-                matchedArticlesListHtml = `<p>Listing all articles in ascending order:</p>`;
-            } else if (categoryName === 'All') {
-                matchedArticlesListHtml = `<p>Listing all categories in the encyclopedia:</p>`;
-            } else {
-                matchedArticlesListHtml = `<p>Listing records indexed inside administrative sector category: <b>${categoryName}</b></p>`;
-            }
-            
-            matchedArticlesListHtml += `<ul style="margin-left:2rem; margin-top:1rem; line-height:2;">`;
-
-            let matchesFoundCount = 0;
-            const categories = new Set();
-            const allArticles = [];
-
-            let categoryRows = [];
             try {
-                categoryRows = await fetchAllSupabaseRows('articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&order=title.asc');
-                categoryRows.forEach(row => {
-                    if (!orlePediaMemoryStore[row.title]) {
-                        orlePediaMemoryStore[row.title] = articleObjectFromSupabaseRow(row);
-                    }
-                });
+                const rpcResult = await supabaseRequest('rpc/get_category_index', 'POST', { view_name: categoryName });
+                const rows = Array.isArray(rpcResult) ? rpcResult : [];
+                let html = categoryName === 'Article'
+                    ? '<p>Listing all articles in ascending order:</p>'
+                    : categoryName === 'All'
+                        ? '<p>Listing all categories in the encyclopedia:</p>'
+                        : categoryName === 'Redirects'
+                            ? '<p>Listing all redirects:</p>'
+                            : `<p>Listing records indexed inside category: <b>${escapeHtmlCode(categoryName)}</b></p>`;
+                html += '<ul style="margin-left:2rem; margin-top:1rem; line-height:2;">';
+                if (categoryName === 'All') {
+                    if (!rows.length) html += '<li style="color:var(--text-muted)">No categories found.</li>';
+                    rows.forEach(row => {
+                        const name = String(row.name || '');
+                        html += `<li><span class="wiki-link" onclick="loadCategoryView('${name.replace(/'/g, "\\'")}')">${escapeHtmlCode(name)}</span> <span style="font-size:0.7rem; color:grey;">(${Number(row.count) || 0})</span></li>`;
+                    });
+                } else {
+                    if (!rows.length) html += '<li style="color:var(--text-muted)">No articles found.</li>';
+                    rows.forEach(row => {
+                        const title = String(row.title || '');
+                        const safe = title.replace(/'/g, "\\'");
+                        html += `<li><span class="wiki-link" onclick="navigateTo('${safe}')">${escapeHtmlCode(title)}</span></li>`;
+                    });
+                }
+                html += '</ul>';
+                container.innerHTML = html;
             } catch (err) {
-                document.getElementById('wikiTabContentBody').innerHTML = `<p style="color:#8b0000;">Categories could not be loaded from Supabase: ${escapeHtmlCode(err.message || String(err))}</p>`;
-                return;
+                container.innerHTML = `<p style="color:#8b0000;">Categories could not be loaded from Supabase: ${escapeHtmlCode(err.message || String(err))}</p>`;
             }
-
-            for (const obj of categoryRows) {
-                const content = obj.content || '';
-                const artCats = (content.match(/\[\[Category:([^\]]+)\]\]/g) || []).map(c => c.match(/\[\[Category:([^\]]+)\]\]/)[1]);
-                if (categoryName === 'Article') {
-                    if (!content.startsWith('#REDIRECT')) allArticles.push(obj);
-                } else if (categoryName === 'All') {
-                    artCats.forEach(c => categories.add(c));
-                } else if (categoryName === 'Redirects') {
-                    if (content.startsWith('#REDIRECT')) { matchesFoundCount++; allArticles.push(obj); }
-                } else if (artCats.includes(categoryName)) {
-                    matchesFoundCount++;
-                    allArticles.push(obj);
-                }
-            }
-
-            if (categoryName === 'Article' || categoryName === 'Redirects' || (categoryName !== 'All' && matchesFoundCount > 0)) {
-                if(categoryName !== 'Article' && categoryName !== 'Redirects') {
-                    matchedArticlesListHtml += `<button class="tool-btn" onclick="loadCategoryView('EDIT:${categoryName}')" style="margin-bottom:1rem;"><i data-lucide="edit"></i> Rename Category</button>`;
-                }
-                allArticles.sort((a, b) => a.title.localeCompare(b.title));
-                allArticles.forEach(art => {
-                    if (isRedirectTab) {
-                        matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title.replace(/'/g, "\\'")}', true, true); openSectionEditor();">${art.title}</span></li>`;
-                    } else {
-                        matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadArticle('${art.title.replace(/'/g, "\\'")}')">${art.title}</span></li>`;
-                    }
-                });
-            } else if (categoryName === 'All') {
-                Array.from(categories).sort().forEach(cat => {
-                    matchedArticlesListHtml += `<li><span class="wiki-link" onclick="loadCategoryView('${cat}')">${cat}</span> <span style="font-size:0.7rem; color:grey; cursor:pointer;" onclick="loadCategoryView('EDIT:${cat}')">(edit)</span></li>`;
-                });
-            } else {
-                matchedArticlesListHtml += `<li style="color:var(--text-muted)">No articles registered inside this jurisdiction yet.</li>`;
-            }
-
-            matchedArticlesListHtml += `</ul>`;
-            document.getElementById('wikiTabContentBody').innerHTML = matchedArticlesListHtml;
         }
 
         // ============ SYSTEM CREATION ROUTERS ============
@@ -5674,6 +5688,8 @@
                 try {
                     const routeTitle = getInitialRouteArticleTitle();
                     await loadArticle(routeTitle || 'Main Page', false);
+                    const requestedTab = getInitialTabRoute();
+                    if (requestedTab && requestedTab !== 'article') switchSubTab(requestedTab, false);
                 } catch (routeErr) {
                     console.error('Routing error:', routeErr);
                     await loadArticle('Main Page', false);
@@ -5695,7 +5711,7 @@
             initializeApplication(Boolean(isBrowserReload));
         });
 
-        window.onpopstate = () => loadArticle(getInitialRouteArticleTitle(), false);
+        window.onpopstate = async () => { await loadArticle(getInitialRouteArticleTitle(), false); switchSubTab(getInitialTabRoute(), false); };
     </script>
 </body>
                           </html>
