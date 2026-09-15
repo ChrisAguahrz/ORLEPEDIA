@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1537,7 +1537,7 @@
         }
     </style>
 <style>html.orle-suppress-splash #globalLoadingOverlay{display:none!important;}</style>
-    <script>try{if(sessionStorage.getItem('orlepedia_splash_seen')==='1'){document.documentElement.classList.add('orle-suppress-splash');}else{sessionStorage.setItem('orlepedia_splash_seen','1');}}catch(e){}</script>
+    <script>try{const now=Date.now();const last=Number(localStorage.getItem('orlepedia_last_entry_at')||0);const thirtyMinutes=30*60*1000;if(last>0&&now-last<thirtyMinutes){document.documentElement.classList.add('orle-suppress-splash');}localStorage.setItem('orlepedia_last_entry_at',String(now));}catch(e){document.documentElement.classList.add('orle-suppress-splash');}</script>
 </head>
 <body>
 
@@ -2084,7 +2084,7 @@
             const mainPage = orlePediaMemoryStore['Main Page'];
             if (!mainPage || !mainPage._content_loaded) return;
             try {
-                sessionStorage.setItem('orlepedia_main_page_cache_v1', JSON.stringify({
+                localStorage.setItem('orlepedia_main_page_cache_v1', JSON.stringify({
                     title: mainPage.title,
                     content: mainPage.content,
                     summary: mainPage.category || '',
@@ -2097,7 +2097,7 @@
 
         function restoreMainPageFromFastCache() {
             try {
-                const cached = JSON.parse(sessionStorage.getItem('orlepedia_main_page_cache_v1') || 'null');
+                const cached = JSON.parse(localStorage.getItem('orlepedia_main_page_cache_v1') || 'null');
                 if (!cached || !cached.content) return false;
                 orlePediaMemoryStore['Main Page'] = articleObjectFromSupabaseRow({
                     title: 'Main Page', id: null, content: cached.content, summary: cached.summary,
@@ -2230,7 +2230,6 @@
                 updateLoadingStatus(`Built ${articles.length} initial article${articles.length === 1 ? '' : 's'}`);
                 saveMainPageToFastCache();
                 scheduleBackgroundArticleLoading();
-                // Storage removed as per user request to avoid LocalStorage usage across devices
             } else {
                 showDetailedError('No Articles Found', 'The database query returned no articles. Check your Supabase table.', diagnosticsLog);
                 return false;
@@ -2387,7 +2386,19 @@
         function renderTitleIndexResults(query) {
             const dropdown = document.getElementById('searchResultsDropdown');
             const q = String(query || '').toLocaleLowerCase();
-            const rows = orlePediaTitleIndex.filter(row => String(row.title || '').toLocaleLowerCase().includes(q)).slice(0, 8);
+            const rows = orlePediaTitleIndex
+                .filter(row => String(row.title || '').toLocaleLowerCase().includes(q))
+                .sort((a, b) => {
+                    const at = String(a.title || '').toLocaleLowerCase();
+                    const bt = String(b.title || '').toLocaleLowerCase();
+                    const exactA = at === q ? 0 : at.startsWith(q) ? 1 : 2;
+                    const exactB = bt === q ? 0 : bt.startsWith(q) ? 1 : 2;
+                    if (exactA !== exactB) return exactA - exactB;
+                    const posA = at.indexOf(q), posB = bt.indexOf(q);
+                    if (posA !== posB) return posA - posB;
+                    return at.length - bt.length || at.localeCompare(bt);
+                })
+                .slice(0, 8);
             if (!rows.length) return false;
             dropdown.innerHTML = rows.map(row => {
                 const title = String(row.title || '');
@@ -2684,8 +2695,8 @@
         }
 
         async function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
-            articleTitle = resolveArticleKey(articleTitle);
-            currentActiveArticleKey = articleTitle;
+            const requestedTitle = resolveArticleKey(articleTitle);
+            articleTitle = requestedTitle;
 
             let routeArticle = orlePediaMemoryStore[articleTitle];
             if (!routeArticle || !routeArticle._content_loaded) {
@@ -2693,7 +2704,13 @@
                     routeArticle = await ensureArticleContentLoaded(routeArticle) || await fetchArticleRecordFromSupabase(articleTitle, true);
                 } catch (err) { console.warn('Article content load failed:', err); }
             }
-            if (!orlePediaMemoryStore[articleTitle] && routeArticle) articleTitle = routeArticle.title;
+            if (routeArticle && routeArticle.title) articleTitle = routeArticle.title;
+            const loadedArticle = orlePediaMemoryStore[articleTitle] || routeArticle;
+            if (!loadedArticle || !loadedArticle._content_loaded) {
+                console.warn('Article navigation cancelled because content was not loaded:', requestedTitle);
+                return;
+            }
+            currentActiveArticleKey = articleTitle;
 
             // Handle Redirects
             if (!skipRedirect && orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
@@ -5468,7 +5485,7 @@
                 }
                 
                 const splashSuppressed = document.documentElement.classList.contains('orle-suppress-splash');
-                if (!splashSuppressed) setTimeout(hideLoadingScreen, 800);
+                if (!splashSuppressed) setTimeout(hideLoadingScreen, 1100);
                 const success = await loadOrlePediaDataFromCloud();
                 
                 if (success) {
