@@ -2831,7 +2831,9 @@
             }
 
             renderRatingStarsCluster();
-            switchSubTab(activeSubTabState);
+            // A newly opened article must always render its own Article tab immediately.
+            activeSubTabState = 'article';
+            switchSubTab('article', false);
             if (article && article._content_loaded) {
                 const prefetch = () => prefetchLinkedArticles(article);
                 if (window.requestIdleCallback) requestIdleCallback(prefetch, { timeout: 800 }); else setTimeout(prefetch, 0);
