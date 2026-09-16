@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>OrlePedia — The Free Encyclopedia</title>
+<title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -2696,6 +2696,11 @@
         }
 
         async function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
+            if (pushState) {
+                const reloadTitle = String(articleTitle || '').trim() || 'Main Page';
+                window.location.assign('/ORLEPEDIA/' + encodeURIComponent(reloadTitle));
+                return;
+            }
             const articleNavigationRequest = ++articleNavigationRequestId;
             const requestedTitle = resolveArticleKey(articleTitle);
             articleTitle = requestedTitle;
@@ -2836,7 +2841,10 @@
             renderRatingStarsCluster();
             // A newly opened article must always render its own Article tab immediately.
             activeSubTabState = 'article';
-            switchSubTab('article', false);
+            if (articleNavigationRequest === articleNavigationRequestId) {
+                const articleTab = document.getElementById('tabArticle');
+                if (articleTab) articleTab.click();
+            }
             if (article && article._content_loaded) {
                 const prefetch = () => prefetchLinkedArticles(article);
                 if (window.requestIdleCallback) requestIdleCallback(prefetch, { timeout: 800 }); else setTimeout(prefetch, 0);
@@ -5353,8 +5361,7 @@
 
         function navigateTo(title) {
             const targetTitle = String(title || '').trim() || 'Main Page';
-            window.history.pushState({ article: targetTitle }, '', '/ORLEPEDIA/' + encodeURIComponent(targetTitle));
-            loadArticle(targetTitle, false);
+            window.location.assign('/ORLEPEDIA/' + encodeURIComponent(targetTitle));
         }
 
         // ============ NEW FEATURES LOGIC ============
