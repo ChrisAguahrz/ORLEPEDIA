@@ -2698,7 +2698,9 @@
         async function loadArticle(articleTitle, pushState = true, skipRedirect = false) {
             if (pushState) {
                 const reloadTitle = String(articleTitle || '').trim() || 'Main Page';
-                window.location.assign('/ORLEPEDIA/' + encodeURIComponent(reloadTitle));
+                const reloadUrl = new URL('index.html', window.location.href);
+                reloadUrl.searchParams.set('p', reloadTitle);
+                window.location.assign(reloadUrl.href);
                 return;
             }
             const articleNavigationRequest = ++articleNavigationRequestId;
@@ -5361,7 +5363,9 @@
 
         function navigateTo(title) {
             const targetTitle = String(title || '').trim() || 'Main Page';
-            window.location.assign('/ORLEPEDIA/' + encodeURIComponent(targetTitle));
+            const reloadUrl = new URL('index.html', window.location.href);
+            reloadUrl.searchParams.set('p', targetTitle);
+            window.location.assign(reloadUrl.href);
         }
 
         // ============ NEW FEATURES LOGIC ============
