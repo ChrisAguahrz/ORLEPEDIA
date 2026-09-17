@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OrlePedia — The Free Encyclopedia</title>
+<title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -2703,6 +2703,7 @@
                     routeArticle = await ensureArticleContentLoaded(routeArticle) || await fetchArticleRecordFromSupabase(articleTitle, true);
                 } catch (err) { console.warn('Article content load failed:', err); }
             }
+            if (articleTitleKey(currentActiveArticleKey) !== articleTitleKey(articleTitle)) return;
             if (!orlePediaMemoryStore[articleTitle] && routeArticle) articleTitle = routeArticle.title;
 
             // Handle Redirects
