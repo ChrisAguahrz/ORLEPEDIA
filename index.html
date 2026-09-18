@@ -2705,6 +2705,7 @@
             }
             if (articleTitleKey(currentActiveArticleKey) !== articleTitleKey(articleTitle)) return;
             if (!orlePediaMemoryStore[articleTitle] && routeArticle) articleTitle = routeArticle.title;
+            currentActiveArticleKey = articleTitle;
 
             // Handle Redirects
             if (!skipRedirect && orlePediaMemoryStore[articleTitle] && orlePediaMemoryStore[articleTitle].content && orlePediaMemoryStore[articleTitle].content.startsWith('#REDIRECT')) {
@@ -2825,7 +2826,8 @@
             }
 
             renderRatingStarsCluster();
-            switchSubTab(activeSubTabState);
+            activeSubTabState = 'article';
+            switchSubTab('article', false);
             if (article && article._content_loaded) {
                 const prefetch = () => prefetchLinkedArticles(article);
                 if (window.requestIdleCallback) requestIdleCallback(prefetch, { timeout: 800 }); else setTimeout(prefetch, 0);
@@ -4642,6 +4644,16 @@
             });
             html += '</div>';
             previewDiv.innerHTML = html;
+        }
+
+        function calculateVerifiabilityIndex(article) {
+            if (!article) return { score: 0, label: "Unverifiable", color: "#8b0000", star: "darkred" };
+            const totalScore = (article.quality !== undefined && article.quality !== null) ? parseFloat(article.quality) : 0;
+            if (totalScore >= 4) return { score: totalScore, label: "High Quality", color: "#2471a3", star: "blue" };
+            if (totalScore >= 3) return { score: totalScore, label: "Good Quality", color: "#27ae60", star: "green" };
+            if (totalScore >= 2) return { score: totalScore, label: "Low Quality", color: "#d4ac0d", star: "yellow" };
+            if (totalScore >= 1) return { score: totalScore, label: "Poor Quality", color: "#c0392b", star: "red" };
+            return { score: totalScore, label: "Unrated", color: "#8b0000", star: "darkred" };
         }
 
         async function downloadCategoryArticles(format) {
