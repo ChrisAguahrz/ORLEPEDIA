@@ -2397,6 +2397,12 @@
                     if (posA !== posB) return posA - posB;
                     return at.length - bt.length || at.localeCompare(bt);
                 })
+                .map(row => {
+                    const redirectMatch = String(row.content || '').match(/^#REDIRECT\s*\[\[([^|\]]+)/i);
+                    if (!redirectMatch) return row;
+                    return orlePediaTitleIndex.find(target => articleTitleKey(target.title) === articleTitleKey(redirectMatch[1].trim())) || row;
+                })
+                .filter((row, index, all) => all.findIndex(item => articleTitleKey(item.title) === articleTitleKey(row.title)) === index)
                 .slice(0, 8);
             if (!rows.length) return false;
             dropdown.innerHTML = rows.map(row => {
@@ -2410,7 +2416,12 @@
 
         function renderSupabaseSearchResults(rows, query, isDeepSearch = false) {
             const dropdown = document.getElementById('searchResultsDropdown');
-            const results = Array.isArray(rows) ? rows.slice(0, 8) : [];
+            const sourceRows = Array.isArray(rows) ? rows : [];
+            const results = sourceRows.map(row => {
+                const redirectMatch = String(row.content || '').match(/^#REDIRECT\s*\[\[([^|\]]+)/i);
+                if (!redirectMatch) return row;
+                return sourceRows.find(target => articleTitleKey(target.title) === articleTitleKey(redirectMatch[1].trim())) || { ...row, title: redirectMatch[1].trim() };
+            }).filter((row, index, all) => all.findIndex(item => articleTitleKey(item.title) === articleTitleKey(row.title)) === index).slice(0, 8);
             const safeTitle = title => String(title || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
             if (!results.length) {
                 dropdown.innerHTML = isDeepSearch
@@ -2617,7 +2628,7 @@
             const pageSize = 1000;
             try {
                 while (true) {
-                    const page = await supabaseRequest(`articles?select=title,namespace,summary&order=title.asc&limit=${pageSize}&offset=${offset}`, 'GET');
+                    const page = await supabaseRequest(`articles?select=title,namespace,summary,content&order=title.asc&limit=${pageSize}&offset=${offset}`, 'GET');
                     if (!Array.isArray(page) || page.length === 0) break;
                     rows.push(...page);
                     if (page.length < pageSize) break;
@@ -3713,7 +3724,7 @@
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             
             let h2Counter = 0;
-            workingTextStr = workingTextStr.replace(/== (.*?) ==/g, function(m, title) {
+            workingTextStr = workingTextStr.replace(/^==\s*(.*?)\s*==\s*$/gm, function(m, title) {
                 h2Counter++;
                 const id = `h2-sec-${h2Counter}`;
                 return `
@@ -4694,6 +4705,94 @@
         }
 
         // ============ RATING SYSTEM LOGIC ENGINE CALCULATOR ============
+        let globalReplaceSupabaseRows = new Map();
+
+        function loadGlobalSearchReplaceView() {
+            exitEditorDashboard();
+            document.getElementById('displayArticleTitle').innerText = 'Special: Global Search & Replace';
+            document.getElementById('articleStarsContainer').innerHTML = '';
+            document.getElementById('articleMetaInfo').innerHTML = '';
+            const container = document.getElementById('wikiTabContentBody');
+            container.innerHTML = `
+                <div style="padding:1.5rem;">
+                    <h3>Global Word Replacement</h3>
+                    <p style="color:var(--text-muted); margin-bottom:1.5rem;">Search for a specific keyword and replace it across all encyclopedia articles. Exact word match only.</p>
+                    <div style="background:#f8f9fa; border:1px solid var(--border-wiki); padding:1.5rem; border-radius:4px; margin-bottom:1.5rem;">
+                        <div style="display:flex; gap:10px; margin-bottom:1rem;">
+                            <input type="text" id="globalReplaceSearch" placeholder="Find word (exact match)..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
+                            <input type="text" id="globalReplaceTarget" placeholder="Replace with..." style="flex:1; padding:0.5rem; border:1px solid #ddd; border-radius:4px;">
+                        </div>
+                        <button class="action-btn success" onclick="performGlobalReplaceSearch()">Search & List Articles</button>
+                    </div>
+                    <div id="globalReplaceResults" style="margin-top:1.5rem;"></div>
+                </div>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function performGlobalReplaceSearch() {
+            const findText = document.getElementById('globalReplaceSearch').value.trim();
+            if (!findText) return alert('Please enter a word to find.');
+            const resultsContainer = document.getElementById('globalReplaceResults');
+            resultsContainer.innerHTML = '<p style="color:var(--text-muted);">Searching all Supabase articles...</p>';
+            try {
+                const rows = await fetchAllSupabaseRows('articles?select=title,content,summary,namespace,id&order=title.asc');
+                const escapedFind = findText.replace(/[.*+?^${}()|[\\]\\]/g, '\\\\$&');
+                const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
+                globalReplaceSupabaseRows = new Map(rows.map(row => [row.title, row]));
+                const results = rows.filter(row => row.content && !/^#REDIRECT\s*\[\[/i.test(row.content) && (exactWordRegex.lastIndex = 0, exactWordRegex.test(row.content))).map(row => {
+                    exactWordRegex.lastIndex = 0;
+                    return { title: row.title, count: (row.content.match(exactWordRegex) || []).length };
+                });
+                if (!results.length) {
+                    resultsContainer.innerHTML = `<p style="color:grey;">No articles found containing exact word "${escapeHtmlCode(findText)}".</p>`;
+                    return;
+                }
+                resultsContainer.innerHTML = `<p style="margin-bottom:1rem;">Found <b>${results.length}</b> articles containing "${escapeHtmlCode(findText)}" (exact word). Uncheck articles to exclude them:</p>
+                    <table class="stat-table" style="margin-bottom:1.5rem;" id="globalReplaceTable"><thead><tr><th style="width:30px;"><input type="checkbox" id="globalReplaceSelectAll" checked onchange="document.querySelectorAll('.gr-article-chk').forEach(c => c.checked = this.checked)"></th><th>Article</th><th>Occurrences</th></tr></thead><tbody>
+                    ${results.map(r => `<tr><td><input type="checkbox" class="gr-article-chk" data-title="${escapeHtmlCode(r.title)}" checked></td><td><span class="wiki-link" onclick="showGlobalReplaceLines('${r.title.replace(/'/g, "\\'")}','${findText.replace(/'/g, "\\'")}')">${escapeHtmlCode(r.title)}</span></td><td>${r.count}</td></tr>`).join('')}</tbody></table>
+                    <div id="globalReplaceLinePreview" style="margin-bottom:1rem;"></div><button class="action-btn danger" onclick="commitGlobalReplace()">Commit Changes to Checked Articles</button>`;
+            } catch (err) {
+                resultsContainer.innerHTML = `<p style="color:#8b0000;">Global Replace could not load Supabase articles: ${escapeHtmlCode(err.message || String(err))}</p>`;
+            }
+        }
+
+        function showGlobalReplaceLines(title, findText) {
+            const art = globalReplaceSupabaseRows.get(title) || orlePediaMemoryStore[title];
+            if (!art || !art.content) return;
+            const escapedFind = findText.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'gi');
+            const matchedLines = art.content.split('\\n').filter(line => { exactWordRegex.lastIndex = 0; return exactWordRegex.test(line); });
+            const preview = document.getElementById('globalReplaceLinePreview');
+            if (!preview) return;
+            preview.innerHTML = matchedLines.length ? `<div style="background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:0.75rem; margin-bottom:0.5rem;"><strong>Lines in "${escapeHtmlCode(title)}" containing "${escapeHtmlCode(findText.trim())}":</strong><ul style="margin:0.5rem 0 0 1rem; font-size:0.85rem;">${matchedLines.map(l => `<li style="margin-bottom:3px;">${escapeHtmlCode(l)}</li>`).join('')}</ul></div>` : '';
+        }
+
+        async function commitGlobalReplace() {
+            const findText = document.getElementById('globalReplaceSearch').value;
+            const replaceText = document.getElementById('globalReplaceTarget').value;
+            const includedTitles = new Set(Array.from(document.querySelectorAll('.gr-article-chk:checked')).map(cb => cb.getAttribute('data-title')));
+            if (!includedTitles.size) return alert('No articles selected.');
+            if (!confirm(`Are you sure you want to replace "${findText}" with "${replaceText}" across ${includedTitles.size} selected articles? This cannot be undone.`)) return;
+            const escapedFind = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const exactWordRegex = new RegExp(`(?<![\\w])${escapedFind}(?![\\w])`, 'g');
+            let updatedCount = 0;
+            for (const title of includedTitles) {
+                const row = globalReplaceSupabaseRows.get(title);
+                if (!row || !row.content) continue;
+                exactWordRegex.lastIndex = 0;
+                const newContent = row.content.replace(exactWordRegex, replaceText);
+                if (newContent !== row.content) {
+                    await supabaseRequest(`articles?id=eq.${row.id}`, 'PATCH', { content: newContent });
+                    row.content = newContent;
+                    const cachedKey = Object.keys(orlePediaMemoryStore).find(key => articleTitleKey(key) === articleTitleKey(title));
+                    if (cachedKey) { orlePediaMemoryStore[cachedKey].content = newContent; orlePediaMemoryStore[cachedKey]._content_loaded = true; }
+                    updatedCount++;
+                }
+            }
+            triggerToastBannerNotification(`Successfully updated ${updatedCount} articles.`);
+            loadGlobalSearchReplaceView();
+        }
+
         function renderRatingStarsCluster() {
             const container = document.getElementById('articleStarsContainer');
             let article = orlePediaMemoryStore[currentActiveArticleKey];
@@ -4826,7 +4925,8 @@
             const fullContent = articleData.content;
             
             // Match the section from == Title == until the next == Title == or end of string
-            const sectionRegex = new RegExp(`(== ${sectionTitle} ==[\\s\\S]*?)(?=\\n== |$)`, 'g');
+            const escapedSectionTitle = sectionTitle.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+            const sectionRegex = new RegExp(`(==\\s*${escapedSectionTitle}\\s*==[\\s\\S]*?)(?=\\n\\s*==\\s*|$)`, 'i');
             const match = sectionRegex.exec(fullContent);
             
             if (match) {
@@ -4894,7 +4994,8 @@
             
             if (currentEditingSection) {
                 const fullContent = article.content;
-                const sectionRegex = new RegExp(`(== ${currentEditingSection} ==[\\s\\S]*?)(?=\\n== |$)`, 'g');
+                const escapedSectionTitle = currentEditingSection.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+                const sectionRegex = new RegExp(`(==\\s*${escapedSectionTitle}\\s*==[\\s\\S]*?)(?=\\n\\s*==\\s*|$)`, 'i');
                 article.content = fullContent.replace(sectionRegex, editorTextContent);
                 currentEditingSection = null;
             } else {
@@ -4917,6 +5018,13 @@
                 setTimeout(() => {
                     const targetHeader = Array.from(document.querySelectorAll('.h2-section-header')).find(header => (header.querySelector('.h2-section-title')?.innerText || '').trim() === sectionToRestore.trim());
                     if (targetHeader) {
+                        const targetContent = targetHeader.nextElementSibling;
+                        if (targetContent && targetContent.classList.contains('h2-section-content')) {
+                            targetContent.classList.remove('collapsed');
+                            targetContent.style.display = 'block';
+                            const targetPencil = targetHeader.querySelector('.edit-pencil');
+                            if (targetPencil) targetPencil.classList.add('visible');
+                        }
                         targetHeader.scrollIntoView({ behavior: 'smooth', block: 'start' });
                         targetHeader.style.background = '#f8f9fa';
                         setTimeout(() => { targetHeader.style.background = ''; }, 1200);
@@ -5487,7 +5595,8 @@
                 const hasCachedMainPage = articleTitleKey(initialRouteTitle) === articleTitleKey('Main Page') && restoreMainPageFromFastCache();
                 if (hasCachedMainPage) {
                     currentActiveArticleKey = 'Main Page';
-                    loadArticle('Main Page', false);
+                    await loadArticle('Main Page', false);
+                    hideLoadingScreen();
                 }
                 
                 const splashSuppressed = document.documentElement.classList.contains('orle-suppress-splash');
