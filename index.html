@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OrlePedia — The Free Encyclopedia</title>
+ <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -3724,7 +3724,7 @@
             workingTextStr = workingTextStr.replace(/=== (.*?) ===/g, '<h3>$1</h3>');
             
             let h2Counter = 0;
-            workingTextStr = workingTextStr.replace(/^==\s*(.*?)\s*==\s*$/gm, function(m, title) {
+            workingTextStr = workingTextStr.replace(/== (.*?) ==/g, function(m, title) {
                 h2Counter++;
                 const id = `h2-sec-${h2Counter}`;
                 return `
