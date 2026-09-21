@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <title>OrlePedia — The Free Encyclopedia</title>
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4038,6 +4038,23 @@
             }
         }
 
+        function alignDiffSequences(oldItems, newItems) {
+            const table = Array.from({ length: oldItems.length + 1 }, () => Array(newItems.length + 1).fill(0));
+            for (let i = oldItems.length - 1; i >= 0; i--) {
+                for (let j = newItems.length - 1; j >= 0; j--) {
+                    table[i][j] = oldItems[i] === newItems[j] ? table[i + 1][j + 1] + 1 : Math.max(table[i + 1][j], table[i][j + 1]);
+                }
+            }
+            const rows = [];
+            let i = 0, j = 0;
+            while (i < oldItems.length || j < newItems.length) {
+                if (i < oldItems.length && j < newItems.length && oldItems[i] === newItems[j]) rows.push({ oldItem: oldItems[i++], newItem: newItems[j++], type: 'same' });
+                else if (i < oldItems.length && (j >= newItems.length || table[i + 1][j] >= table[i][j + 1])) rows.push({ oldItem: oldItems[i++], newItem: null, type: 'removed' });
+                else rows.push({ oldItem: null, newItem: newItems[j++], type: 'added' });
+            }
+            return rows;
+        }
+
         function generateSentenceByLineDiff(oldTextRaw, newTextRaw) {
             // Split into sentences (by . ! ? or newline)
             const splitSentences = (text) => text.split(/(?<=[.!?])\s+|\n/).filter(s => s.trim() !== '');
@@ -4045,62 +4062,23 @@
             const newSentences = splitSentences(newTextRaw || '');
 
             let htmlDiffStreamRows = '';
-            const maxLen = Math.max(oldSentences.length, newSentences.length);
-
-            for (let i = 0; i < maxLen; i++) {
-                const oldS = oldSentences[i] !== undefined ? oldSentences[i] : null;
-                const newS = newSentences[i] !== undefined ? newSentences[i] : null;
-
-                if (oldS !== null && newS !== null && oldS !== newS) {
-                    // Changed: show old line first (red), then new line below (green)
-                    htmlDiffStreamRows += `<div class="diff-line removed" style="padding:3px 8px;"><span class="diff-marker">−</span>${escapeHtmlCode(oldS)}</div>`;
-                    htmlDiffStreamRows += `<div class="diff-line added" style="padding:3px 8px; color:#0a3014; font-weight:bold;"><span class="diff-marker">+</span>${escapeHtmlCode(newS)}</div>`;
-                } else if (oldS !== null && newS === null) {
-                    htmlDiffStreamRows += `<div class="diff-line removed" style="padding:3px 8px;"><span class="diff-marker">−</span>${escapeHtmlCode(oldS)}</div>`;
-                } else if (oldS === null && newS !== null) {
-                    htmlDiffStreamRows += `<div class="diff-line added" style="padding:3px 8px; color:#0a3014; font-weight:bold;"><span class="diff-marker">+</span>${escapeHtmlCode(newS)}</div>`;
-                } else if (oldS !== null) {
-                    htmlDiffStreamRows += `<div class="diff-line neutral" style="padding:3px 8px;"><span class="diff-marker">&nbsp;</span>${escapeHtmlCode(oldS)}</div>`;
-                }
-            }
+            alignDiffSequences(oldSentences, newSentences).forEach(row => {
+                if (row.type === 'same') htmlDiffStreamRows += `<div class="diff-line neutral" style="padding:3px 8px;"><span class="diff-marker">&nbsp;</span>${escapeHtmlCode(row.oldItem)}</div>`;
+                else if (row.type === 'removed') htmlDiffStreamRows += `<div class="diff-line removed" style="padding:3px 8px;"><span class="diff-marker">−</span>${escapeHtmlCode(row.oldItem)}</div>`;
+                else htmlDiffStreamRows += `<div class="diff-line added" style="padding:3px 8px; color:#0a3014; font-weight:bold;"><span class="diff-marker">+</span>${escapeHtmlCode(row.newItem)}</div>`;
+            });
             return htmlDiffStreamRows;
         }
 
         function generateLineByLineGithubStyleDiff(oldTextRaw, newTextRaw) {
             let oldTextLines = oldTextRaw.split('\n');
             let newTextLines = newTextRaw.split('\n');
-            let longestIndexBound = Math.max(oldTextLines.length, newTextLines.length);
-
             let htmlDiffStreamRows = "";
-
-            for (let i = 0; i < longestIndexBound; i++) {
-                let originalLine = oldTextLines[i] || "";
-                let modifiedLine = newTextLines[i] || "";
-
-                if (originalLine !== modifiedLine) {
-                    // FIX 9: Word-level diff
-                    let originalWords = originalLine.split(/(\s+)/);
-                    let modifiedWords = modifiedLine.split(/(\s+)/);
-                    let diffLineHtml = `<div class="diff-line modified" style="padding: 2px 5px;">`;
-                    
-                    let maxWords = Math.max(originalWords.length, modifiedWords.length);
-                    for(let j=0; j<maxWords; j++) {
-                        let ow = originalWords[j] || "";
-                        let mw = modifiedWords[j] || "";
-                        if(ow === mw) {
-                            diffLineHtml += escapeHtmlCode(ow);
-                        } else {
-                            if(ow) diffLineHtml += `<span style="background:var(--diff-remove-bg); color:var(--diff-remove-text); padding: 0 2px;">${escapeHtmlCode(ow)}</span>`;
-                            if(mw) diffLineHtml += `<span style="background:var(--diff-add-bg); color:var(--diff-add-text); font-weight:bold; padding: 0 2px;">${escapeHtmlCode(mw)}</span>`;
-                        }
-                    }
-                    htmlDiffStreamRows += diffLineHtml + `</div>`;
-                } else {
-                    if (oldTextLines[i] !== undefined) {
-                        htmlDiffStreamRows += `<div class="diff-line neutral" style="padding: 2px 5px;">${escapeHtmlCode(originalLine)}</div>`;
-                    }
-                }
-            }
+            alignDiffSequences(oldTextLines, newTextLines).forEach(row => {
+                if (row.type === 'same') htmlDiffStreamRows += `<div class="diff-line neutral" style="padding: 2px 5px;">${escapeHtmlCode(row.oldItem)}</div>`;
+                else if (row.type === 'removed') htmlDiffStreamRows += `<div class="diff-line removed" style="padding: 2px 5px;"><span class="diff-marker">−</span>${escapeHtmlCode(row.oldItem)}</div>`;
+                else htmlDiffStreamRows += `<div class="diff-line added" style="padding: 2px 5px; color:#0a3014; font-weight:bold;"><span class="diff-marker">+</span>${escapeHtmlCode(row.newItem)}</div>`;
+            });
             return htmlDiffStreamRows;
         }
 
@@ -4924,9 +4902,10 @@
             const articleData = orlePediaMemoryStore[currentActiveArticleKey];
             const fullContent = articleData.content;
             
-            // Match the section from == Title == until the next == Title == or end of string
+            // Match the section from an exact == Title == heading until the next exact == Title == heading or end of string.
+            // H3/H4 headings (=== and ====) remain part of this section.
             const escapedSectionTitle = sectionTitle.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-            const sectionRegex = new RegExp(`(==\\s*${escapedSectionTitle}\\s*==[\\s\\S]*?)(?=\\n\\s*==\\s*|$)`, 'i');
+            const sectionRegex = new RegExp(`(^==(?!=)[ \\t]*${escapedSectionTitle}[ \\t]*==(?!=)[ \\t]*[\\r\\n]?[\\s\\S]*?)(?=^==(?!=)[ \\t]+.*?[ \\t]+==(?!=)[ \\t]*$|$)`, 'im');
             const match = sectionRegex.exec(fullContent);
             
             if (match) {
@@ -4995,7 +4974,7 @@
             if (currentEditingSection) {
                 const fullContent = article.content;
                 const escapedSectionTitle = currentEditingSection.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-                const sectionRegex = new RegExp(`(==\\s*${escapedSectionTitle}\\s*==[\\s\\S]*?)(?=\\n\\s*==\\s*|$)`, 'i');
+                const sectionRegex = new RegExp(`(^==(?!=)[ \\t]*${escapedSectionTitle}[ \\t]*==(?!=)[ \\t]*[\\r\\n]?[\\s\\S]*?)(?=^==(?!=)[ \\t]+.*?[ \\t]+==(?!=)[ \\t]*$|$)`, 'im');
                 article.content = fullContent.replace(sectionRegex, editorTextContent);
                 currentEditingSection = null;
             } else {
@@ -5008,14 +4987,14 @@
                     editor_name: "ChrisAguahrz",
                     tag: "admin",
                     summary: changeSummaryText || "(No summary provided)",
-                    content: editorTextContent
+                    content: article.content
                 });
                 article.total_revisions = Math.max(Number(article.total_revisions) || 0, article.history.length - 1, 1) + 1;
 
             exitEditorDashboard();
             switchSubTab('article');
             if (sectionToRestore) {
-                setTimeout(() => {
+                requestAnimationFrame(() => setTimeout(() => {
                     const targetHeader = Array.from(document.querySelectorAll('.h2-section-header')).find(header => (header.querySelector('.h2-section-title')?.innerText || '').trim() === sectionToRestore.trim());
                     if (targetHeader) {
                         const targetContent = targetHeader.nextElementSibling;
@@ -5029,7 +5008,7 @@
                         targetHeader.style.background = '#f8f9fa';
                         setTimeout(() => { targetHeader.style.background = ''; }, 1200);
                     }
-                }, 0);
+                }, 0));
             }
             // FIX 3: Update sessionStorage cache after save
                 // Storage update removed as per user request
