@@ -4330,24 +4330,23 @@
         }
 
         async function fetchBulkArticleRecordsFromSupabase() {
-            // Keep each database statement small: requesting every full article while sorting
-            // the whole table by title can exceed Supabase's statement timeout.
-            const endpoint = 'articles?select=title,content,summary,namespace,created_at,id,views,total_revisions,average_rating,quality,country_views&order=id.asc';
-            let rows;
-            let lastError;
-            for (const pageSize of [100, 25, 10]) {
-                try {
-                    rows = typeof fetchAllSupabaseRows === 'function'
-                        ? await fetchAllSupabaseRows(endpoint, pageSize)
-                        : await supabaseRequest(endpoint + `&limit=${pageSize}`, 'GET');
-                    lastError = null;
-                    break;
-                } catch (err) {
-                    lastError = err;
-                    if (!/timeout|statement timeout|server returned 500/i.test(String(err && err.message || err)) || pageSize === 10) throw err;
-                }
+            // Bulk download only needs these fields. Keyset pagination avoids slow OFFSET
+            // scans and avoids sorting/serializing unrelated article metadata.
+            const selectFields = 'title,content,summary,namespace,id';
+            const pageSize = 10;
+            const rows = [];
+            let lastId = null;
+            while (true) {
+                let endpoint = `articles?select=${selectFields}&order=id.asc&limit=${pageSize}`;
+                if (lastId !== null) endpoint += `&id=gt.${encodeURIComponent(lastId)}`;
+                const page = await supabaseRequest(endpoint, 'GET');
+                if (!Array.isArray(page) || page.length === 0) break;
+                rows.push(...page);
+                if (page.length < pageSize) break;
+                const nextId = page[page.length - 1] && page[page.length - 1].id;
+                if (nextId === undefined || nextId === null || nextId === lastId) break;
+                lastId = nextId;
             }
-            if (lastError) throw lastError;
             return (Array.isArray(rows) ? rows : []).map(row => ({
                 ...row,
                 category: row.summary || 'General Indexes',
