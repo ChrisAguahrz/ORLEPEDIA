@@ -4329,30 +4329,52 @@
             return blocks.join('');
         }
 
-        async function fetchBulkArticleRecordsFromSupabase() {
-            // Bulk download only needs these fields. Keyset pagination avoids slow OFFSET
-            // scans and avoids sorting/serializing unrelated article metadata.
+        async function fetchBulkArticleRecordsFromSupabase(progressCallback = null) {
+            const normalizeRows = rows => (Array.isArray(rows) ? rows : []).map(row => ({
+                ...row,
+                category: row.summary || 'General Indexes',
+                author: row.author || 'OrlePedia',
+                content: row.content || ''
+            }));
+            // The background title index already contains complete article content.
+            // Reuse it so normal TXT/DOCX/PDF downloads do not query Supabase again.
+            if (Array.isArray(orlePediaTitleIndex) && orlePediaTitleIndex.length > 0 && orlePediaTitleIndex.every(row => row.content !== undefined && row.content !== null)) {
+                if (progressCallback) progressCallback(100, 'Articles already loaded');
+                return normalizeRows(orlePediaTitleIndex);
+            }
+            // Fallback for a fresh page where the background index has not finished.
             const selectFields = 'title,content,summary,namespace,id';
-            const pageSize = 10;
+            const pageSize = 100;
             const rows = [];
             let lastId = null;
+            let loadedCount = 0;
             while (true) {
                 let endpoint = `articles?select=${selectFields}&order=id.asc&limit=${pageSize}`;
                 if (lastId !== null) endpoint += `&id=gt.${encodeURIComponent(lastId)}`;
                 const page = await supabaseRequest(endpoint, 'GET');
                 if (!Array.isArray(page) || page.length === 0) break;
                 rows.push(...page);
+                loadedCount += page.length;
+                if (progressCallback) progressCallback(null, `Loading articles (${loadedCount} loaded)`);
                 if (page.length < pageSize) break;
                 const nextId = page[page.length - 1] && page[page.length - 1].id;
                 if (nextId === undefined || nextId === null || nextId === lastId) break;
                 lastId = nextId;
             }
-            return (Array.isArray(rows) ? rows : []).map(row => ({
-                ...row,
-                category: row.summary || 'General Indexes',
-                author: row.author || 'OrlePedia',
-                content: row.content || ''
-            }));
+            if (progressCallback) progressCallback(100, `Loaded ${rows.length} articles`);
+            return normalizeRows(rows);
+        }
+        function convertBulkArticleToPlainText(rawContent, includeImages) {
+            let text = String(rawContent || '');
+            if (!includeImages) text = text.replace(/\[\[File\|[\s\S]*?\]\]/gi, '');
+            text = text.replace(/\[\[Category:[^\]]*\]\]/gi, '');
+            text = text.replace(/\{\{[\s\S]*?\}\}/g, '');
+            text = text.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '$2');
+            text = text.replace(/\[\[([^\]]+)\]\]/g, '$1');
+            text = text.replace(/'''([^']+)'''/g, '$1').replace(/''([^']+)''/g, '$1');
+            text = text.replace(/^={2,6}\s*(.*?)\s*={2,6}\s*$/gm, '$1');
+            text = text.replace(/^\s*[·*#]+\s?/gm, '');
+            return text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         }
 
         async function downloadEditableOcrDocx(titles, includeImages, statusSpan, archiveTitle, fileName, articleMap = null) {
@@ -4403,8 +4425,10 @@
             const statusSpan = document.getElementById('bulkLoadStatus');
             let bulkRows;
             try {
-                statusSpan.innerText = 'Fetching complete article records from Supabase...';
-                bulkRows = await fetchBulkArticleRecordsFromSupabase();
+                statusSpan.innerText = 'Loading articles (0%)...';
+                bulkRows = await fetchBulkArticleRecordsFromSupabase((percent, message) => {
+                    statusSpan.innerText = percent === null ? message : `${message} (${percent}%)`;
+                });
             } catch (err) {
                 statusSpan.innerText = '';
                 return alert('Bulk download could not load complete articles from Supabase: ' + (err.message || err));
@@ -4427,7 +4451,7 @@
             if (!titles.length) return alert('No articles found in Supabase.');
 
             const includeImages = confirm('📦 BULK DOWNLOAD OPTIONS:\\n\\nClick OK to include all IMAGES.\\nClick CANCEL for TEXT ONLY (faster).');
-            statusSpan.innerText = `Preparing ${titles.length} complete Supabase articles...`;
+            statusSpan.innerText = `Preparing ${titles.length} articles (100%)...`;
 
             if (format === 'docx') {
                 const docxImages = confirm('📦 BULK DOCX OPTIONS:\\n\\nClick OK to include source images.\\nClick CANCEL for text only.');
@@ -4438,18 +4462,14 @@
                 let fullTxt = `OrlePedia Encyclopedia Archive\\nTotal Articles: ${titles.length}\\nGenerated: ${new Date().toLocaleString()}\\n\\n` + '='.repeat(50) + '\\n\\n';
                 for (let i = 0; i < titles.length; i++) {
                     const t = titles[i], art = articleMap[t];
-                    statusSpan.innerText = `Processing (${i + 1}/${titles.length}): ${t}`;
-                    let rawContent = art.content || '';
-                    if (!includeImages) rawContent = rawContent.replace(/\[\[File\\|.*?\]\]/g, '');
-                    rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, '');
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = compileRawMarkupToHtml(rawContent);
-                    fullTxt += `${t.toUpperCase()}\\n${'='.repeat(t.length)}\\nCATEGORY: ${art.category}\\nAUTHOR: ${art.author}\\n\\n${tempDiv.innerText || tempDiv.textContent || ''}\\n\\n` + '='.repeat(50) + '\\n\\n';
+                    statusSpan.innerText = `Converting TXT (${i + 1}/${titles.length}) — ${Math.round(((i + 1) / titles.length) * 100)}%`;
+                    const plainText = convertBulkArticleToPlainText(art.content, includeImages);
+                    fullTxt += `${t.toUpperCase()}\\n${'='.repeat(t.length)}\\nCATEGORY: ${art.category}\\nAUTHOR: ${art.author}\\n\\n${plainText}\\n\\n` + '='.repeat(50) + '\\n\\n';
                 }
                 const blob = new Blob([fullTxt], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob), a = document.createElement('a');
                 a.href = url; a.download = `OrlePedia_Archive_TXT_${new Date().toISOString().split('T')[0]}.txt`; a.click(); URL.revokeObjectURL(url);
-                statusSpan.innerText = 'Download triggered!';
+                statusSpan.innerText = 'TXT download triggered (100%)!';
                 setTimeout(() => { statusSpan.innerText = ''; }, 5000);
                 return;
             }
@@ -4457,14 +4477,14 @@
             let fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OrlePedia Full Archive</title><style>body{font-family:Georgia,serif;padding:2rem;max-width:900px;margin:0 auto;line-height:1.6;color:#202122}.article-break{page-break-after:always;border-bottom:1px solid #eee;margin-bottom:.5rem;padding-bottom:.5rem}h1.archive-title{text-align:center;font-size:2.5rem;color:#36b;margin-bottom:5rem}h1.article-title{font-size:2rem;border-bottom:1px solid #a2a9b1;padding-bottom:.25rem;margin-top:2rem}h2{font-size:1.4rem;border-bottom:1px solid #a2a9b1;margin-top:1.5rem}p{margin:1rem 0;font-size:1rem;text-align:justify}.portable-infobox{float:right;width:280px;background:#f8f9fa;border:1px solid #a2a9b1;padding:.5rem;margin:0 0 1rem 1rem;font-size:.8rem}.wiki-table{width:100%;border-collapse:collapse;margin:1rem 0;border:1px solid #a2a9b1;font-size:.9rem}.wiki-table th,.wiki-table td{border:1px solid #a2a9b1;padding:.4rem}.wiki-table th{background:#f2f2f2}.wiki-file-container{text-align:center;margin:1rem 0}.wiki-file-img{max-width:100%;height:auto;border:1px solid #eee}</style></head><body><h1 class="archive-title">OrlePedia Encyclopedia Archive</h1><p style="text-align:center;">Total Articles: ${titles.length} | Generated: ${new Date().toLocaleString()}</p><hr style="margin:3rem 0;">';
             for (let i = 0; i < titles.length; i++) {
                 const t = titles[i], art = articleMap[t];
-                statusSpan.innerText = `Processing (${i + 1}/${titles.length}): ${t}`;
+                statusSpan.innerText = `Converting ${format.toUpperCase()} (${i + 1}/${titles.length}) — ${Math.round(((i + 1) / titles.length) * 100)}%`;
                 let rawContent = art.content || '';
                 if (!includeImages) rawContent = rawContent.replace(/\[\[File\\|.*?\]\]/g, '');
                 rawContent = rawContent.replace(/\[\[Category:.*?\]\]/g, '');
                 fullHtml += `<div class="article-break"><h1 class="article-title">${escapeHtmlCode(t)}</h1><p style="font-size:.8rem;color:#666;">Category: ${escapeHtmlCode(art.category)} | Author: ${escapeHtmlCode(art.author)}</p>${compileRawMarkupToHtml(rawContent)}</div>`;
             }
             fullHtml += '</body></html>';
-            statusSpan.innerText = 'Finalizing file...';
+            statusSpan.innerText = 'Finalizing file (100%)...';
             if (format === 'pdf') {
                 const printWindow = window.open('', '_blank');
                 if (printWindow) { printWindow.document.write(fullHtml); printWindow.document.close(); printWindow.focus(); setTimeout(() => printWindow.print(), 1000); }
