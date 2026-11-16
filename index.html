@@ -6,6 +6,7 @@
 <title>OrlePedia — The Free Encyclopedia</title>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -4329,6 +4330,89 @@
             return blocks.join('');
         }
 
+        // Real PPTX export: every rendered table row/cell is copied and long tables are paginated.
+        function pptxTableRows(table) {
+            const rows = [], occupied = [];
+            Array.from(table.rows).forEach((tr, rowIndex) => {
+                const output = [];
+                let col = 0;
+                Array.from(tr.cells).forEach(cell => {
+                    while (occupied[rowIndex]?.[col]) col++;
+                    const colSpan = Math.max(1, Number(cell.getAttribute('colspan')) || 1);
+                    const rowSpan = Math.max(1, Number(cell.getAttribute('rowspan')) || 1);
+                    const value = (cell.innerText || cell.textContent || '').replace(/\s+/g, ' ').trim() || ' ';
+                    const item = { text: value, options: { bold: cell.tagName === 'TH' } };
+                    output[col] = item;
+                    for (let r = 0; r < rowSpan; r++) {
+                        occupied[rowIndex + r] = occupied[rowIndex + r] || [];
+                        for (let c = 0; c < colSpan; c++) {
+                            occupied[rowIndex + r][col + c] = (r || c) ? { text: value, options: { bold: cell.tagName === 'TH' } } : true;
+                        }
+                    }
+                    if (colSpan > 1) item.options.colSpan = colSpan;
+                    if (rowSpan > 1) item.options.rowSpan = rowSpan;
+                    col += colSpan;
+                });
+                const width = Math.max(output.length, occupied[rowIndex]?.length || 0);
+                for (let c = 0; c < width; c++) if (!output[c]) output[c] = occupied[rowIndex]?.[c]?.text ? occupied[rowIndex][c] : { text: ' ' };
+                rows.push(output);
+            });
+            const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
+            return rows.map(row => { while (row.length < width) row.push({ text: ' ' }); return row; });
+        }
+
+        function pptxPlainTextFromHtml(html) {
+            const root = document.createElement('div');
+            root.innerHTML = html || '';
+            root.querySelectorAll('table').forEach(table => table.remove());
+            return (root.innerText || root.textContent || '').replace(/\s+/g, ' ').trim();
+        }
+
+        async function downloadRealPptx(articles, fileName, statusSpan = null) {
+            if (typeof PptxGenJS === 'undefined') return alert('PowerPoint support is unavailable because the PPTX library did not load. Please reload the page and try again.');
+            const pptx = new PptxGenJS();
+            pptx.layout = 'LAYOUT_WIDE';
+            pptx.author = 'OrlePedia';
+            pptx.subject = 'OrlePedia export';
+            pptx.title = 'OrlePedia';
+            pptx.lang = 'en-US';
+            pptx.theme = { headFontFace: 'Arial', bodyFontFace: 'Arial', lang: 'en-US' };
+            const list = Array.isArray(articles) ? articles : [];
+            list.forEach((article, articleIndex) => {
+                const title = String(article.title || 'Untitled article');
+                const rendered = compileRawMarkupToHtml(article.content || '');
+                const root = document.createElement('div');
+                root.innerHTML = rendered;
+                const tables = Array.from(root.querySelectorAll('table'));
+                const intro = pptx.addSlide();
+                intro.addText(title, { x: 0.45, y: 0.35, w: 12.4, h: 0.55, fontSize: 24, bold: true, color: '202122', margin: 0 });
+                intro.addText('OrlePedia — ' + (article.category || 'General Indexes'), { x: 0.45, y: 0.95, w: 12.4, h: 0.25, fontSize: 10, color: '54595D', margin: 0 });
+                const plainText = pptxPlainTextFromHtml(rendered);
+                if (plainText) intro.addText(plainText.substring(0, 4500), { x: 0.45, y: 1.35, w: 12.35, h: 5.55, fontSize: 12, color: '202122', fit: 'shrink', margin: 0.06, valign: 'top' });
+                tables.forEach((table, tableIndex) => {
+                    const rows = pptxTableRows(table);
+                    if (!rows.length) return;
+                    const caption = table.querySelector('caption')?.innerText?.trim() || ('Table ' + (tableIndex + 1));
+                    const headerCount = Math.min(table.tHead ? table.tHead.rows.length : 0, rows.length);
+                    const body = rows.slice(headerCount);
+                    const chunks = body.length ? Array.from({ length: Math.ceil(body.length / 24) }, (_, i) => body.slice(i * 24, i * 24 + 24)) : [[]];
+                    chunks.forEach((chunk, chunkIndex) => {
+                        const slide = pptx.addSlide();
+                        slide.addText(title + ' — ' + caption + (chunks.length > 1 ? ` (${chunkIndex + 1}/${chunks.length})` : ''), { x: 0.25, y: 0.15, w: 12.85, h: 0.35, fontSize: 16, bold: true, color: '202122', margin: 0 });
+                        const tableRows = [...rows.slice(0, headerCount), ...chunk];
+                        const colCount = Math.max(1, tableRows.reduce((m, row) => Math.max(m, row.length), 0));
+                        const colW = Array(colCount).fill(Math.min(12.75 / colCount, 2.4));
+                        const totalW = colW.reduce((a, b) => a + b, 0);
+                        if (totalW < 12.75) colW[colW.length - 1] += 12.75 - totalW;
+                        slide.addTable(tableRows, { x: 0.25, y: 0.62, w: 12.8, h: 6.55, colW, fontSize: colCount > 10 ? 6 : (colCount > 7 ? 7 : 8), color: '202122', border: { type: 'solid', color: 'A2A9B1', pt: 0.6 }, margin: 0.04, valign: 'mid', autoFit: false, autoPage: false, fill: 'FFFFFF', rowH: 0.25 });
+                    });
+                });
+                if (statusSpan) statusSpan.innerText = `Building PPTX (${articleIndex + 1}/${list.length})...`;
+            });
+            await pptx.writeFile({ fileName });
+            if (statusSpan) { statusSpan.innerText = 'Complete PPTX downloaded.'; setTimeout(() => { statusSpan.innerText = ''; }, 5000); }
+        }
+
         async function fetchBulkArticleRecordsFromSupabase(progressCallback = null) {
             const normalizeRows = rows => (Array.isArray(rows) ? rows : []).map(row => ({
                 ...row,
@@ -4453,6 +4537,10 @@
             const includeImages = confirm('📦 BULK DOWNLOAD OPTIONS:\\n\\nClick OK to include all IMAGES.\\nClick CANCEL for TEXT ONLY (faster).');
             statusSpan.innerText = `Preparing ${titles.length} articles (100%)...`;
 
+            if (format === 'pptx') {
+                await downloadRealPptx(selectedArticles, 'OrlePedia_Archive_PPTX_' + new Date().toISOString().split('T')[0] + '.pptx', statusSpan);
+                return;
+            }
             if (format === 'docx') {
                 const docxImages = confirm('📦 BULK DOCX OPTIONS:\\n\\nClick OK to include source images.\\nClick CANCEL for text only.');
                 await downloadEditableOcrDocx(titles, docxImages, statusSpan, 'OrlePedia Encyclopedia Archive', 'OrlePedia_Archive_DOCX_' + new Date().toISOString().split('T')[0] + '.docx', articleMap);
@@ -4565,8 +4653,10 @@
                     printWindow.focus();
                     setTimeout(() => printWindow.print(), 500);
                 }
+            } else if (format === 'pptx') {
+                await downloadRealPptx([article], `${title.replace(/[^a-z0-9]/gi, '_')}.pptx`);
             } else {
-                const ext = format === 'docx' ? 'docx' : (format === 'pptx' ? 'pptx' : 'html');
+                const ext = format === 'docx' ? 'docx' : 'html';
                 const mimeType = format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'text/html';
                 const blob = new Blob([htmlContent], { type: mimeType });
                 const url = URL.createObjectURL(blob);
