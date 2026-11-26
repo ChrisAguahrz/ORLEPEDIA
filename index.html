@@ -4454,28 +4454,28 @@
             const root = document.createElement('div');
             root.innerHTML = html || '';
             const blockTags = new Set(['ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DIV', 'DL', 'DT', 'DD', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TR', 'UL']);
-            const clean = value => String(value || '').replace(/[ \\t\\r\\n]+/g, ' ').trim();
+            const clean = value => String(value || '').replace(/[ \t\r\n]+/g, ' ').trim();
             const serialize = node => {
                 if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
                 if (node.nodeType !== Node.ELEMENT_NODE) return '';
                 const tag = node.tagName;
                 if (tag === 'IMG') return node.getAttribute('alt') ? `[${clean(node.getAttribute('alt'))}]` : '';
-                if (tag === 'BR') return '\\n';
+                if (tag === 'BR') return '\n';
                 if (tag === 'TABLE') {
-                    return Array.from(node.rows).map(row => Array.from(row.cells).map(cell => clean(serialize(cell))).join(' | ')).join('\\n') + '\\n';
+                    return Array.from(node.rows).map(row => Array.from(row.cells).map(cell => clean(serialize(cell))).join(' | ')).join('\n') + '\n';
                 }
                 if (tag === 'UL' || tag === 'OL') {
                     return Array.from(node.children).filter(child => child.tagName === 'LI').map((li, index) => {
                         const nested = Array.from(li.children).filter(child => child.tagName === 'UL' || child.tagName === 'OL');
                         const own = Array.from(li.childNodes).filter(child => !(child.nodeType === Node.ELEMENT_NODE && (child.tagName === 'UL' || child.tagName === 'OL'))).map(serialize).join('');
                         const prefix = tag === 'OL' ? `${index + 1}. ` : '• ';
-                        return prefix + clean(own) + (nested.length ? '\\n' + nested.map(serialize).join('\\n') : '');
-                    }).join('\\n') + '\\n';
+                        return prefix + clean(own) + (nested.length ? '\n' + nested.map(serialize).join('\n') : '');
+                    }).join('\n') + '\n';
                 }
                 const content = Array.from(node.childNodes).map(serialize).join('');
-                return blockTags.has(tag) ? content + '\\n\\n' : content;
+                return blockTags.has(tag) ? content + '\n\n' : content;
             };
-            return serialize(root).replace(/[ \\t]+\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim();
+            return serialize(root).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
         }
 
         function convertBulkArticleToPlainText(rawContent, includeImages) {
