@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    
     <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OrlePedia — The Free Encyclopedia</title>
@@ -4451,17 +4450,40 @@
             if (progressCallback) progressCallback(100, `Loaded ${rows.length} articles`);
             return normalizeRows(rows);
         }
+        function renderedHtmlToPlainText(html) {
+            const root = document.createElement('div');
+            root.innerHTML = html || '';
+            const blockTags = new Set(['ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DIV', 'DL', 'DT', 'DD', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TR', 'UL']);
+            const clean = value => String(value || '').replace(/[ \\t\\r\\n]+/g, ' ').trim();
+            const serialize = node => {
+                if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+                if (node.nodeType !== Node.ELEMENT_NODE) return '';
+                const tag = node.tagName;
+                if (tag === 'IMG') return node.getAttribute('alt') ? `[${clean(node.getAttribute('alt'))}]` : '';
+                if (tag === 'BR') return '\\n';
+                if (tag === 'TABLE') {
+                    return Array.from(node.rows).map(row => Array.from(row.cells).map(cell => clean(serialize(cell))).join(' | ')).join('\\n') + '\\n';
+                }
+                if (tag === 'UL' || tag === 'OL') {
+                    return Array.from(node.children).filter(child => child.tagName === 'LI').map((li, index) => {
+                        const nested = Array.from(li.children).filter(child => child.tagName === 'UL' || child.tagName === 'OL');
+                        const own = Array.from(li.childNodes).filter(child => !(child.nodeType === Node.ELEMENT_NODE && (child.tagName === 'UL' || child.tagName === 'OL'))).map(serialize).join('');
+                        const prefix = tag === 'OL' ? `${index + 1}. ` : '• ';
+                        return prefix + clean(own) + (nested.length ? '\\n' + nested.map(serialize).join('\\n') : '');
+                    }).join('\\n') + '\\n';
+                }
+                const content = Array.from(node.childNodes).map(serialize).join('');
+                return blockTags.has(tag) ? content + '\\n\\n' : content;
+            };
+            return serialize(root).replace(/[ \\t]+\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim();
+        }
+
         function convertBulkArticleToPlainText(rawContent, includeImages) {
             let text = String(rawContent || '');
-            if (!includeImages) text = text.replace(/\[\[File\|[\s\S]*?\]\]/gi, '');
-            text = text.replace(/\[\[Category:[^\]]*\]\]/gi, '');
-            text = text.replace(/\{\{[\s\S]*?\}\}/g, '');
-            text = text.replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, '$2');
-            text = text.replace(/\[\[([^\]]+)\]\]/g, '$1');
-            text = text.replace(/'''([^']+)'''/g, '$1').replace(/''([^']+)''/g, '$1');
-            text = text.replace(/^={2,6}\s*(.*?)\s*={2,6}\s*$/gm, '$1');
-            text = text.replace(/^\s*[·*#]+\s?/gm, '');
-            return text.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+            if (!includeImages) text = text.replace(/\\[\\[File\\|[\\s\\S]*?\\]\\]/gi, '');
+            text = text.replace(/\\[\\[Category:[^\\]]*\\]\\]/gi, '');
+            const rendered = compileRawMarkupToHtml(text);
+            return renderedHtmlToPlainText(rendered);
         }
 
         async function downloadEditableOcrDocx(titles, includeImages, statusSpan, archiveTitle, fileName, articleMap = null) {
@@ -4555,7 +4577,7 @@
                     const t = titles[i], art = articleMap[t];
                     statusSpan.innerText = `Converting TXT (${i + 1}/${titles.length}) — ${Math.round(((i + 1) / titles.length) * 100)}%`;
                     const plainText = convertBulkArticleToPlainText(art.content, includeImages);
-                    fullTxt += `${t.toUpperCase()}\\n${'='.repeat(t.length)}\\nCATEGORY: ${art.category}\\nAUTHOR: ${art.author}\\n\\n${plainText}\\n\\n` + '='.repeat(50) + '\\n\\n';
+                    fullTxt += `${t.toUpperCase()}\\n${'='.repeat(t.length)}\\nAUTHOR: ${art.author}\\n\\n${plainText}\\n\\n` + '='.repeat(50) + '\\n\\n';
                 }
                 const blob = new Blob([fullTxt], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -4598,10 +4620,8 @@
             
             const renderedContent = compileRawMarkupToHtml(article.content);
             if (format === 'txt') {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = renderedContent;
-                const plainText = tempDiv.innerText || tempDiv.textContent || "";
-                const fullTxt = `${title.toUpperCase()}\n${"=".repeat(title.length)}\nCATEGORY: ${article.category}\nAUTHOR: ${article.author}\n\n${plainText}\n\nDownloaded from OrlePedia — ${new Date().toLocaleDateString()}`;
+                const plainText = renderedHtmlToPlainText(renderedContent);
+                const fullTxt = `${title.toUpperCase()}\n${"=".repeat(title.length)}\nAUTHOR: ${article.author}\n\n${plainText}\n\nDownloaded from OrlePedia — ${new Date().toLocaleDateString()}`;
                 const blob = new Blob([fullTxt], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
